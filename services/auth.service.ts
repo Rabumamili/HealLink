@@ -1,213 +1,161 @@
 // services/auth.service.ts
-import axios from 'axios';
-import { useAuthStore } from '@/stores/slices/authSlice';
+import { ApiService } from './api.service';
+import { 
+  LoginCredentials, 
+  LoginResponse, 
+  PatientRegisterData,
+  DoctorRegisterData,
+  ClinicRegisterData,
+  DiagnosticCenterRegisterData,
+  VerifyEmailData,
+  ResendVerificationData,
+  ForgotPasswordData,
+  ResetPasswordData,
+  RefreshTokenResponse,
+  AuthUser
+} from '@/types/entities/auth.types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+class AuthService extends ApiService {
+  private readonly baseUrl = '/auth';
 
-export interface RegisterData {
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-  date_of_birth?: string;
-  password: string;
-  role: 'patient' | 'doctor' | 'clinic_admin' | 'diagnostic_admin';
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-}
-
-export interface VerifyEmailData {
-  email: string;
-  code: string;
-  role?: string;
-}
-
-export interface ResendCodeData {
-  email: string;
-}
-
-export interface ProfessionalRegistrationData {
-  userId: number;
-  role: string;
-  license_number?: string;
-  specialization?: string;
-  qualifications?: string;
-  years_of_experience?: number;
-  consultation_fee?: number;
-  bio?: string;
-  location?: string;
-  clinic_name?: string;
-  clinic_address?: string;
-  clinic_license_number?: string;
-  clinic_tin_number?: string;
-  operating_hours?: string;
-  center_name?: string;
-  center_address?: string;
-  center_license_number?: string;
-  center_tin_number?: string;
-  center_accreditation?: string;
-  services_description?: string;
-  license_document?: File;
-  degree_document?: File;
-  clinic_registration_document?: File;
-  center_registration_document?: File;
-}
-
-class AuthService {
-  private getAuthHeader() {
-    const token = useAuthStore.getState().accessToken;
-    return token ? { Authorization: `Bearer ${token}` } : {};
+  async login(credentials: LoginCredentials): Promise<LoginResponse> {
+    const response = await this.post<LoginResponse>(`${this.baseUrl}/login`, credentials);
+    
+    if (response.token) {
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('refreshToken', response.refreshToken);
+      localStorage.setItem('user', JSON.stringify(response.user));
+    }
+    
+    return response;
   }
 
-  async register(data: RegisterData): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/register/`, data);
-      return response.data;
-    } catch (error: any) {
-      throw error;
-    }
+  async registerPatient(data: PatientRegisterData): Promise<{ data: { userId: number } }> {
+    return this.post(`${this.baseUrl}/register/patient`, data);
   }
 
-  async login(data: LoginData): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/login/`, data);
-      const { access, refresh, user } = response.data;
-      
-      localStorage.setItem('accessToken', access);
-      localStorage.setItem('refreshToken', refresh);
-      
-      useAuthStore.getState().setAuth(user, access, refresh);
-      
-      return response.data;
-    } catch (error: any) {
-      throw error;
+  async registerDoctor(data: DoctorRegisterData): Promise<{ data: { userId: number } }> {
+    return this.post(`${this.baseUrl}/register/doctor`, data);
+  }
+
+  async registerDoctorWithFiles(formData: FormData): Promise<{ data: { userId: number } }> {
+    return this.postFormData(`${this.baseUrl}/register/doctor`, formData);
+  }
+
+  async registerClinic(data: ClinicRegisterData): Promise<{ data: { userId: number } }> {
+    return this.post(`${this.baseUrl}/register/clinic`, data);
+  }
+
+  async registerClinicWithFiles(formData: FormData): Promise<{ data: { userId: number } }> {
+    return this.postFormData(`${this.baseUrl}/register/clinic`, formData);
+  }
+
+  async registerDiagnosticCenter(data: DiagnosticCenterRegisterData): Promise<{ data: { userId: number } }> {
+    return this.post(`${this.baseUrl}/register/diagnostic-center`, data);
+  }
+
+  async registerDiagnosticCenterWithFiles(formData: FormData): Promise<{ data: { userId: number } }> {
+    return this.postFormData(`${this.baseUrl}/register/diagnostic-center`, formData);
+  }
+
+  async registerProfessional(formData: FormData): Promise<{ data: { userId: number } }> {
+    const role = formData.get('role');
+    let endpoint = '';
+    
+    switch (role) {
+      case 'doctor':
+        endpoint = `${this.baseUrl}/register/doctor`;
+        break;
+      case 'clinic':
+        endpoint = `${this.baseUrl}/register/clinic`;
+        break;
+      case 'diagnostic_center':
+        endpoint = `${this.baseUrl}/register/diagnostic-center`;
+        break;
+      default:
+        throw new Error('Invalid professional role');
     }
+    
+    return this.postFormData(endpoint, formData);
+  }
+
+  async verifyEmail(data: VerifyEmailData): Promise<{ message: string }> {
+    return this.post(`${this.baseUrl}/verify-email`, data);
+  }
+
+  async resendVerificationCode(data: ResendVerificationData): Promise<{ message: string }> {
+    return this.post(`${this.baseUrl}/resend-verification`, data);
+  }
+
+  async forgotPassword(data: ForgotPasswordData): Promise<{ message: string }> {
+    return this.post(`${this.baseUrl}/forgot-password`, data);
+  }
+
+  async resetPassword(data: ResetPasswordData): Promise<{ message: string }> {
+    return this.post(`${this.baseUrl}/reset-password`, data);
+  }
+
+  async refreshToken(): Promise<RefreshTokenResponse> {
+    const refreshToken = localStorage.getItem('refreshToken');
+    const response = await this.post<RefreshTokenResponse>(`${this.baseUrl}/refresh-token`, {
+      refreshToken
+    });
+    
+    if (response.token) {
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('refreshToken', response.refreshToken);
+    }
+    
+    return response;
   }
 
   async logout(): Promise<void> {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (refreshToken) {
-        await axios.post(`${API_URL}/auth/logout/`, { refresh: refreshToken });
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
+      await this.post(`${this.baseUrl}/logout`, {});
     } finally {
-      localStorage.removeItem('accessToken');
+      localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
-      useAuthStore.getState().clearAuth();
+      localStorage.removeItem('user');
     }
   }
 
-  async refreshToken(refreshToken: string): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/refresh/`, { refresh: refreshToken });
-      return response.data;
-    } catch (error) {
-      throw error;
+  getCurrentUser(): AuthUser | null {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      return JSON.parse(userStr);
     }
+    return null;
   }
 
-  async verifyEmail(data: VerifyEmailData): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/verify-email/`, data);
-      return response.data;
-    } catch (error: any) {
-      throw error;
-    }
+  getToken(): string | null {
+    return localStorage.getItem('token');
   }
 
-  async resendVerificationCode(data: ResendCodeData): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/resend-verification/`, data);
-      return response.data;
-    } catch (error: any) {
-      throw error;
-    }
+  getRefreshToken(): string | null {
+    return localStorage.getItem('refreshToken');
   }
 
-  async registerProfessional(formData: FormData): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/professional-register/`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      return response.data;
-    } catch (error: any) {
-      throw error;
-    }
+  isAuthenticated(): boolean {
+    return !!this.getToken();
   }
 
-  async getProfile(): Promise<any> {
-    try {
-      const response = await axios.get(`${API_URL}/auth/profile/`, {
-        headers: this.getAuthHeader(),
-      });
-      return response.data;
-    } catch (error: any) {
-      throw error;
-    }
+  async getMe(): Promise<AuthUser> {
+    const response = await this.get<{ data: AuthUser }>(`${this.baseUrl}/me`);
+    return response.data;
   }
 
-  async updateProfile(data: any): Promise<any> {
-    try {
-      const response = await axios.patch(`${API_URL}/auth/profile/`, data, {
-        headers: this.getAuthHeader(),
-      });
-      return response.data;
-    } catch (error: any) {
-      throw error;
+  // Helper to get user's display name based on role
+  getUserDisplayName(user: AuthUser): string {
+    if (user.role === 'patient' || user.role === 'doctor') {
+      return `${user.first_name || ''} ${user.last_name || ''}`.trim();
     }
-  }
-
-  async getVerificationStatus(): Promise<any> {
-    try {
-      const response = await axios.get(`${API_URL}/auth/verification-status/`, {
-        headers: this.getAuthHeader(),
-      });
-      return response.data;
-    } catch (error: any) {
-      throw error;
+    if (user.role === 'clinic' || user.role === 'diagnostic_center') {
+      return user.name || '';
     }
-  }
-
-  async changePassword(oldPassword: string, newPassword: string): Promise<any> {
-    try {
-      const response = await axios.post(
-        `${API_URL}/auth/change-password/`,
-        { old_password: oldPassword, new_password: newPassword },
-        { headers: this.getAuthHeader() }
-      );
-      return response.data;
-    } catch (error: any) {
-      throw error;
+    if (user.role === 'staff') {
+      return user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '';
     }
-  }
-
-  async requestPasswordReset(email: string): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/password-reset/`, { email });
-      return response.data;
-    } catch (error: any) {
-      throw error;
-    }
-  }
-
-  async resetPassword(email: string, code: string, newPassword: string): Promise<any> {
-    try {
-      const response = await axios.post(`${API_URL}/auth/password-reset-confirm/`, {
-        email,
-        code,
-        new_password: newPassword,
-      });
-      return response.data;
-    } catch (error: any) {
-      throw error;
-    }
+    return user.email;
   }
 }
 

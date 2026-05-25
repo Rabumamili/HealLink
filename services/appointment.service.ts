@@ -1,41 +1,71 @@
 // services/appointment.service.ts
 import { ApiService } from './api.service';
-import { Appointment, AppointmentFilters, AppointmentStats, CheckedInPatient } from '@/types/entities/appointment.types';
-import { mockAppointments, mockAppointmentStats, mockCheckedInPatients } from './mock/appointments.mock';
+import { 
+  Appointment, 
+  AppointmentFilters, 
+  AppointmentStats, 
+  CheckedInPatient,
+  EnrichedAppointment,
+  AppointmentWithDetails,
+  AppointmentStatus,
+  AppointmentType
+} from '@/types/entities/appointment.types';
+import { MockServiceRegistry } from './mock/mock.service';
 
 class AppointmentService extends ApiService {
   private useMock = true;
+  private registry: MockServiceRegistry;
 
-  async getAppointments(filters?: AppointmentFilters): Promise<Appointment[]> {
+  constructor() {
+    super();
+    this.registry = MockServiceRegistry.getInstance();
+  }
+
+  async getAppointments(filters?: AppointmentFilters): Promise<EnrichedAppointment[]> {
     if (this.useMock) {
-      let filtered = [...mockAppointments];
+      let appointments = this.registry.getAppointments().findAll();
       
       if (filters?.searchTerm) {
         const search = filters.searchTerm.toLowerCase();
-        filtered = filtered.filter(a => 
+        appointments = appointments.filter(a => 
           a.patientName.toLowerCase().includes(search) ||
-          a.patientId.toLowerCase().includes(search) ||
-          a.serviceName.toLowerCase().includes(search)
+          (a.serviceName && a.serviceName.toLowerCase().includes(search)) ||
+          a.id.toString().includes(search) ||
+          a.notes?.toLowerCase().includes(search)
         );
       }
       
       if (filters?.status && filters.status !== 'all') {
-        filtered = filtered.filter(a => a.status === filters.status);
+        appointments = appointments.filter(a => a.status === filters.status);
       }
       
-      if (filters?.date) {
-        filtered = filtered.filter(a => a.date === filters.date);
+      if (filters?.startDate) {
+        appointments = appointments.filter(a => {
+          const appointmentDate = a.scheduledDateTime.split(' ')[0];
+          return appointmentDate >= filters.startDate!;
+        });
       }
       
-      if (filters?.providerId) {
-        filtered = filtered.filter(a => a.providerId === filters.providerId);
+      if (filters?.endDate) {
+        appointments = appointments.filter(a => {
+          const appointmentDate = a.scheduledDateTime.split(' ')[0];
+          return appointmentDate <= filters.endDate!;
+        });
       }
       
       if (filters?.patientId) {
-        filtered = filtered.filter(a => a.patientId === filters.patientId);
+        appointments = appointments.filter(a => a.patientId === filters.patientId);
       }
       
-      return filtered;
+      if (filters?.serviceId) {
+        appointments = appointments.filter(a => a.serviceId === filters.serviceId);
+      }
+      
+      if (filters?.type) {
+        appointments = appointments.filter(a => a.type === filters.type);
+      }
+      
+      return appointments;
     }
     
     let endpoint = '/appointments';
@@ -43,103 +73,123 @@ class AppointmentService extends ApiService {
       const params = new URLSearchParams();
       if (filters.searchTerm) params.append('search', filters.searchTerm);
       if (filters.status && filters.status !== 'all') params.append('status', filters.status);
-      if (filters.date) params.append('date', filters.date);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
       if (params.toString()) endpoint += `?${params.toString()}`;
     }
-    return this.get<Appointment[]>(endpoint);
+    return this.get<EnrichedAppointment[]>(endpoint);
   }
 
-  async getAppointmentById(id: string): Promise<Appointment> {
+  async getAppointmentById(id: number): Promise<EnrichedAppointment | undefined> {
     if (this.useMock) {
-      const appointment = mockAppointments.find(a => a.id === id);
-      if (!appointment) throw new Error('Appointment not found');
-      return appointment;
+      return this.registry.getAppointments().findById(id);
     }
-    return this.get<Appointment>(`/appointments/${id}`);
+    return this.get<EnrichedAppointment>(`/appointments/${id}`);
   }
 
-  async getAppointmentStats(providerId?: string): Promise<AppointmentStats> {
+  async getAppointmentStats(): Promise<AppointmentStats> {
     if (this.useMock) {
-      let filtered = mockAppointments;
-      if (providerId) {
-        filtered = filtered.filter(a => a.providerId === providerId);
-      }
-      return {
-        total: filtered.length,
-        today: filtered.filter(a => a.date === "2024-05-20").length,
-        completed: filtered.filter(a => a.status === "Completed").length,
-        cancelled: filtered.filter(a => a.status === "Cancelled").length,
-        noShow: filtered.filter(a => a.status === "No-show").length,
-        revenue: filtered.filter(a => a.status === "Completed").reduce((sum, a) => sum + a.fee, 0),
-        upcoming: filtered.filter(a => a.status === "Scheduled" || a.status === "Checked-in").length
-      };
+      return this.registry.getAppointments().getStats();
     }
     return this.get<AppointmentStats>('/appointments/stats');
   }
 
-  async getCheckedInPatients(providerId?: string): Promise<CheckedInPatient[]> {
+  async getCheckedInPatients(): Promise<CheckedInPatient[]> {
     if (this.useMock) {
-      let filtered = [...mockCheckedInPatients];
-      return filtered;
+      const appointments = this.registry.getAppointments()
+        .findAll()
+        .filter(a => a.status === 'Checked-in' || a.status === 'In Progress');
+      
+      return appointments.map((appointment, index) => {
+        return {
+          id: appointment.id.toString(),
+          patientName: appointment.patientName,
+          cardNumber: '',
+          serviceName: appointment.serviceName || 'Unknown Service',
+          checkInTime: appointment.checkInTime || new Date().toISOString(),
+          scheduledTime: appointment.scheduledDateTime,
+          status: appointment.status === 'Checked-in' ? 'waiting' : 'in-progress',
+          queueNumber: index + 1,
+          estimatedWaitMinutes: appointment.estimatedWaitMinutes || 15
+        };
+      });
     }
     return this.get<CheckedInPatient[]>('/appointments/checked-in');
   }
 
-  async updateAppointmentStatus(id: string, status: Appointment['status']): Promise<Appointment> {
+  async updateAppointmentStatus(id: number, status: AppointmentStatus): Promise<EnrichedAppointment | undefined> {
     if (this.useMock) {
-      const appointment = mockAppointments.find(a => a.id === id);
-      if (!appointment) throw new Error('Appointment not found');
-      const updated = { ...appointment, status, updatedAt: new Date().toISOString() };
-      return updated;
+      return this.registry.getAppointments().updateStatus(id, status);
     }
-    return this.put<Appointment>(`/appointments/${id}/status`, { status });
+    return this.put<EnrichedAppointment>(`/appointments/${id}/status`, { status });
   }
 
-  async rescheduleAppointment(id: string, date: string, time: string): Promise<Appointment> {
+  async checkInPatient(id: number, checkInTime: string, estimatedWaitMinutes: number): Promise<EnrichedAppointment | undefined> {
     if (this.useMock) {
-      const appointment = mockAppointments.find(a => a.id === id);
-      if (!appointment) throw new Error('Appointment not found');
-      const updated = { ...appointment, date, time, updatedAt: new Date().toISOString() };
-      return updated;
+      return this.registry.getAppointments().updateCheckIn(id, checkInTime, estimatedWaitMinutes);
     }
-    return this.put<Appointment>(`/appointments/${id}/reschedule`, { date, time });
+    return this.put<EnrichedAppointment>(`/appointments/${id}/checkin`, { checkInTime, estimatedWaitMinutes });
   }
 
-  async checkinPatient(cardNumber: string, providerId?: string): Promise<Appointment> {
+  async updateAppointmentTiming(id: number, startTime: string, endTime: string): Promise<EnrichedAppointment | undefined> {
     if (this.useMock) {
-      const appointment = mockAppointments.find(a => a.cardNumber === cardNumber);
-      if (!appointment) throw new Error('Invalid card number');
-      const updated = { ...appointment, status: 'Checked-in' as const, updatedAt: new Date().toISOString() };
-      return updated;
+      return this.registry.getAppointments().updateTiming(id, startTime, endTime);
     }
-    return this.post<Appointment>('/appointments/checkin', { cardNumber });
+    return this.put<EnrichedAppointment>(`/appointments/${id}/timing`, { startTime, endTime });
   }
 
-  async cancelAppointment(id: string): Promise<void> {
+  async cancelAppointment(id: number): Promise<boolean> {
     if (this.useMock) {
-      return;
+      const updated = this.registry.getAppointments().updateStatus(id, 'Cancelled');
+      return !!updated;
     }
     return this.delete(`/appointments/${id}`);
   }
 
-  async getPatientAppointments(patientId: string): Promise<Appointment[]> {
+  async getPatientAppointments(patientId: number): Promise<EnrichedAppointment[]> {
     if (this.useMock) {
-      return mockAppointments.filter(a => a.patientId === patientId);
+      return this.registry.getAppointments().findByPatientId(patientId);
     }
-    return this.get<Appointment[]>(`/patients/${patientId}/appointments`);
+    return this.get<EnrichedAppointment[]>(`/patients/${patientId}/appointments`);
   }
 
-  async getProviderAppointments(providerId: string, date?: string): Promise<Appointment[]> {
+  // FIXED: Create appointment method with correct typing
+  async createAppointment(data: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Appointment> {
     if (this.useMock) {
-      let filtered = mockAppointments.filter(a => a.providerId === providerId);
-      if (date) {
-        filtered = filtered.filter(a => a.date === date);
-      }
-      return filtered;
+      const newAppointment = this.registry.getAppointments().createAppointment(data);
+      return newAppointment;
     }
-    let endpoint = `/providers/${providerId}/appointments`;
-    if (date) endpoint += `?date=${date}`;
-    return this.get<Appointment[]>(endpoint);
+    return this.post<Appointment>('/appointments', data);
+  }
+
+  async getUpcomingAppointments(patientId: number): Promise<EnrichedAppointment[]> {
+    if (this.useMock) {
+      const appointments = this.registry.getAppointments().findByPatientId(patientId);
+      const now = new Date().toISOString();
+      return appointments.filter(a => 
+        a.scheduledDateTime >= now && 
+        a.status !== 'Completed' && 
+        a.status !== 'Cancelled' &&
+        a.status !== 'No-show'
+      );
+    }
+    return this.get<EnrichedAppointment[]>(`/patients/${patientId}/appointments/upcoming`);
+  }
+
+  async getAppointmentsByDateRange(startDate: string, endDate: string): Promise<EnrichedAppointment[]> {
+    if (this.useMock) {
+      return this.registry.getAppointments().findByDateRange(startDate, endDate);
+    }
+    const params = new URLSearchParams({ startDate, endDate });
+    return this.get<EnrichedAppointment[]>(`/appointments/range?${params.toString()}`);
+  }
+
+  async getTodaysAppointments(): Promise<EnrichedAppointment[]> {
+    const today = new Date().toISOString().split('T')[0];
+    if (this.useMock) {
+      return this.registry.getAppointments().findByDate(today);
+    }
+    return this.get<EnrichedAppointment[]>(`/appointments?date=${today}`);
   }
 }
 

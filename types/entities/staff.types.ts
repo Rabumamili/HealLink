@@ -10,7 +10,7 @@ export interface StaffMember {
   initials: string
 }
 
-export type StaffRole = "Check-in Officer" | "Lead Admin" | "Nurse" | "Receptionist"
+export type StaffRole = "Check-in Officer" | "Nurse" | "Receptionist"
 export type StaffStatus = "Active" | "Invited" | "Inactive"
 
 export interface StaffFilters {

@@ -1,142 +1,67 @@
-// app/diagnosticCenter/services/page.tsx
-"use client"
+// app/diagnostic-center/services/page.tsx
+'use client';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Edit, Trash2, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
-interface TestService {
-  id: number
-  name: string
-  description: string
-  durationMinutes: number
-  standardFee: number
-  status: "Active" | "Inactive"
-  category: string
-  preparationInstructions?: string
-}
+import { ServiceSearchFilter } from '@/components/services/service-search-filter';
+import { ServiceFormModal } from '@/components/services/service-form-modal';
+import { useServices } from '@/hooks/useService';
+import { Service } from '@/types/entities/service.types';
 
-const mockServices: TestService[] = [
-  {
-    id: 1,
-    name: "Lipid Profile",
-    description: "Complete cholesterol and triglyceride panel",
-    durationMinutes: 15,
-    standardFee: 1200,
-    status: "Active",
-    category: "Cardiology",
-    preparationInstructions: "Fast for 10-12 hours before the test",
-  },
-  {
-    id: 2,
-    name: "Thyroid Panel",
-    description: "TSH, T3, and T4 comprehensive testing",
-    durationMinutes: 20,
-    standardFee: 1800,
-    status: "Active",
-    category: "Endocrinology",
-  },
-  {
-    id: 3,
-    name: "Diabetes HbA1c",
-    description: "3-month blood sugar average measurement",
-    durationMinutes: 10,
-    standardFee: 950,
-    status: "Active",
-    category: "Endocrinology",
-  },
-  {
-    id: 4,
-    name: "Complete Blood Count",
-    description: "Full blood cell analysis",
-    durationMinutes: 10,
-    standardFee: 650,
-    status: "Active",
-    category: "Hematology",
-  },
-  {
-    id: 5,
-    name: "Vitamin D, 25-Hydroxy",
-    description: "Vitamin D deficiency screening",
-    durationMinutes: 15,
-    standardFee: 1400,
-    status: "Inactive",
-    category: "Nutrition",
-  },
-]
+const DIAGNOSTIC_PROVIDER_ID = 104;
 
-export default function ServicesPage() {
-  const [services, setServices] = useState<TestService[]>(mockServices)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [selectedService, setSelectedService] = useState<TestService | null>(null)
-  const [newService, setNewService] = useState({
-    name: "",
-    description: "",
-    durationMinutes: 30,
-    standardFee: 0,
-    status: "Active" as "Active" | "Inactive",
-    category: "Cardiology",
-    preparationInstructions: "",
-  })
+export default function DiagnosticCenterServicesPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
+
+  const {
+    services,
+    stats,
+    createService,
+    updateService,
+    deleteService,
+  } = useServices({ providerId: DIAGNOSTIC_PROVIDER_ID, autoFetch: true });
 
   const filteredServices = services.filter(service => {
-    const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || service.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+    const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || service.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-  const handleAddService = () => {
-    if (!newService.name || !newService.standardFee) return
-    
-    const newId = Math.max(...services.map(s => s.id), 0) + 1
-    setServices([...services, { ...newService, id: newId }])
-    setNewService({
-      name: "",
-      description: "",
-      durationMinutes: 30,
-      standardFee: 0,
-      status: "Active",
-      category: "Cardiology",
-      preparationInstructions: "",
-    })
-    setIsAddModalOpen(false)
-  }
+  const activeServicesCount = services.filter(s => s.status === 'Active').length;
 
-  const handleEditService = () => {
-    if (!selectedService) return
-    setServices(services.map(s => s.id === selectedService.id ? selectedService : s))
-    setIsEditModalOpen(false)
-    setSelectedService(null)
-  }
-
-  const handleDeleteService = (id: number, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
-      setServices(services.filter(s => s.id !== id))
+  const handleAddService = async (data: any) => {
+    const result = await createService({
+      ...data,
+      providerId: DIAGNOSTIC_PROVIDER_ID,
+      serviceType: 'Diagnostic'
+    });
+    if (result) {
+      setIsAddModalOpen(false);
     }
-  }
+  };
+
+  const handleEditService = async (data: any) => {
+    if (editingService) {
+      const result = await updateService(editingService.id, data);
+      if (result) {
+        setEditingService(null);
+      }
+    }
+  };
+
+  const handleDeleteService = async (id: number, name: string) => {
+    if (confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      await deleteService(id);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -150,15 +75,63 @@ export default function ServicesPage() {
           className="flex items-center gap-2 bg-primary hover:bg-primary-container text-white px-6 py-3 rounded-xl shadow-md transition-all duration-300"
           onClick={() => setIsAddModalOpen(true)}
         >
-          <span className="material-symbols-outlined text-[20px]">add</span>
+          <Plus className="h-5 w-5" />
           Add New Test
         </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm p-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-xl">
+              <div className="h-5 w-5 text-primary">🔬</div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground uppercase">Active Tests</p>
+              <p className="text-2xl font-bold text-on-surface">{activeServicesCount}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm p-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-green-100 rounded-xl">
+              <div className="h-5 w-5 text-green-600">📋</div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground uppercase">Total Tests</p>
+              <p className="text-2xl font-bold text-on-surface">{services.length}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm p-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-100 rounded-xl">
+              <div className="h-5 w-5 text-blue-600">💰</div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground uppercase">Total Revenue (ETB)</p>
+              <p className="text-2xl font-bold text-on-surface">{stats?.totalRevenue.toLocaleString() || '0'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm p-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-purple-100 rounded-xl">
+              <div className="h-5 w-5 text-purple-600">📊</div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground uppercase">Avg. Test Fee</p>
+              <p className="text-2xl font-bold text-on-surface">ETB {stats?.averageFee || 0}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filter & Search */}
       <div className="bg-surface-container-lowest rounded-xl p-4 flex flex-col md:flex-row gap-4 items-center border border-outline-variant/30 shadow-sm">
         <div className="relative flex-grow w-full">
-          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
+          <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-outline">🔍</div>
           <input
             className="w-full bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-lg pl-12 py-3 text-body-md outline-none"
             placeholder="Search tests..."
@@ -177,7 +150,7 @@ export default function ServicesPage() {
             <option value="Inactive">Inactive</option>
           </select>
           <Button variant="outline" className="p-3 bg-surface-container-low rounded-lg">
-            <span className="material-symbols-outlined">filter_list</span>
+            <div className="h-5 w-5">🔽</div>
           </Button>
         </div>
       </div>
@@ -206,7 +179,7 @@ export default function ServicesPage() {
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[16px] text-secondary">schedule</span>
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-sm">{service.durationMinutes} min</span>
                     </div>
                   </td>
@@ -223,23 +196,22 @@ export default function ServicesPage() {
                   <td className="px-6 py-5 text-center">
                     <div className="flex justify-center gap-2">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="h-8 w-8 p-0 text-secondary hover:text-primary"
-                        onClick={() => {
-                          setSelectedService(service)
-                          setIsEditModalOpen(true)
-                        }}
+                        className="h-8 px-3 text-primary border-primary/30 hover:bg-primary/10 hover:text-primary"
+                        onClick={() => setEditingService(service)}
                       >
-                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Edit
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="h-8 w-8 p-0 text-error hover:bg-error/10"
+                        className="h-8 px-3 text-red-600 border-red-600/30 hover:bg-red-50 hover:text-red-700"
                         onClick={() => handleDeleteService(service.id, service.name)}
                       >
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Delete
                       </Button>
                     </div>
                   </td>
@@ -253,208 +225,49 @@ export default function ServicesPage() {
         <div className="p-4 border-t border-outline-variant/20 flex items-center justify-between">
           <span className="text-sm text-secondary">Showing {filteredServices.length} services</span>
           <div className="flex gap-2">
-            <button className="h-9 w-9 flex items-center justify-center rounded-lg border border-outline-variant text-secondary disabled:opacity-50" disabled>
-              <span className="material-symbols-outlined text-[18px]">chevron_left</span>
-            </button>
-            <button className="h-9 w-9 flex items-center justify-center rounded-lg bg-primary text-white font-label-md">1</button>
-            <button className="h-9 w-9 flex items-center justify-center rounded-lg border border-outline-variant text-secondary">
-              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-            </button>
+            <Button variant="outline" size="sm" disabled className="h-9 w-9 p-0">
+              ←
+            </Button>
+            <Button className="h-9 w-9 p-0 bg-primary text-white">1</Button>
+            <Button variant="outline" size="sm" className="h-9 w-9 p-0">
+              →
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Add Service Modal */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Add New Test Service</DialogTitle>
-            <DialogDescription>Add a medical test to your diagnostic center's catalog</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-5 py-4">
-            <div>
-              <Label className="text-secondary mb-2 block">Test Name</Label>
-              <Input
-                placeholder="e.g., Comprehensive Metabolic Panel"
-                value={newService.name}
-                onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4"
-              />
-            </div>
-            <div>
-              <Label className="text-secondary mb-2 block">Description</Label>
-              <Textarea
-                placeholder="Describe the test..."
-                value={newService.description}
-                onChange={(e) => setNewService({ ...newService, description: e.target.value })}
-                className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl"
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-secondary mb-2 block">Duration (minutes)</Label>
-                <Input
-                  type="number"
-                  placeholder="30"
-                  value={newService.durationMinutes}
-                  onChange={(e) => setNewService({ ...newService, durationMinutes: parseInt(e.target.value) })}
-                  className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4"
-                />
-              </div>
-              <div>
-                <Label className="text-secondary mb-2 block">Fee (ETB)</Label>
-                <Input
-                  type="number"
-                  placeholder="500"
-                  value={newService.standardFee}
-                  onChange={(e) => setNewService({ ...newService, standardFee: parseInt(e.target.value) })}
-                  className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-secondary mb-2 block">Category</Label>
-                <Select value={newService.category} onValueChange={(value) => setNewService({ ...newService, category: value })}>
-                  <SelectTrigger className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cardiology">Cardiology</SelectItem>
-                    <SelectItem value="Endocrinology">Endocrinology</SelectItem>
-                    <SelectItem value="Hematology">Hematology</SelectItem>
-                    <SelectItem value="Nutrition">Nutrition</SelectItem>
-                    <SelectItem value="Infectious Diseases">Infectious Diseases</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-secondary mb-2 block">Status</Label>
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-sm">Active</span>
-                  <Switch 
-                    checked={newService.status === "Active"}
-                    onCheckedChange={(checked) => setNewService({ ...newService, status: checked ? "Active" : "Inactive" })}
-                  />
-                </div>
-              </div>
-            </div>
-            <div>
-              <Label className="text-secondary mb-2 block">Preparation Instructions (Optional)</Label>
-              <Textarea
-                placeholder="e.g., Fast for 8-12 hours before the test"
-                value={newService.preparationInstructions}
-                onChange={(e) => setNewService({ ...newService, preparationInstructions: e.target.value })}
-                className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl"
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex gap-3">
-            <Button variant="outline" onClick={() => setIsAddModalOpen(false)} className="flex-1 py-4">
-              Cancel
-            </Button>
-            <Button onClick={handleAddService} className="flex-1 py-4 bg-primary hover:bg-primary-container text-white shadow-lg">
-              Create Test
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ServiceFormModal
+        open={isAddModalOpen}
+        onOpenChange={setIsAddModalOpen}
+        onSave={handleAddService}
+        providerId={DIAGNOSTIC_PROVIDER_ID}
+        title="Add New Test Service"
+        description="Add a medical test to your diagnostic center's catalog"
+        showTypeField={false}
+      />
 
       {/* Edit Service Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Edit Test Service</DialogTitle>
-            <DialogDescription>Update test information</DialogDescription>
-          </DialogHeader>
-          {selectedService && (
-            <div className="space-y-5 py-4">
-              <div>
-                <Label className="text-secondary mb-2 block">Test Name</Label>
-                <Input
-                  value={selectedService.name}
-                  onChange={(e) => setSelectedService({ ...selectedService, name: e.target.value })}
-                  className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4"
-                />
-              </div>
-              <div>
-                <Label className="text-secondary mb-2 block">Description</Label>
-                <Textarea
-                  value={selectedService.description}
-                  onChange={(e) => setSelectedService({ ...selectedService, description: e.target.value })}
-                  className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl"
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-secondary mb-2 block">Duration (minutes)</Label>
-                  <Input
-                    type="number"
-                    value={selectedService.durationMinutes}
-                    onChange={(e) => setSelectedService({ ...selectedService, durationMinutes: parseInt(e.target.value) })}
-                    className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4"
-                  />
-                </div>
-                <div>
-                  <Label className="text-secondary mb-2 block">Fee (ETB)</Label>
-                  <Input
-                    type="number"
-                    value={selectedService.standardFee}
-                    onChange={(e) => setSelectedService({ ...selectedService, standardFee: parseInt(e.target.value) })}
-                    className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-secondary mb-2 block">Category</Label>
-                  <Select value={selectedService.category} onValueChange={(value) => setSelectedService({ ...selectedService, category: value })}>
-                    <SelectTrigger className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl py-4">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Cardiology">Cardiology</SelectItem>
-                      <SelectItem value="Endocrinology">Endocrinology</SelectItem>
-                      <SelectItem value="Hematology">Hematology</SelectItem>
-                      <SelectItem value="Nutrition">Nutrition</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-secondary mb-2 block">Status</Label>
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-sm">Active</span>
-                    <Switch 
-                      checked={selectedService.status === "Active"}
-                      onCheckedChange={(checked) => setSelectedService({ ...selectedService, status: checked ? "Active" : "Inactive" })}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Label className="text-secondary mb-2 block">Preparation Instructions (Optional)</Label>
-                <Textarea
-                  value={selectedService.preparationInstructions || ""}
-                  onChange={(e) => setSelectedService({ ...selectedService, preparationInstructions: e.target.value })}
-                  className="bg-surface-container-low border-none focus:ring-1 focus:ring-primary rounded-xl"
-                  rows={2}
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter className="flex gap-3">
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} className="flex-1 py-4">
-              Cancel
-            </Button>
-            <Button onClick={handleEditService} className="flex-1 py-4 bg-primary hover:bg-primary-container text-white shadow-lg">
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {editingService && (
+        <ServiceFormModal
+          open={!!editingService}
+          onOpenChange={() => setEditingService(null)}
+          onSave={handleEditService}
+          initialData={{
+            providerId: editingService.providerId,
+            name: editingService.name,
+            description: editingService.description,
+            durationMinutes: editingService.durationMinutes,
+            standardFee: editingService.standardFee,
+            serviceType: editingService.serviceType,
+            status: editingService.status,
+            preparationInstructions: editingService.preparationInstructions || ''
+          }}
+          title="Edit Test Service"
+          description="Update test information"
+          showTypeField={false}
+        />
+      )}
     </div>
-  )
+  );
 }
