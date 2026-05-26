@@ -1,98 +1,105 @@
+// app/(dashboard)/clinic/checkin/page.tsx
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect, useCallback } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Search, 
-  CheckCircle, 
-  Clock, 
-  UserCheck,
-  Calendar,
-  CreditCard,
-  AlertCircle
-} from "lucide-react"
+import { StatsCard } from "@/components/common/StatsCard"
+import { useCard, useCardCheckIn, useCardValidation, useCardStats } from "@/hooks/useCard"
+import { Search, CheckCircle, AlertCircle, Loader2, Calendar, Users, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-interface CheckedInPatient {
-  id: string
-  patientName: string
-  patientId: string
-  service: string
-  checkInTime: string
-  appointmentTime: string
-  status: "waiting" | "in-progress" | "completed"
-  queueNumber: number
-  cardNumber: string
-}
-
-const checkedInPatients: CheckedInPatient[] = [
-  {
-    id: "1",
-    patientName: "Abebe Kebede",
-    patientId: "P001",
-    service: "General Consultation",
-    checkInTime: "08:55 AM",
-    appointmentTime: "09:00 AM",
-    status: "in-progress",
-    queueNumber: 1,
-    cardNumber: "4512-7893-1023-6745",
-  },
-  {
-    id: "2",
-    patientName: "Tigist Haile",
-    patientId: "P002",
-    service: "Pediatric Checkup",
-    checkInTime: "09:20 AM",
-    appointmentTime: "09:30 AM",
-    status: "waiting",
-    queueNumber: 2,
-    cardNumber: "8923-4567-1234-9876",
-  },
-]
+import { toast } from "sonner"
 
 export default function ClinicCheckinPage() {
   const [cardNumber, setCardNumber] = useState("")
-  const [searchResult, setSearchResult] = useState<any>(null)
-  const [showSuccess, setShowSuccess] = useState(false)
+  const [isVerifying, setIsVerifying] = useState(false)
+  const [foundCard, setFoundCard] = useState<any>(null)
+  const [checkInSuccess, setCheckInSuccess] = useState(false)
 
-  const handleVerifyAndCheckin = () => {
-    // Simulate verification
-    if (cardNumber === "4512-7893-1023-6745") {
-      setSearchResult({
-        patientName: "Abebe Kebede",
-        patientId: "P001",
-        service: "General Consultation",
-        appointmentTime: "09:00 AM",
-        status: "confirmed",
-        paymentStatus: "paid",
-      })
-    } else if (cardNumber === "8923-4567-1234-9876") {
-      setSearchResult({
-        patientName: "Tigist Haile",
-        patientId: "P002",
-        service: "Pediatric Checkup",
-        appointmentTime: "09:30 AM",
-        status: "confirmed",
-        paymentStatus: "paid",
-      })
+  const { cards, fetchCards, isLoading: cardsLoading } = useCard({ autoFetch: true })
+  const { validateCard, validationResult, clearValidationResult } = useCardValidation()
+  const { checkIn, checkInResult, clearCheckInResult } = useCardCheckIn()
+  const { cardStats } = useCardStats()
+
+  // Staff info - replace with actual from auth context
+  const staffId = 1
+  const staffType = "clinic" as const
+
+  // Filter active cards for this clinic (providerType === 'clinic')
+  const clinicCards = cards.filter(card => 
+    card.status === 'Active' && 
+    (card as any).appointment?.providerType === 'clinic'
+  )
+
+  const handleVerify = async () => {
+    if (!cardNumber.trim()) {
+      toast.error("Please enter a card number")
+      return
+    }
+
+    setIsVerifying(true)
+    setFoundCard(null)
+    clearValidationResult()
+    
+    const result = await validateCard(cardNumber)
+    
+    if (result.isValid && result.card) {
+      setFoundCard(result.card)
+      toast.success("Patient found")
     } else {
-      setSearchResult({
-        error: "Invalid Card Number or No Appointment Found",
-      })
+      setFoundCard(null)
+      toast.error(result.message || "Invalid card number")
+    }
+    
+    setIsVerifying(false)
+  }
+
+  const handleCheckIn = async () => {
+    if (!foundCard) return
+
+    const result = await checkIn({
+      cardNumber: foundCard.cardNumber,
+      verifiedByStaffId: staffId,
+      verifiedByType: staffType,
+    })
+
+    if (result.success) {
+      setCheckInSuccess(true)
+      toast.success(`${result.patientName} checked in successfully`)
+      
+      // Reset form after success
+      setTimeout(() => {
+        setCardNumber("")
+        setFoundCard(null)
+        setCheckInSuccess(false)
+        clearValidationResult()
+        clearCheckInResult()
+        fetchCards() // Refresh cards
+      }, 2000)
+    } else {
+      toast.error(result.message || "Check-in failed")
     }
   }
 
-  const confirmCheckin = () => {
-    setShowSuccess(true)
-    setTimeout(() => setShowSuccess(false), 3000)
-    setCardNumber("")
-    setSearchResult(null)
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map(n => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2)
   }
+
+  // Calculate today's check-ins
+  const today = new Date().toDateString()
+  const todayCheckIns = cards.filter(card => 
+    card.status === 'Used' && 
+    card.usedAt && 
+    new Date(card.usedAt).toDateString() === today
+  )
 
   return (
     <div className="space-y-6">
@@ -102,15 +109,42 @@ export default function ClinicCheckinPage() {
         <p className="text-muted-foreground">Verify and check in patients using their Card number</p>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <StatsCard
+          title="Total Active Cards"
+          value={cardStats?.active || 0}
+          icon={<Users className="h-5 w-5" />}
+          variant="default"
+        />
+        <StatsCard
+          title="Today's Check-ins"
+          value={todayCheckIns.length}
+          icon={<CheckCircle className="h-5 w-5" />}
+          variant="success"
+        />
+        <StatsCard
+          title="Total Used"
+          value={cardStats?.used || 0}
+          icon={<Clock className="h-5 w-5" />}
+          variant="info"
+        />
+        <StatsCard
+          title="Utilization Rate"
+          value={`${cardStats?.utilizationRate || 0}%`}
+          icon={<Calendar className="h-5 w-5" />}
+          variant="primary"
+        />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Check-in Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-teal-600" />
+              <Search className="h-5 w-5 text-teal-600" />
               Quick Patient Check-in
             </CardTitle>
-            <CardDescription>Enter patient's 16-digit Card number to verify and check in</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -121,37 +155,65 @@ export default function ClinicCheckinPage() {
                     value={cardNumber}
                     onChange={(e) => setCardNumber(e.target.value)}
                     className="font-mono"
+                    disabled={isVerifying || checkInSuccess}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleVerify()
+                      }
+                    }}
                   />
                 </div>
-                <Button className="bg-teal-600 hover:bg-teal-700 whitespace-nowrap" onClick={handleVerifyAndCheckin}>
-                  <Search className="mr-2 h-4 w-4" />
-                  Verify & Check-in
+                <Button 
+                  className="bg-teal-600 hover:bg-teal-700 whitespace-nowrap" 
+                  onClick={handleVerify}
+                  disabled={isVerifying || !cardNumber.trim() || checkInSuccess}
+                >
+                  {isVerifying ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="mr-2 h-4 w-4" />
+                  )}
+                  Verify
                 </Button>
               </div>
 
-              {/* Search Result */}
-              {searchResult && (
+              {/* Validation/Check-in Result */}
+              {(validationResult || foundCard || checkInResult) && (
                 <div className={cn(
                   "p-4 rounded-lg border",
-                  searchResult.error ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"
+                  checkInSuccess || (checkInResult?.success) 
+                    ? "bg-green-50 border-green-200" 
+                    : validationResult && !validationResult.isValid
+                    ? "bg-red-50 border-red-200"
+                    : "bg-teal-50 border-teal-200"
                 )}>
-                  {searchResult.error ? (
-                    <div className="flex items-center gap-3 text-red-700">
-                      <AlertCircle className="h-5 w-5" />
-                      <p>{searchResult.error}</p>
+                  {checkInSuccess || checkInResult?.success ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-green-700">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="font-semibold">Check-in Successful!</span>
+                      </div>
+                      <p className="text-green-600">
+                        Welcome, {checkInResult?.patientName || foundCard?.appointment?.patientName}
+                      </p>
+                      <p className="text-sm text-green-600">
+                        Service: {checkInResult?.serviceName || foundCard?.appointment?.serviceName}
+                      </p>
                     </div>
-                  ) : (
+                  ) : foundCard && validationResult?.isValid ? (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-12 w-12">
                             <AvatarFallback className="bg-teal-100 text-teal-600">
-                              {searchResult.patientName.split(" ").map((n: string) => n[0]).join("")}
+                              {getInitials(foundCard.appointment?.patientName || "Patient")}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-semibold">{searchResult.patientName}</p>
-                            <p className="text-sm text-muted-foreground">ID: {searchResult.patientId}</p>
+                            <p className="font-semibold">{foundCard.appointment?.patientName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              ID: {foundCard.appointment?.patientId || `APT-${foundCard.appointmentId}`}
+                            </p>
                           </div>
                         </div>
                         <Badge className="bg-green-100 text-green-700">Verified</Badge>
@@ -159,101 +221,92 @@ export default function ClinicCheckinPage() {
                       <div className="grid gap-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Service</span>
-                          <span>{searchResult.service}</span>
+                          <span>{foundCard.appointment?.serviceName}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Appointment Time</span>
-                          <span>{searchResult.appointmentTime}</span>
+                          <span>
+                            {foundCard.appointment?.scheduledDateTime 
+                              ? new Date(foundCard.appointment.scheduledDateTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                              : "N/A"}
+                          </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Payment Status</span>
-                          <Badge className="bg-green-100 text-green-700">{searchResult.paymentStatus}</Badge>
+                          <span className="text-muted-foreground">Provider</span>
+                          <span>{foundCard.appointment?.providerName}</span>
                         </div>
                       </div>
-                      <Button className="w-full bg-teal-600 hover:bg-teal-700" onClick={confirmCheckin}>
+                      <Button 
+                        className="w-full bg-teal-600 hover:bg-teal-700" 
+                        onClick={handleCheckIn}
+                      >
                         <CheckCircle className="mr-2 h-4 w-4" />
                         Confirm Check-in
                       </Button>
                     </div>
+                  ) : validationResult && !validationResult.isValid && (
+                    <div className="flex items-center gap-2 text-red-700">
+                      <AlertCircle className="h-5 w-5" />
+                      <span>{validationResult.message}</span>
+                    </div>
                   )}
                 </div>
               )}
-
-              {/* Success Message */}
-              {showSuccess && (
-                <div className="p-4 bg-green-100 border border-green-300 rounded-lg animate-in fade-in">
-                  <div className="flex items-center gap-3 text-green-700">
-                    <CheckCircle className="h-5 w-5" />
-                    <p>Patient checked in successfully! They have been added to the queue.</p>
-                  </div>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Current Queue */}
+        {/* Active Cards List */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-teal-600" />
-              Current Queue
+              <Users className="h-5 w-5 text-teal-600" />
+              Active Cards ({clinicCards.length})
             </CardTitle>
-            <CardDescription>Patients currently checked in and waiting</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {checkedInPatients.map((patient, index) => (
-                <div key={patient.id} className="flex items-center gap-4 p-3 rounded-lg border">
-                  <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center font-bold text-teal-600">
-                    {patient.queueNumber}
+            {cardsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+              </div>
+            ) : clinicCards.length > 0 ? (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {clinicCards.slice(0, 5).map((card) => (
+                  <div key={card.id} className="flex items-center justify-between p-3 rounded-lg border hover:border-teal-200 transition-colors">
+                    <div className="flex-1">
+                      <p className="font-mono text-sm font-medium">{card.cardNumber}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {(card as any).appointment?.patientName || `Appointment #${card.appointmentId}`}
+                      </p>
+                    </div>
+                    <Badge className="bg-green-100 text-green-700">Active</Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-2"
+                      onClick={() => {
+                        setCardNumber(card.cardNumber)
+                        handleVerify()
+                      }}
+                    >
+                      Check In
+                    </Button>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{patient.patientName}</p>
-                    <p className="text-sm text-muted-foreground">{patient.service}</p>
-                  </div>
-                  <div className="text-right">
-                    <Badge className={cn(
-                      patient.status === "in-progress" 
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    )}>
-                      {patient.status === "in-progress" ? "In Progress" : "Waiting"}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground mt-1">Checked in: {patient.checkInTime}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+                {clinicCards.length > 5 && (
+                  <p className="text-center text-sm text-muted-foreground pt-2">
+                    +{clinicCards.length - 5} more active cards
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No active cards found
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Today's Schedule Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-teal-600" />
-            Today's Schedule Summary
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <p className="text-2xl font-bold text-blue-600">18</p>
-              <p className="text-sm text-muted-foreground">Total Appointments</p>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <p className="text-2xl font-bold text-green-600">2</p>
-              <p className="text-sm text-muted-foreground">Checked In</p>
-            </div>
-            <div className="text-center p-4 bg-yellow-50 rounded-lg">
-              <p className="text-2xl font-bold text-yellow-600">16</p>
-              <p className="text-sm text-muted-foreground">Remaining</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -687,7 +687,7 @@ export class ProviderRepository extends BaseRepository<Provider> {
   }
 }
 
-// Appointment Repository
+// Appointment Repository - Fixed
 export class AppointmentRepository extends BaseRepository<Appointment> {
   private static instance: AppointmentRepository;
   private patientRepo: PatientRepository;
@@ -714,7 +714,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       {
         id: 1,
         patientId: 201,
-        serviceId: 1, // General Consultation with Dr. Abraham
+        serviceId: 1,
         slotId: 5,
         type: 'Consultation',
         scheduledDateTime: '2026-05-10 09:00:00',
@@ -726,12 +726,13 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         notes: 'First-time patient',
         createdAt: '2026-05-01 10:00:00',
         updatedAt: '2026-05-10 08:55:00',
-        paymentId: 5001
+        paymentId: 5001,
+        cardId: null
       },
       {
         id: 2,
         patientId: 202,
-        serviceId: 2, // Pediatric Consultation with Dr. Selam
+        serviceId: 2,
         slotId: 6,
         type: 'Consultation',
         scheduledDateTime: '2026-05-10 10:30:00',
@@ -743,12 +744,13 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         notes: null,
         createdAt: '2026-05-02 14:30:00',
         updatedAt: '2026-05-10 10:15:00',
-        paymentId: null
+        paymentId: null,
+        cardId: 1  // Example card ID
       },
       {
         id: 3,
         patientId: 201,
-        serviceId: 10, // Complete Blood Count at Diagnostic Center
+        serviceId: 10,
         slotId: 7,
         type: 'Diagnostic',
         scheduledDateTime: '2026-05-11 14:00:00',
@@ -760,12 +762,13 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         notes: 'Requires fasting',
         createdAt: '2026-05-03 09:15:00',
         updatedAt: '2026-05-03 09:15:00',
-        paymentId: null
+        paymentId: null,
+        cardId: null
       },
       {
         id: 4,
         patientId: 202,
-        serviceId: 6, // Flu Vaccination at Clinic
+        serviceId: 6,
         slotId: 8,
         type: 'Vaccination',
         scheduledDateTime: '2026-05-12 11:00:00',
@@ -777,7 +780,8 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         notes: null,
         createdAt: '2026-05-04 10:00:00',
         updatedAt: '2026-05-04 10:00:00',
-        paymentId: null
+        paymentId: null,
+        cardId: null
       }
     ];
   }
@@ -786,9 +790,8 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     const patient = this.patientRepo.findById(appointment.patientId);
     const service = appointment.serviceId ? this.serviceRepo.findById(appointment.serviceId) : null;
     
-    // Get provider from service
     let providerName = '';
-    let providerType: 'doctor' | 'clinic' | 'diagnostic' = 'doctor';
+    let providerType: 'doctor' | 'clinic' | 'diagnostic_center' = 'doctor';
     let location = '';
     let locationDetail = '';
     let fee = service?.standardFee || 0;
@@ -798,7 +801,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       const provider = this.providerRepo.findById(service.providerId);
       if (provider) {
         providerName = provider.name;
-        providerType = provider.type;
+        providerType = provider.type === 'diagnostic' ? 'diagnostic_center' : provider.type;
         location = provider.location;
         locationDetail = provider.locationDetail || '';
         providerImage = provider.image || '';
@@ -820,7 +823,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       fee,
       providerImage,
       paymentStatus: appointment.paymentId ? 'Paid' : 'Pending'
-    } as EnrichedAppointment;
+    };
   }
 
   private formatSlotTime(slotId: number): string {
@@ -853,7 +856,6 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   }
 
   findByProviderId(providerId: number): EnrichedAppointment[] {
-    // Filter appointments by provider based on service providerId
     const appointments = this.items.filter(appointment => {
       const service = this.serviceRepo.findById(appointment.serviceId);
       return service?.providerId === providerId;
@@ -886,7 +888,6 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     const totalWaitTime = checkedInAppointments.reduce((sum, a) => sum + (a.estimatedWaitMinutes || 0), 0);
     const averageWaitTime = checkedInAppointments.length > 0 ? totalWaitTime / checkedInAppointments.length : 0;
 
-    // Calculate revenue based on service fees
     const revenue = this.items.reduce((sum, appointment) => {
       if (appointment.status === 'Completed') {
         const service = this.serviceRepo.findById(appointment.serviceId);
@@ -894,6 +895,9 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       }
       return sum;
     }, 0);
+
+    const cardsIssued = this.items.filter(a => a.cardId !== null).length;
+    const cardsUtilized = this.items.filter(a => a.status === 'Checked-in').length;
 
     return {
       total: this.items.length,
@@ -908,7 +912,9 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       revenue: revenue,
       upcoming: this.items.filter(a => 
         a.status === "Scheduled" || a.status === "Confirmed" || a.status === "Checked-in"
-      ).length
+      ).length,
+      cardsIssued: cardsIssued,
+      cardsUtilized: cardsUtilized
     };
   }
 
