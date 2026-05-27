@@ -1,11 +1,12 @@
 // services/mock/mock.service.ts
 import { Service, ServiceStats, ServiceStatus, ServiceType, CreateServiceDTO, UpdateServiceDTO } from '@/types/entities/service.types';
-import { Appointment, AppointmentStats, EnrichedAppointment, AppointmentWithDetails, AppointmentStatus, AppointmentType } from '@/types/entities/appointment.types';
+import { Appointment, AppointmentStats, EnrichedAppointment, AppointmentWithDetails, AppointmentStatus, BookAppointmentRequest, BookAppointmentResponse } from '@/types/entities/appointment.types';
 import { 
   PatientProfile, 
   UserProfile,
   DoctorProfile
 } from '@/types/entities/profile.types';
+import { Card, CardCheckInResult, CardGenerationRequest, CardStats, CardStatus, CardValidationResult } from '@/types/entities/card.types';
 
 // Base Repository with generic CRUD operations
 export abstract class BaseRepository<T extends { id: number }> {
@@ -393,6 +394,198 @@ export class ServiceRepository extends BaseRepository<Service> {
   }
 }
 
+// Fixed CardRepository
+
+export class CardRepository extends BaseRepository<Card> {
+  private static instance: CardRepository;
+  
+  private constructor() {
+    super();
+    this.initializeMockData();
+  }
+
+  static getInstance(): CardRepository {
+    if (!CardRepository.instance) {
+      CardRepository.instance = new CardRepository();
+    }
+    return CardRepository.instance;
+  }
+
+  private initializeMockData(): void {
+    this.items = [
+      {
+        id: 1,
+        appointmentId: 2,
+        cardNumber: '4512-7893-1023-6745',
+        cardNumberHash: 'hashed_value_1',
+        status: 'Active',
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        usedAt: null
+      }
+    ];
+  }
+
+  generateCard(request: CardGenerationRequest): Card {
+    const cardNumber = this.generateCardNumber();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + (request.validityHours || 24) * 60 * 60 * 1000);
+    
+    const newCard = this.create({
+      appointmentId: request.appointmentId,
+      cardNumber: cardNumber,
+      cardNumberHash: this.hashCardNumber(cardNumber),
+      status: 'Active',
+      expiresAt: expiresAt.toISOString(),
+      usedAt: null
+    });
+    
+    return newCard;
+  }
+
+  private generateCardNumber(): string {
+    const groups = [];
+    for (let i = 0; i < 4; i++) {
+      groups.push(Math.floor(Math.random() * 10000).toString().padStart(4, '0'));
+    }
+    return groups.join('-');
+  }
+
+  private hashCardNumber(cardNumber: string): string {
+    // Simple hash for demo - use proper hashing in production
+    return Buffer.from(cardNumber).toString('base64');
+  }
+
+  findByCardNumber(cardNumber: string): Card | undefined {
+    return this.items.find(card => card.cardNumber === cardNumber);
+  }
+
+  findByAppointmentId(appointmentId: number): Card | undefined {
+    return this.items.find(card => card.appointmentId === appointmentId);
+  }
+
+  useCard(cardId: number, usedAt: string = new Date().toISOString()): Card | undefined {
+    return this.update(cardId, { status: 'Used' as CardStatus, usedAt });
+  }
+
+  getStats(): CardStats {
+    const total = this.items.length;
+    const active = this.items.filter(c => c.status === 'Active').length;
+    const used = this.items.filter(c => c.status === 'Used').length;
+    const expired = this.items.filter(c => c.status === 'Expired').length;
+    const utilizationRate = total > 0 ? (used / total) * 100 : 0;
+    
+    // Calculate average time to use
+    const usedCards = this.items.filter(c => c.status === 'Used' && c.usedAt);
+    let averageTimeToUseMinutes = null;
+    if (usedCards.length > 0) {
+      const totalMinutes = usedCards.reduce((sum, card) => {
+        const created = new Date(card.createdAt);
+        const used = new Date(card.usedAt!);
+        const minutes = (used.getTime() - created.getTime()) / (1000 * 60);
+        return sum + minutes;
+      }, 0);
+      averageTimeToUseMinutes = totalMinutes / usedCards.length;
+    }
+    
+    return {
+      total,
+      active,
+      used,
+      expired,
+      utilizationRate,
+      averageTimeToUseMinutes
+    };
+  }
+
+  validateCard(cardNumber: string): CardValidationResult {
+    // Validate format
+    const cardNumberRegex = /^\d{4}-\d{4}-\d{4}-\d{4}$/;
+    if (!cardNumberRegex.test(cardNumber)) {
+      return {
+        isValid: false,
+        error: 'invalid_format',
+        message: 'Invalid card number format. Please use format: XXXX-XXXX-XXXX-XXXX'
+      };
+    }
+
+    const card = this.findByCardNumber(cardNumber);
+    if (!card) {
+      return {
+        isValid: false,
+        error: 'not_found',
+        message: 'Card number not found in system'
+      };
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(card.expiresAt);
+    
+    if (expiresAt < now) {
+      return {
+        isValid: false,
+        card,
+        error: 'expired',
+        message: 'Card has expired. Please contact reception for assistance.'
+      };
+    }
+
+    if (card.status === 'Used') {
+      return {
+        isValid: false,
+        card,
+        error: 'already_used',
+        message: 'This card has already been used for check-in'
+      };
+    }
+
+    return {
+      isValid: true,
+      card,
+      message: 'Card is valid and ready for check-in'
+    };
+  }
+
+  checkInWithCard(cardNumber: string, verifiedByStaffId: number, verifiedByType: 'doctor' | 'staff' | 'clinic' | 'diagnostic_center'): CardCheckInResult {
+    const validation = this.validateCard(cardNumber);
+    
+    if (!validation.isValid || !validation.card) {
+      return {
+        success: false,
+        message: validation.message || 'Invalid card'
+      };
+    }
+
+    const card = validation.card;
+    const usedCard = this.useCard(card.id);
+    
+    if (!usedCard) {
+      return {
+        success: false,
+        message: 'Failed to update card status'
+      };
+    }
+
+    // Get appointment details (would come from AppointmentRepository in real implementation)
+    const appointmentDetails = {
+      id: card.appointmentId,
+      patientId: 201,
+      patientName: 'John Smith',
+      serviceName: 'Dental Cleaning',
+      scheduledDateTime: '2026-01-27T10:00:00Z'
+    };
+
+    return {
+      success: true,
+      appointmentId: appointmentDetails.id,
+      patientId: appointmentDetails.patientId,
+      patientName: appointmentDetails.patientName,
+      serviceName: appointmentDetails.serviceName,
+      scheduledDateTime: appointmentDetails.scheduledDateTime,
+      message: 'Successfully checked in. Please proceed to waiting area.'
+    };
+  }
+}
 // Patient Repository
 export class PatientRepository extends BaseRepository<PatientProfile> {
   private static instance: PatientRepository;
@@ -687,18 +880,21 @@ export class ProviderRepository extends BaseRepository<Provider> {
   }
 }
 
-// Appointment Repository - Fixed
+// services/mock/mock.service.ts - Fixed AppointmentRepository with Chapa Payment
+
 export class AppointmentRepository extends BaseRepository<Appointment> {
   private static instance: AppointmentRepository;
   private patientRepo: PatientRepository;
   private serviceRepo: ServiceRepository;
   private providerRepo: ProviderRepository;
+  private cardRepo: CardRepository;
   
   private constructor() {
     super();
     this.patientRepo = PatientRepository.getInstance();
     this.serviceRepo = ServiceRepository.getInstance();
     this.providerRepo = ProviderRepository.getInstance();
+    this.cardRepo = CardRepository.getInstance();
     this.initializeMockData();
   }
 
@@ -716,7 +912,6 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         patientId: 201,
         serviceId: 1,
         slotId: 5,
-        type: 'Consultation',
         scheduledDateTime: '2026-05-10 09:00:00',
         status: 'Confirmed',
         checkInTime: '2026-05-10 08:55:00',
@@ -734,7 +929,6 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         patientId: 202,
         serviceId: 2,
         slotId: 6,
-        type: 'Consultation',
         scheduledDateTime: '2026-05-10 10:30:00',
         status: 'Checked-in',
         checkInTime: '2026-05-10 10:15:00',
@@ -745,14 +939,13 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         createdAt: '2026-05-02 14:30:00',
         updatedAt: '2026-05-10 10:15:00',
         paymentId: null,
-        cardId: 1  // Example card ID
+        cardId: 1
       },
       {
         id: 3,
         patientId: 201,
         serviceId: 10,
         slotId: 7,
-        type: 'Diagnostic',
         scheduledDateTime: '2026-05-11 14:00:00',
         status: 'Scheduled',
         checkInTime: null,
@@ -770,7 +963,6 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
         patientId: 202,
         serviceId: 6,
         slotId: 8,
-        type: 'Vaccination',
         scheduledDateTime: '2026-05-12 11:00:00',
         status: 'Scheduled',
         checkInTime: null,
@@ -809,12 +1001,23 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       fee = service.standardFee;
     }
     
+    let cardNumber = undefined;
+    let cardStatus = undefined;
+    if (appointment.cardId) {
+      const card = this.cardRepo.findById(appointment.cardId);
+      if (card) {
+        cardNumber = card.cardNumber;
+        cardStatus = card.status;
+      }
+    }
+    
     return {
       ...appointment,
       patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown Patient',
       patientEmail: patient?.email,
       patientPhone: patient?.phone_number,
       serviceName: service ? service.name : 'No Service',
+      serviceType: service?.serviceType,
       slotTime: this.formatSlotTime(appointment.slotId),
       providerName,
       providerType,
@@ -822,7 +1025,9 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       locationDetail,
       fee,
       providerImage,
-      paymentStatus: appointment.paymentId ? 'Paid' : 'Pending'
+      paymentStatus: appointment.paymentId ? 'Paid' : 'Pending',
+      cardNumber,
+      cardStatus
     };
   }
 
@@ -943,17 +1148,249 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
   createAppointment(data: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'>): Appointment {
     return this.create(data);
   }
-}
 
-// Service Registry
+  /**
+   * BOOKING FLOW WITH CHAPA PAYMENT
+   * 
+   * Flow:
+   * 1. Patient selects doctor and time slot
+   * 2. Request booking for selected slot
+   * 3. Create appointment (status = Booked)
+   * 4. Appointment ID generated
+   * 5. Process payment via Chapa (amount)
+   * 6. Chapa payment confirmation
+   * 7. Update appointment status = Confirmed
+   * 8. Generate and send card number (replaces QR code)
+   * 9. Card number received
+   * 10. Display booking confirmation
+   */
+  async bookAppointment(request: BookAppointmentRequest): Promise<BookAppointmentResponse> {
+    // Step 1 & 2: Check if slot is available
+    const existingAppointment = this.items.find(
+      a => a.slotId === request.slotId && 
+           a.scheduledDateTime === request.scheduledDateTime &&
+           a.status !== 'Cancelled' && a.status !== 'Completed'
+    );
+    
+    if (existingAppointment) {
+      return {
+        success: false,
+        message: 'This time slot is already booked. Please select another time.'
+      };
+    }
+
+    // Step 3 & 4: Create appointment with status = "Booked"
+    const appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'> = {
+      patientId: request.patientId,
+      serviceId: request.serviceId,
+      slotId: request.slotId,
+      scheduledDateTime: request.scheduledDateTime,
+      status: 'Scheduled', // "Booked" status
+      checkInTime: null,
+      startTime: null,
+      endTime: null,
+      estimatedWaitMinutes: null,
+      notes: request.notes || null,
+      paymentId: null,
+      cardId: null
+    };
+    
+    const appointment = this.create(appointmentData);
+    
+    // Step 5 & 6: Process payment via Chapa
+    const chapaResult = await this.processChapaPayment(request, appointment);
+    
+    if (!chapaResult.success) {
+      return {
+        success: false,
+        appointment,
+        message: chapaResult.message || 'Chapa payment failed. Please try again.'
+      };
+    }
+    
+    // Step 7: Update appointment status = Confirmed
+    const updatedAppointment = this.update(appointment.id, { 
+      status: 'Confirmed',
+      paymentId: chapaResult.paymentId
+    });
+    
+    // Step 8: Generate and send card number (replacing QR code)
+    const card = this.cardRepo.generateCard({
+      appointmentId: appointment.id,
+      validityHours: 24
+    });
+    
+    // Link card to appointment
+    this.update(appointment.id, { cardId: card.id });
+    
+    // Step 9 & 10: Return card number for confirmation display
+    return {
+      success: true,
+      appointment: updatedAppointment || appointment,
+      card: card,
+      paymentId: chapaResult.paymentId,
+      message: `Appointment confirmed! Your card number: ${card.cardNumber}. Please save it for check-in.`
+    };
+  }
+
+  /**
+   * Process payment through Chapa API
+   * In production, this would call the actual Chapa API endpoint
+   */
+  private async processChapaPayment(
+    request: BookAppointmentRequest, 
+    appointment: Appointment
+  ): Promise<{ success: boolean; paymentId?: number; transactionId?: string; message?: string }> {
+    const service = this.serviceRepo.findById(request.serviceId);
+    const amount = service?.standardFee || 0;
+    const email = this.patientRepo.findById(request.patientId)?.email || 'customer@example.com';
+    const phone = this.patientRepo.findById(request.patientId)?.phone_number || '0912345678';
+    
+    // Simulate Chapa API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    if (request.paymentConfirmed) {
+      // Generate Chapa transaction ID (mock)
+      const txRef = `CHAPA-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      
+      return {
+        success: true,
+        paymentId: Date.now(),
+        transactionId: txRef,
+        message: `Chapa payment of ETB ${amount} successful. Transaction: ${txRef}`
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Chapa payment not completed. Please complete the payment to confirm your appointment.'
+    };
+  }
+
+  /**
+   * Create Chapa payment link/checkout URL
+   * Returns a URL that redirects the patient to Chapa payment page
+   */
+  async createChapaCheckout(request: BookAppointmentRequest): Promise<{ checkoutUrl: string; txRef: string }> {
+    const service = this.serviceRepo.findById(request.serviceId);
+    const amount = service?.standardFee || 0;
+    const patient = this.patientRepo.findById(request.patientId);
+    
+    // Generate unique transaction reference
+    const txRef = `CHAPA-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    
+    // In production, this would call Chapa API: POST https://api.chapa.co/v1/transaction/initialize
+    const checkoutUrl = `https://checkout.chapa.co/checkout?tx_ref=${txRef}&amount=${amount}&email=${patient?.email}&currency=ETB`;
+    
+    return {
+      checkoutUrl,
+      txRef
+    };
+  }
+
+  /**
+   * Verify Chapa payment (webhook callback)
+   * Called by Chapa webhook after payment is completed
+   */
+  async verifyChapaPayment(txRef: string): Promise<{ verified: boolean; amount: number; status: string }> {
+    // In production, this would call Chapa API: GET https://api.chapa.co/v1/transaction/verify/{tx_ref}
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    return {
+      verified: true,
+      amount: 500,
+      status: 'success'
+    };
+  }
+
+  /**
+   * Book appointment with pending payment (pay later at clinic)
+   * No Chapa payment required upfront
+   */
+  async bookAppointmentWithPendingPayment(request: BookAppointmentRequest): Promise<BookAppointmentResponse> {
+    const existingAppointment = this.items.find(
+      a => a.slotId === request.slotId && 
+           a.scheduledDateTime === request.scheduledDateTime &&
+           a.status !== 'Cancelled' && a.status !== 'Completed'
+    );
+    
+    if (existingAppointment) {
+      return {
+        success: false,
+        message: 'This time slot is already booked.'
+      };
+    }
+
+    const appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'> = {
+      patientId: request.patientId,
+      serviceId: request.serviceId,
+      slotId: request.slotId,
+      scheduledDateTime: request.scheduledDateTime,
+      status: 'Scheduled',
+      checkInTime: null,
+      startTime: null,
+      endTime: null,
+      estimatedWaitMinutes: null,
+      notes: request.notes || null,
+      paymentId: null,
+      cardId: null
+    };
+    
+    const appointment = this.create(appointmentData);
+    
+    return {
+      success: true,
+      appointment,
+      message: 'Appointment booked. Please complete payment at the clinic to confirm.'
+    };
+  }
+
+  /**
+   * Confirm appointment after successful Chapa payment webhook
+   */
+  async confirmAfterChapaPayment(appointmentId: number, paymentId: number, txRef: string): Promise<BookAppointmentResponse> {
+    const appointment = this.findById(appointmentId);
+    if (!appointment) {
+      return {
+        success: false,
+        message: 'Appointment not found.'
+      };
+    }
+    
+    const updatedAppointment = this.update(appointmentId, { 
+      status: 'Confirmed',
+      paymentId: paymentId
+    });
+    
+    const card = this.cardRepo.generateCard({
+      appointmentId: appointmentId,
+      validityHours: 24
+    });
+    
+    this.update(appointmentId, { cardId: card.id });
+    
+    return {
+      success: true,
+      appointment: updatedAppointment,
+      card: card,
+      paymentId: paymentId,
+      message: `Chapa payment confirmed (Transaction: ${txRef}). Your card number is: ${card.cardNumber}`
+    };
+  }
+}
+// Fix the MockServiceRegistry to properly initialize appointment repository with card repo
 export class MockServiceRegistry {
   private static instance: MockServiceRegistry;
   private appointments: AppointmentRepository;
   private patients: PatientRepository;
   private services: ServiceRepository;
   private providers: ProviderRepository;
+  private cards: CardRepository;
 
   private constructor() {
+    // Initialize card repository first
+    this.cards = CardRepository.getInstance();
+    // Initialize appointment repository (which now uses card repo)
     this.appointments = AppointmentRepository.getInstance();
     this.patients = PatientRepository.getInstance();
     this.services = ServiceRepository.getInstance();
@@ -982,9 +1419,14 @@ export class MockServiceRegistry {
   getProviders() {
     return this.providers;
   }
+
+  getCards() {
+    return this.cards;
+  }
 }
 
-// Export convenience functions
+// Update exports
+export const getCardRepository = () => CardRepository.getInstance();
 export const getMockServiceRegistry = () => MockServiceRegistry.getInstance();
 export const getServiceRepository = () => ServiceRepository.getInstance();
 export const getPatientRepository = () => PatientRepository.getInstance();

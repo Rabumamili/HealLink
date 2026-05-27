@@ -21,6 +21,7 @@ interface AppointmentDetailsDialogProps {
   appointment: AppointmentCardData | null;
   onStart?: (appointment: AppointmentCardData) => void;
   onReschedule?: (appointment: AppointmentCardData) => void;
+  onComplete?: (appointment: AppointmentCardData) => void;
   variant?: 'doctor' | 'clinic' | 'diagnostic' | 'patient';
 }
 

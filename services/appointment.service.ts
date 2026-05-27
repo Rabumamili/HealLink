@@ -6,9 +6,9 @@ import {
   AppointmentStats, 
   CheckedInPatient,
   EnrichedAppointment,
-  AppointmentWithDetails,
   AppointmentStatus,
-  AppointmentType
+  BookAppointmentRequest,
+  BookAppointmentResponse
 } from '@/types/entities/appointment.types';
 import { MockServiceRegistry } from './mock/mock.service';
 
@@ -31,7 +31,8 @@ class AppointmentService extends ApiService {
           a.patientName.toLowerCase().includes(search) ||
           (a.serviceName && a.serviceName.toLowerCase().includes(search)) ||
           a.id.toString().includes(search) ||
-          a.notes?.toLowerCase().includes(search)
+          a.notes?.toLowerCase().includes(search) ||
+          (a.cardNumber && a.cardNumber.toLowerCase().includes(search))
         );
       }
       
@@ -61,8 +62,20 @@ class AppointmentService extends ApiService {
         appointments = appointments.filter(a => a.serviceId === filters.serviceId);
       }
       
-      if (filters?.type) {
-        appointments = appointments.filter(a => a.type === filters.type);
+      if (filters?.type && filters.type !== 'all') {
+        appointments = appointments.filter(a => a.serviceType === filters.type);
+      }
+      
+      if (filters?.hasCard !== undefined) {
+        if (filters.hasCard) {
+          appointments = appointments.filter(a => a.cardId !== null);
+        } else {
+          appointments = appointments.filter(a => a.cardId === null);
+        }
+      }
+      
+      if (filters?.cardStatus) {
+        appointments = appointments.filter(a => a.cardStatus === filters.cardStatus);
       }
       
       return appointments;
@@ -75,6 +88,11 @@ class AppointmentService extends ApiService {
       if (filters.status && filters.status !== 'all') params.append('status', filters.status);
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.patientId) params.append('patientId', filters.patientId.toString());
+      if (filters.serviceId) params.append('serviceId', filters.serviceId.toString());
+      if (filters.type && filters.type !== 'all') params.append('type', filters.type);
+      if (filters.hasCard !== undefined) params.append('hasCard', filters.hasCard.toString());
+      if (filters.cardStatus) params.append('cardStatus', filters.cardStatus);
       if (params.toString()) endpoint += `?${params.toString()}`;
     }
     return this.get<EnrichedAppointment[]>(endpoint);
@@ -100,19 +118,20 @@ class AppointmentService extends ApiService {
         .findAll()
         .filter(a => a.status === 'Checked-in' || a.status === 'In Progress');
       
-      return appointments.map((appointment, index) => {
-        return {
-          id: appointment.id.toString(),
-          patientName: appointment.patientName,
-          cardNumber: '',
-          serviceName: appointment.serviceName || 'Unknown Service',
-          checkInTime: appointment.checkInTime || new Date().toISOString(),
-          scheduledTime: appointment.scheduledDateTime,
-          status: appointment.status === 'Checked-in' ? 'waiting' : 'in-progress',
-          queueNumber: index + 1,
-          estimatedWaitMinutes: appointment.estimatedWaitMinutes || 15
-        };
-      });
+      return appointments.map((appointment, index) => ({
+        id: appointment.id,
+        patientName: appointment.patientName,
+        cardNumber: appointment.cardNumber || '',
+        serviceName: appointment.serviceName || 'Unknown Service',
+        serviceType: appointment.serviceType,
+        checkInTime: appointment.checkInTime || new Date().toISOString(),
+        scheduledTime: appointment.scheduledDateTime,
+        status: appointment.status === 'Checked-in' ? 'waiting' : 'in-progress',
+        queueNumber: index + 1,
+        estimatedWaitMinutes: appointment.estimatedWaitMinutes || 15,
+        cardId: appointment.cardId || undefined,
+        appointmentId: appointment.id
+      }));
     }
     return this.get<CheckedInPatient[]>('/appointments/checked-in');
   }
@@ -153,13 +172,69 @@ class AppointmentService extends ApiService {
     return this.get<EnrichedAppointment[]>(`/patients/${patientId}/appointments`);
   }
 
-  // FIXED: Create appointment method with correct typing
+  /**
+   * Direct appointment creation (admin/internal use)
+   */
   async createAppointment(data: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'>): Promise<Appointment> {
     if (this.useMock) {
       const newAppointment = this.registry.getAppointments().createAppointment(data);
       return newAppointment;
     }
     return this.post<Appointment>('/appointments', data);
+  }
+
+  /**
+   * BOOKING FLOW WITH CHAPA PAYMENT
+   * - Creates appointment with status="Booked"
+   * - Processes payment via Chapa
+   * - Updates status to "Confirmed" after payment
+   * - Generates card number (replaces QR code)
+   */
+  async bookAppointment(request: BookAppointmentRequest): Promise<BookAppointmentResponse> {
+    if (this.useMock) {
+      return this.registry.getAppointments().bookAppointment(request);
+    }
+    return this.post<BookAppointmentResponse>('/appointments/book', request);
+  }
+
+  /**
+   * Create Chapa checkout URL for payment
+   */
+  async createChapaCheckout(request: BookAppointmentRequest): Promise<{ checkoutUrl: string; txRef: string }> {
+    if (this.useMock) {
+      return this.registry.getAppointments().createChapaCheckout(request);
+    }
+    return this.post<{ checkoutUrl: string; txRef: string }>('/appointments/chapa-checkout', request);
+  }
+
+  /**
+   * Verify Chapa payment (webhook)
+   */
+  async verifyChapaPayment(txRef: string): Promise<{ verified: boolean; amount: number; status: string }> {
+    if (this.useMock) {
+      return this.registry.getAppointments().verifyChapaPayment(txRef);
+    }
+    return this.get<{ verified: boolean; amount: number; status: string }>(`/payments/chapa/verify?tx_ref=${txRef}`);
+  }
+
+  /**
+   * Book appointment with pending payment (pay later at clinic)
+   */
+  async bookAppointmentWithPendingPayment(request: BookAppointmentRequest): Promise<BookAppointmentResponse> {
+    if (this.useMock) {
+      return this.registry.getAppointments().bookAppointmentWithPendingPayment(request);
+    }
+    return this.post<BookAppointmentResponse>('/appointments/book-pending', request);
+  }
+
+  /**
+   * Confirm appointment after Chapa payment webhook
+   */
+  async confirmAfterChapaPayment(appointmentId: number, paymentId: number, txRef: string): Promise<BookAppointmentResponse> {
+    if (this.useMock) {
+      return this.registry.getAppointments().confirmAfterChapaPayment(appointmentId, paymentId, txRef);
+    }
+    return this.post<BookAppointmentResponse>(`/appointments/${appointmentId}/confirm-chapa-payment`, { paymentId, txRef });
   }
 
   async getUpcomingAppointments(patientId: number): Promise<EnrichedAppointment[]> {
@@ -190,6 +265,13 @@ class AppointmentService extends ApiService {
       return this.registry.getAppointments().findByDate(today);
     }
     return this.get<EnrichedAppointment[]>(`/appointments?date=${today}`);
+  }
+
+  async getAppointmentsByProvider(providerId: number): Promise<EnrichedAppointment[]> {
+    if (this.useMock) {
+      return this.registry.getAppointments().findByProviderId(providerId);
+    }
+    return this.get<EnrichedAppointment[]>(`/providers/${providerId}/appointments`);
   }
 }
 

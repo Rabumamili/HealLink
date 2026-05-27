@@ -1,6 +1,5 @@
 // types/entities/schedule.types.ts
 
-// Core schedule slot matching database table exactly (snake_case for DB)
 export interface ScheduleSlot {
   id: number;
   service_id: number;

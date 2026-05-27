@@ -1,9 +1,9 @@
 // app/doctor/appointments/page.tsx
 "use client"
 
-import { useState } from "react"
-import { CalendarPlus, Bell, Calendar as CalendarIcon, ClipboardCheck, Stethoscope, DollarSign, Users, CheckCircle } from "lucide-react"
-import Link from "next/link"
+import { useState, useCallback, useMemo } from "react"
+import { useRouter } from "next/navigation"
+import { Bell, Calendar as CalendarIcon, ClipboardCheck, RefreshCw } from "lucide-react"
 import { useAppointments } from "@/hooks/useAppointments"
 import { AppointmentStatsCards } from "@/components/appointments/AppointmentStatsCards"
 import { AppointmentFilters } from "@/components/appointments/AppointmentFilters"
@@ -15,16 +15,45 @@ import { TabsFilter, TabOption } from "@/components/common/TabsFilter"
 import { EmptyState } from "@/components/common/EmptyState"
 import { LoadingState } from "@/components/common/LoadingState"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Calendar, DollarSign, Users, CheckCircle } from "lucide-react"
+import { toast } from "sonner"
+import { EnrichedAppointment } from "@/types/entities/appointment.types"
+
+const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCardData => {
+  return {
+    id: appointment.id,
+    patientName: appointment.patientName,
+    patientId: appointment.patientId,
+    serviceName: appointment.serviceName || "",
+    type: appointment.serviceType,
+    scheduledDateTime: appointment.scheduledDateTime,
+    status: appointment.status,
+    checkInTime: appointment.checkInTime,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    estimatedWaitMinutes: appointment.estimatedWaitMinutes,
+    notes: appointment.notes,
+    fee: appointment.fee,
+    paymentStatus: appointment.paymentStatus,
+    cardNumber: appointment.cardNumber,
+    location: appointment.location,
+    locationDetail: appointment.locationDetail,
+    patientEmail: appointment.patientEmail,
+    patientPhone: appointment.patientPhone,
+    providerName: appointment.providerName,
+  }
+}
 
 export default function DoctorAppointmentsPage() {
+  const router = useRouter()
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentCardData | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming")
+  const [activeTab, setActiveTab] = useState<"today" | "upcoming" | "past">("today")
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const {
-    appointments,
+    todayAppointments,
     upcomingAppointments,
     pastAppointments,
     stats,
@@ -33,143 +62,226 @@ export default function DoctorAppointmentsPage() {
     setFilters,
     updateStatus,
     updateTiming,
+    refreshData,
   } = useAppointments()
 
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await refreshData()
+      toast.success("Appointment data refreshed")
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast.error("Failed to refresh data")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [refreshData])
+
   // Filter for consultation-type appointments (doctor appointments)
-  const doctorAppointments = appointments.filter(apt => apt.type === "Consultation")
-  const doctorUpcoming = doctorAppointments.filter(apt => 
-    apt.status === "Scheduled" || apt.status === "Confirmed" || apt.status === "Checked-in"
+  const doctorToday = todayAppointments.filter(apt => 
+    apt.serviceType === "Consultation"
   )
-  const doctorPast = doctorAppointments.filter(apt => 
-    apt.status === "Completed" || apt.status === "Cancelled" || apt.status === "No-show"
+  const doctorUpcoming = upcomingAppointments.filter(apt => 
+    apt.serviceType === "Consultation"
+  )
+  const doctorPast = pastAppointments.filter(apt => 
+    apt.serviceType === "Consultation"
   )
 
-  const statsCards = stats ? [
-    { title: "Total Appointments", value: doctorAppointments.length.toString(), icon: Users, description: "All time" },
-    { title: "Upcoming", value: doctorUpcoming.length.toString(), icon: CalendarIcon, description: "Scheduled visits" },
-    { title: "Completed", value: doctorPast.filter(apt => apt.status === "Completed").length.toString(), icon: CheckCircle, description: "Finished appointments" },
-    { title: "Revenue", value: `ETB ${stats.revenue.toLocaleString()}`, icon: DollarSign, description: "Total earned" }
-  ] : []
+  const statsCards = useMemo(() => {
+    if (!stats) return []
+    return [
+      { title: "Total Appointments", value: (doctorUpcoming.length + doctorPast.length).toString(), icon: Users, description: "All time" },
+      { title: "Today's Appointments", value: doctorToday.length.toString(), icon: Calendar, description: "Scheduled today" },
+      { title: "Completed", value: doctorPast.filter(apt => apt.status === "Completed").length.toString(), icon: CheckCircle, description: "Finished appointments" },
+      { title: "Revenue", value: `ETB ${stats.revenue.toLocaleString()}`, icon: DollarSign, description: "Total earned" }
+    ]
+  }, [stats, doctorToday.length, doctorUpcoming.length, doctorPast.length])
 
-  const tabs: TabOption[] = [
-    { id: "upcoming", label: "Upcoming", icon: <Bell className="h-4 w-4" />, count: doctorUpcoming.length },
+  const tabs: TabOption[] = useMemo(() => [
+    { id: "today", label: "Today", icon: <Bell className="h-4 w-4" />, count: doctorToday.length },
+    { id: "upcoming", label: "Upcoming", icon: <CalendarIcon className="h-4 w-4" />, count: doctorUpcoming.length },
     { id: "past", label: "Past", icon: <ClipboardCheck className="h-4 w-4" />, count: doctorPast.length },
-  ]
+  ], [doctorToday.length, doctorUpcoming.length, doctorPast.length])
 
-  const handleView = (appointment: AppointmentCardData) => {
+  const handleView = useCallback((appointment: AppointmentCardData) => {
     setSelectedAppointment(appointment)
     setIsViewDialogOpen(true)
-  }
+  }, [])
 
-  const handleReschedule = (appointment: AppointmentCardData) => {
+  const handleReschedule = useCallback((appointment: AppointmentCardData) => {
     setSelectedAppointment(appointment)
     setIsRescheduleDialogOpen(true)
-  }
+  }, [])
 
-  const handleStartConsultation = async (appointment: AppointmentCardData) => {
-    await updateStatus(appointment.id, "In Progress")
-  }
+  const handleStartConsultation = useCallback(async (appointment: AppointmentCardData) => {
+    try {
+      await updateStatus(appointment.id, "In Progress")
+      await refreshData()
+      toast.success("Consultation started")
+    } catch (error) {
+      console.error("Error starting consultation:", error)
+      toast.error("Failed to start consultation")
+    }
+  }, [updateStatus, refreshData])
 
-  const handleConfirmReschedule = async (appointment: AppointmentCardData, date: string, time: string) => {
-    const startTime = `${date} ${time}`
-    const endTime = `${date} ${parseInt(time.split(':')[0]) + 1}:${time.split(':')[1]}`
-    await updateTiming(appointment.id, startTime, endTime)
-  }
+  const handleCompleteConsultation = useCallback(async (appointment: AppointmentCardData) => {
+    try {
+      await updateStatus(appointment.id, "Completed")
+      await refreshData()
+      toast.success("Consultation completed successfully")
+      
+      toast.info("Completed consultation moved to Past tab", {
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error("Error completing consultation:", error)
+      toast.error("Failed to complete consultation")
+    }
+  }, [updateStatus, refreshData])
 
-  const currentAppointments = activeTab === "upcoming" ? doctorUpcoming : doctorPast
+  const handleConfirmReschedule = useCallback(async (
+    appointment: AppointmentCardData, 
+    date: string, 
+    time: string
+  ) => {
+    try {
+      const [hours, minutes] = time.split(':')
+      const endHour = parseInt(hours) + 1
+      const startTime = `${date} ${time}:00`
+      const endTime = `${date} ${endHour.toString().padStart(2, '0')}:${minutes}:00`
+      await updateTiming(appointment.id, startTime, endTime)
+      await refreshData()
+      toast.success("Appointment rescheduled successfully")
+    } catch (error) {
+      console.error("Error rescheduling:", error)
+      toast.error("Failed to reschedule appointment")
+    }
+  }, [updateTiming, refreshData])
+
+  const handleCheckIn = useCallback((appointment: AppointmentCardData) => {
+    router.push(`/doctor/checkin?appointmentId=${appointment.id}&cardNumber=${appointment.cardNumber}`)
+  }, [router])
+
+  const handleCancel = useCallback(async (appointment: AppointmentCardData) => {
+    try {
+      await updateStatus(appointment.id, "Cancelled")
+      await refreshData()
+      toast.success("Appointment cancelled successfully")
+    } catch (error) {
+      console.error("Error cancelling:", error)
+      toast.error("Failed to cancel appointment")
+    }
+  }, [updateStatus, refreshData])
+
+  const getCurrentAppointments = useCallback((): EnrichedAppointment[] => {
+    switch (activeTab) {
+      case "today": return doctorToday
+      case "upcoming": return doctorUpcoming
+      case "past": return doctorPast
+      default: return []
+    }
+  }, [activeTab, doctorToday, doctorUpcoming, doctorPast])
+
+  const currentAppointments = getCurrentAppointments()
   const isPastTab = activeTab === "past"
+  const isTodayTab = activeTab === "today"
 
   if (isLoading && !currentAppointments.length) {
     return <LoadingState message="Loading your appointments..." />
   }
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Appointments"
-        subtitle="Manage and track all patient appointments"
-        actions={
-          <Link href="/doctor/checkin">
-            <Button className="bg-teal-600 hover:bg-teal-700 text-white rounded-xl px-6 py-5 h-auto shadow-md hover:shadow-lg transition-all group">
-              <CalendarPlus className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+    <div className="min-h-screen bg-[#F8F9FF] pb-20">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-8">
+        <PageHeader
+          title="Doctor Appointments"
+          subtitle="Manage patient consultations and track appointments"
+          actions={
+            <Button 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="bg-[#006767] hover:bg-[#008282] text-white rounded-xl px-6 py-6 h-auto shadow-md hover:shadow-lg transition-all group"
+            >
+              <RefreshCw className={`h-5 w-5 mr-2 ${isRefreshing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
               <div className="text-left">
-                <div className="font-bold text-base">Check-in Patient</div>
-                <div className="text-xs opacity-90">Quick patient check-in</div>
+                <div className="font-bold text-base">{isRefreshing ? 'Refreshing...' : 'Refresh'}</div>
+                <div className="text-xs opacity-90">Check for new patients</div>
               </div>
             </Button>
-          </Link>
-        }
-      />
+          }
+        />
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {statsCards.map((stat, idx) => (
-          <Card key={idx} className="border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-800 mt-1">{stat.value}</p>
-                  <p className="text-xs text-gray-400 mt-1">{stat.description}</p>
-                </div>
-                <div className="h-11 w-11 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600">
-                  <stat.icon className="h-5 w-5" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        {statsCards.length > 0 && (
+          <AppointmentStatsCards stats={statsCards} variant="doctor" />
+        )}
 
-      <Card className="border border-gray-100 shadow-sm overflow-hidden">
-        <CardHeader className="bg-gray-50/50 border-b border-gray-100">
-          <CardTitle className="text-lg font-bold text-gray-800">All Appointments</CardTitle>
-          <CardDescription className="text-sm text-gray-500">
-            Your appointment history and upcoming visits
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <AppointmentFilters
-            searchTerm={filters.searchTerm || ""}
-            onSearchChange={(value) => setFilters({ searchTerm: value })}
-            statusFilter={filters.status || "all"}
-            onStatusChange={(value) => setFilters({ status: value as any })}
-            placeholder="Search by patient name..."
-            className="mb-6"
-          />
+        <AppointmentFilters
+          searchTerm={filters.searchTerm || ""}
+          onSearchChange={(value) => setFilters({ searchTerm: value })}
+          statusFilter={filters.status || "all"}
+          onStatusChange={(value) => setFilters({ status: value as any })}
+          placeholder="Search by patient name, card number, or ID..."
+        />
 
-          <TabsFilter tabs={tabs} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} variant="pills" />
+        <TabsFilter 
+          tabs={tabs} 
+          activeTab={activeTab} 
+          onTabChange={(tab) => setActiveTab(tab as "today" | "upcoming" | "past")} 
+        />
 
-          <div className="space-y-4 mt-6">
-            {currentAppointments.length > 0 ? (
-              currentAppointments.map((apt) => (
+        <div className="space-y-5 mt-6">
+          {currentAppointments.length > 0 ? (
+            currentAppointments.map((appointment) => {
+              const appointmentCardData = toAppointmentCardData(appointment)
+              
+              // Determine which actions to show based on appointment status and tab
+              const showStart = !isPastTab && appointment.status === "Checked-in"
+              const showComplete = !isPastTab && appointment.status === "In Progress"
+              const showCancel = !isPastTab && 
+                (appointment.status === "Scheduled" || 
+                 appointment.status === "Confirmed" || 
+                 appointment.status === "Checked-in")
+              
+              return (
                 <AppointmentCard
-                  key={apt.id}
-                  appointment={apt}
+                  key={appointment.id}
+                  appointment={appointmentCardData}
                   variant="doctor"
                   isPast={isPastTab}
                   onView={handleView}
-                  onReschedule={!isPastTab && apt.status === "Scheduled" ? handleReschedule : undefined}
-                  onStart={!isPastTab && (apt.status === "Checked-in" || apt.status === "Confirmed") ? handleStartConsultation : undefined}
+                  onReschedule={!isPastTab && appointment.status === "Confirmed" ? handleReschedule : undefined}
+                  onCancel={showCancel ? handleCancel : undefined}
+                  onStart={showStart ? handleStartConsultation : undefined}
+                  onComplete={showComplete ? handleCompleteConsultation : undefined}
                 />
-              ))
-            ) : (
-              <EmptyState
-                variant="appointment"
-                message={activeTab === "upcoming" ? "No upcoming appointments" : "No past appointments"}
-                submessage={activeTab === "upcoming" ? "Your scheduled appointments will appear here" : "Your completed appointments will appear here"}
-                actionLabel={activeTab === "upcoming" ? "View Schedule" : undefined}
-                actionHref={activeTab === "upcoming" ? "/doctor/schedule" : undefined}
-              />
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              )
+            })
+          ) : (
+            <EmptyState
+              variant="appointment"
+              message={
+                activeTab === "today" ? "No consultations today" : 
+                activeTab === "upcoming" ? "No upcoming consultations" : 
+                "No past consultations"
+              }
+              submessage={
+                activeTab === "today" ? "Your scheduled consultations for today will appear here" : 
+                activeTab === "upcoming" ? "Your scheduled patient consultations will appear here" : 
+                "Your completed consultations will appear here"
+              }
+            />
+          )}
+        </div>
+      </div>
 
       <AppointmentDetailsDialog
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
         appointment={selectedAppointment}
         onStart={handleStartConsultation}
+        onComplete={handleCompleteConsultation}
         onReschedule={handleReschedule}
         variant="doctor"
       />

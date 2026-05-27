@@ -1,9 +1,9 @@
 // app/patient/appointments/page.tsx
 "use client"
 
-import { useState } from "react"
-import { CalendarPlus, Bell, Calendar as CalendarIcon, ClipboardCheck, DollarSign, Users, CheckCircle } from "lucide-react"
-import Link from "next/link"
+import { useState, useCallback, useMemo, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Bell, Calendar as CalendarIcon, ClipboardCheck, RefreshCw, CalendarPlus, Calendar } from "lucide-react"
 import { useAppointments } from "@/hooks/useAppointments"
 import { AppointmentStatsCards } from "@/components/appointments/AppointmentStatsCards"
 import { AppointmentFilters } from "@/components/appointments/AppointmentFilters"
@@ -16,15 +16,61 @@ import { EmptyState } from "@/components/common/EmptyState"
 import { LoadingState } from "@/components/common/LoadingState"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { EnrichedAppointment } from "@/types/entities/appointment.types"
+import Link from "next/link"
+
+// Get current patient ID from localStorage or auth context
+const getCurrentPatientId = (): number => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('currentPatientId')
+    if (stored) return parseInt(stored)
+  }
+  return 201 // Default patient ID for demo
+}
+
+const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCardData => {
+  return {
+    id: appointment.id,
+    patientName: appointment.patientName,
+    patientId: appointment.patientId,
+    serviceName: appointment.serviceName || "",
+    type: appointment.serviceType,
+    scheduledDateTime: appointment.scheduledDateTime,
+    status: appointment.status,
+    checkInTime: appointment.checkInTime,
+    startTime: appointment.startTime,
+    endTime: appointment.endTime,
+    estimatedWaitMinutes: appointment.estimatedWaitMinutes,
+    notes: appointment.notes,
+    fee: appointment.fee,
+    paymentStatus: appointment.paymentStatus,
+    cardNumber: appointment.cardNumber,
+    location: appointment.location,
+    locationDetail: appointment.locationDetail,
+    patientEmail: appointment.patientEmail,
+    patientPhone: appointment.patientPhone,
+    providerName: appointment.providerName,
+  }
+}
 
 export default function PatientAppointmentsPage() {
+  const router = useRouter()
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentCardData | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming")
+  const [activeTab, setActiveTab] = useState<"today" | "upcoming" | "past">("today")
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [patientId, setPatientId] = useState<number>(201)
+
+  useEffect(() => {
+    setPatientId(getCurrentPatientId())
+  }, [])
 
   const {
     appointments,
+    todayAppointments,
+    upcomingAppointments,
+    pastAppointments,
     stats,
     isLoading,
     filters,
@@ -32,61 +78,100 @@ export default function PatientAppointmentsPage() {
     updateStatus,
     updateTiming,
     cancelAppointment,
+    refreshData,
   } = useAppointments()
 
-  // Filter appointments for the current patient from the hook's data
-  // In a real app, this patient ID would come from authentication context
-  // For demo with mock data, we filter by patientId 201 (Abebe Kebede)
-  const patientAppointments = appointments.filter(apt => apt.patientId === 201)
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await refreshData()
+      toast.success("Appointment data refreshed")
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast.error("Failed to refresh data")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [refreshData])
+
+  // Filter appointments for the current patient
+  const patientAppointments = appointments.filter(apt => apt.patientId === patientId)
   
-  const patientUpcoming = patientAppointments.filter(apt => 
-    apt.status === "Scheduled" || apt.status === "Confirmed" || apt.status === "Checked-in"
-  )
-  const patientPast = patientAppointments.filter(apt => 
-    apt.status === "Completed" || apt.status === "Cancelled" || apt.status === "No-show"
-  )
+  const patientToday = todayAppointments.filter(apt => apt.patientId === patientId)
+  const patientUpcoming = upcomingAppointments.filter(apt => apt.patientId === patientId)
+  const patientPast = pastAppointments.filter(apt => apt.patientId === patientId)
 
   const totalSpent = patientAppointments
     .filter(apt => apt.paymentStatus === "Paid")
     .reduce((sum, apt) => sum + (apt.fee || 0), 0)
 
-  const statsCards = [
-    { title: "Total", value: patientAppointments.length.toString(), icon: Users, description: "All appointments" },
-    { title: "Upcoming", value: patientUpcoming.length.toString(), icon: CalendarIcon, description: "Scheduled visits" },
-    { title: "Completed", value: patientPast.filter(apt => apt.status === "Completed").length.toString(), icon: CheckCircle, description: "Finished appointments" },
-    { title: "Total Spent", value: `ETB ${totalSpent.toLocaleString()}`, icon: DollarSign, description: "Healthcare investment" }
-  ]
+  const statsCards = useMemo(() => [
+    { title: "Total", value: patientAppointments.length.toString(), icon: ClipboardCheck, description: "All appointments" },
+    { title: "Today", value: patientToday.length.toString(), icon: CalendarIcon, description: "Today's visits" },
+    { title: "Upcoming", value: patientUpcoming.length.toString(), icon: Bell, description: "Scheduled visits" },
+    { title: "Total Spent", value: `ETB ${totalSpent.toLocaleString()}`, icon: Calendar, description: "Healthcare investment" }
+  ], [patientAppointments.length, patientToday.length, patientUpcoming.length, totalSpent])
 
-  const tabs: TabOption[] = [
+  const tabs: TabOption[] = useMemo(() => [
+    { id: "today", label: "Today", icon: <CalendarIcon className="h-4 w-4" />, count: patientToday.length },
     { id: "upcoming", label: "Upcoming", icon: <Bell className="h-4 w-4" />, count: patientUpcoming.length },
     { id: "past", label: "Past", icon: <ClipboardCheck className="h-4 w-4" />, count: patientPast.length },
-  ]
+  ], [patientToday.length, patientUpcoming.length, patientPast.length])
 
-  const handleView = (appointment: AppointmentCardData) => {
+  const handleView = useCallback((appointment: AppointmentCardData) => {
     setSelectedAppointment(appointment)
     setIsViewDialogOpen(true)
-  }
+  }, [])
 
-  const handleReschedule = (appointment: AppointmentCardData) => {
+  const handleReschedule = useCallback((appointment: AppointmentCardData) => {
     setSelectedAppointment(appointment)
     setIsRescheduleDialogOpen(true)
-  }
+  }, [])
 
-  const handleCancel = async (appointment: AppointmentCardData) => {
-    await cancelAppointment(appointment.id)
-  }
+  const handleCancel = useCallback(async (appointment: AppointmentCardData) => {
+    try {
+      await cancelAppointment(appointment.id)
+      await refreshData()
+      toast.success("Appointment cancelled successfully")
+    } catch (error) {
+      console.error("Error cancelling:", error)
+      toast.error("Failed to cancel appointment")
+    }
+  }, [cancelAppointment, refreshData])
 
-  const handleContact = (appointment: AppointmentCardData) => {
+  const handleContact = useCallback((appointment: AppointmentCardData) => {
     toast.info(`Contact provider at ${appointment.location || 'the clinic'}`)
-  }
+  }, [])
 
-  const handleConfirmReschedule = async (appointment: AppointmentCardData, date: string, time: string) => {
-    const startTime = `${date} ${time}`
-    const endTime = `${date} ${parseInt(time.split(':')[0]) + 1}:${time.split(':')[1]}`
-    await updateTiming(appointment.id, startTime, endTime)
-  }
+  const handleConfirmReschedule = useCallback(async (
+    appointment: AppointmentCardData, 
+    date: string, 
+    time: string
+  ) => {
+    try {
+      const [hours, minutes] = time.split(':')
+      const endHour = parseInt(hours) + 1
+      const startTime = `${date} ${time}:00`
+      const endTime = `${date} ${endHour.toString().padStart(2, '0')}:${minutes}:00`
+      await updateTiming(appointment.id, startTime, endTime)
+      await refreshData()
+      toast.success("Appointment rescheduled successfully")
+    } catch (error) {
+      console.error("Error rescheduling:", error)
+      toast.error("Failed to reschedule appointment")
+    }
+  }, [updateTiming, refreshData])
 
-  const currentAppointments = activeTab === "upcoming" ? patientUpcoming : patientPast
+  const getCurrentAppointments = useCallback((): EnrichedAppointment[] => {
+    switch (activeTab) {
+      case "today": return patientToday
+      case "upcoming": return patientUpcoming
+      case "past": return patientPast
+      default: return []
+    }
+  }, [activeTab, patientToday, patientUpcoming, patientPast])
+
+  const currentAppointments = getCurrentAppointments()
   const isPastTab = activeTab === "past"
 
   if (isLoading && !currentAppointments.length) {
@@ -104,8 +189,8 @@ export default function PatientAppointmentsPage() {
               <Button className="bg-[#006767] hover:bg-[#008282] text-white rounded-xl px-6 py-6 h-auto shadow-md hover:shadow-lg transition-all group">
                 <CalendarPlus className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
                 <div className="text-left">
-                  <div className="font-bold text-base">Book New Appointment</div>
-                  <div className="text-xs opacity-90">Schedule with a provider</div>
+                  <div className="font-bold text-base">Book New</div>
+                  <div className="text-xs opacity-90">Schedule appointment</div>
                 </div>
               </Button>
             </Link>
@@ -122,7 +207,11 @@ export default function PatientAppointmentsPage() {
           placeholder="Search by provider or service..."
         />
 
-        <TabsFilter tabs={tabs} activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as any)} />
+        <TabsFilter 
+          tabs={tabs} 
+          activeTab={activeTab} 
+          onTabChange={(tab) => setActiveTab(tab as "today" | "upcoming" | "past")} 
+        />
 
         {activeTab === "upcoming" && patientUpcoming.length === 0 && !isLoading && (
           <div className="mb-8 bg-gradient-to-r from-[#006767]/5 to-[#008282]/5 rounded-2xl p-6 border border-[#006767]/20">
@@ -150,11 +239,11 @@ export default function PatientAppointmentsPage() {
             currentAppointments.map((apt) => (
               <AppointmentCard
                 key={apt.id}
-                appointment={apt}
+                appointment={toAppointmentCardData(apt)}
                 variant="patient"
                 isPast={isPastTab}
                 onView={handleView}
-                onReschedule={!isPastTab && apt.status === "Scheduled" ? handleReschedule : undefined}
+                onReschedule={!isPastTab && apt.status === "Confirmed" ? handleReschedule : undefined}
                 onCancel={!isPastTab && apt.status !== "Cancelled" && apt.status !== "Completed" ? handleCancel : undefined}
                 onContact={handleContact}
               />
@@ -162,8 +251,16 @@ export default function PatientAppointmentsPage() {
           ) : (
             <EmptyState
               variant="appointment"
-              message={activeTab === "upcoming" ? "No upcoming appointments" : "No past appointments"}
-              submessage={activeTab === "upcoming" ? "Schedule your next healthcare visit to stay on top of your health" : "Your appointment history will appear here"}
+              message={
+                activeTab === "today" ? "No appointments today" : 
+                activeTab === "upcoming" ? "No upcoming appointments" : 
+                "No past appointments"
+              }
+              submessage={
+                activeTab === "today" ? "You have no appointments scheduled for today" : 
+                activeTab === "upcoming" ? "Schedule your next healthcare visit to stay on top of your health" : 
+                "Your appointment history will appear here"
+              }
               actionLabel={activeTab === "upcoming" ? "Book an Appointment" : undefined}
               actionHref={activeTab === "upcoming" ? "/patient/bookings" : undefined}
             />

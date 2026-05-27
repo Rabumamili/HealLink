@@ -1,11 +1,10 @@
-// components/appointments/AppointmentCard.tsx
 'use client';
 
 import { ReactNode } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { Calendar, Clock, MapPin, DollarSign, CreditCard, Phone, Mail } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, CreditCard, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface AppointmentCardData {
@@ -29,6 +28,7 @@ export interface AppointmentCardData {
   patientEmail?: string;
   patientPhone?: string;
   providerName?: string;
+  providerType?: string;
 }
 
 interface AppointmentCardProps {
@@ -36,13 +36,14 @@ interface AppointmentCardProps {
   variant?: 'doctor' | 'clinic' | 'diagnostic' | 'patient';
   isPast?: boolean;
   showCheckin?: boolean;
-  showConfirm?: boolean; // Add showConfirm prop
+  showConfirm?: boolean;
   onView?: (appointment: AppointmentCardData) => void;
   onReschedule?: (appointment: AppointmentCardData) => void;
   onCancel?: (appointment: AppointmentCardData) => void;
   onStart?: (appointment: AppointmentCardData) => void;
+  onComplete?: (appointment: AppointmentCardData) => void;
   onCheckIn?: (appointment: AppointmentCardData) => void;
-  onConfirm?: (appointment: AppointmentCardData) => void; // Add onConfirm prop
+  onConfirm?: (appointment: AppointmentCardData) => void;
   onContact?: (appointment: AppointmentCardData) => void;
   actions?: ReactNode;
 }
@@ -75,18 +76,21 @@ export function AppointmentCard({
   variant = 'clinic',
   isPast = false,
   showCheckin = false,
-  showConfirm = false, // Add showConfirm prop
+  showConfirm = false,
   onView,
   onReschedule,
   onCancel,
   onStart,
+  onComplete,
   onCheckIn,
-  onConfirm, // Add onConfirm prop
+  onConfirm,
   onContact,
   actions,
 }: AppointmentCardProps) {
   const colors = variantColors[variant];
+  
   const getInitials = (name: string) => {
+    if (!name) return "PT";
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
@@ -96,6 +100,20 @@ export function AppointmentCard({
   };
 
   const { date, time } = formatDateTime(appointment.scheduledDateTime);
+
+  // Helper to determine if payment is pending with reason
+  const getPaymentStatusReason = () => {
+    if (appointment.paymentStatus === 'Pending') {
+      if (appointment.status === 'Scheduled') {
+        return 'Payment required to confirm appointment';
+      }
+      return 'Awaiting payment confirmation';
+    }
+    return null;
+  };
+
+  // Don't show action buttons for past appointments
+  const showActions = !isPast && appointment.status !== 'Completed' && appointment.status !== 'Cancelled';
 
   return (
     <div className="bg-white rounded-2xl border border-[#E0E7FF] shadow-[0_4px_20px_rgba(0,139,139,0.05)] hover:shadow-md transition-all p-5 md:p-6">
@@ -107,9 +125,14 @@ export function AppointmentCard({
               {getInitials(appointment.patientName)}
             </AvatarFallback>
           </Avatar>
-          {!isPast && appointment.status === 'Confirmed' && (
+          {appointment.status === 'Confirmed' && !isPast && (
             <div className="absolute -bottom-2 -right-2 bg-green-500 text-white p-1 rounded-full border-2 border-white">
               <div className="h-2 w-2 rounded-full" />
+            </div>
+          )}
+          {appointment.status === 'Completed' && (
+            <div className="absolute -bottom-2 -right-2 bg-blue-500 text-white p-1 rounded-full border-2 border-white">
+              <CheckCircle className="h-3 w-3" />
             </div>
           )}
         </div>
@@ -150,8 +173,13 @@ export function AppointmentCard({
               </div>
             )}
             {appointment.paymentStatus && (
-              <div className="flex items-center gap-2">
-                <StatusBadge status={appointment.paymentStatus as any} variant="payment" />
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={appointment.paymentStatus as any} variant="payment" />
+                </div>
+                {getPaymentStatusReason() && (
+                  <span className="text-xs text-amber-600 ml-6">{getPaymentStatusReason()}</span>
+                )}
               </div>
             )}
             {appointment.estimatedWaitMinutes && appointment.status === 'Checked-in' && (
@@ -163,12 +191,12 @@ export function AppointmentCard({
             {appointment.cardNumber && (
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-[#006767]" />
-                <span className="text-sm text-[#3d4949]">Card: {appointment.cardNumber}</span>
+                <span className="text-sm text-[#3d4949] font-mono">{appointment.cardNumber}</span>
               </div>
             )}
           </div>
 
-          {/* Actions */}
+          {/* Actions - Only show for non-past, non-completed, non-cancelled appointments */}
           {actions ? (
             actions
           ) : (
@@ -178,12 +206,12 @@ export function AppointmentCard({
                   View Details
                 </Button>
               )}
-              {!isPast && onReschedule && appointment.status === 'Confirmed' && (
+              {showActions && onReschedule && (appointment.status === 'Scheduled' || appointment.status === 'Confirmed') && (
                 <Button variant="outline" size="sm" onClick={() => onReschedule(appointment)} className="rounded-xl">
                   Reschedule
                 </Button>
               )}
-              {!isPast && onCancel && appointment.status !== 'Cancelled' && appointment.status !== 'Completed' && (
+              {showActions && onCancel && appointment.status !== 'Cancelled' && appointment.status !== 'Completed' && (
                 <Button variant="ghost" size="sm" onClick={() => onCancel(appointment)} className="rounded-xl text-red-600 hover:bg-red-50">
                   Cancel
                 </Button>
@@ -198,9 +226,14 @@ export function AppointmentCard({
                   Check In
                 </Button>
               )}
-              {!isPast && onStart && (appointment.status === 'Checked-in' || appointment.status === 'In Progress') && (
+              {showActions && onStart && appointment.status === 'Checked-in' && (
                 <Button size="sm" onClick={() => onStart(appointment)} className={cn("rounded-xl text-white", colors.buttonBg)}>
-                  {appointment.status === 'In Progress' ? 'Continue' : 'Start Consultation'}
+                  Start Consultation
+                </Button>
+              )}
+              {showActions && onComplete && appointment.status === 'In Progress' && (
+                <Button size="sm" onClick={() => onComplete(appointment)} className={cn("rounded-xl text-white", colors.buttonBg)}>
+                  Complete Consultation
                 </Button>
               )}
               {onContact && (

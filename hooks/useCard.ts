@@ -1,10 +1,9 @@
-// hooks/useCard.ts
-
+// hooks/useCard.ts - FIXED
 import { useCallback, useEffect, useMemo } from 'react';
 import { useCardStore } from '@/stores/slices/cardSlice';
-import React from 'react';
-import { Card } from '@/types/entities/card.types';
+import * as React from 'react';
 import { 
+  Card, 
   CardFilters, 
   CardCheckInRequest, 
   CardGenerationRequest,
@@ -47,6 +46,7 @@ export const useCard = (options: UseCardOptions = {}) => {
     clearError,
     reset,
   } = useCardStore();
+
 
   // Auto-fetch cards on mount if enabled
   useEffect(() => {
@@ -91,7 +91,10 @@ export const useCard = (options: UseCardOptions = {}) => {
     if (!cardStats) return null;
     return cardStats.averageTimeToUseMinutes;
   }, [cardStats]);
-
+   const getCardWithAppointment = useCallback(async (cardNumber: string) => {
+    const card = await fetchCardByNumber(cardNumber);
+    return card;
+  }, [fetchCardByNumber]);
   // Actions with additional logic
   const searchCard = useCallback(async (cardNumber: string) => {
     await fetchCardByNumber(cardNumber);
@@ -122,7 +125,7 @@ export const useCard = (options: UseCardOptions = {}) => {
     };
 
     const result = await checkIn(checkInRequest);
-    return result;
+    return { ...result, validationResult: validation };
   }, [validateCard, checkIn]);
 
   const generateCardForAppointment = useCallback(async (
@@ -137,7 +140,7 @@ export const useCard = (options: UseCardOptions = {}) => {
   }, [generateCard]);
 
   const filterByStatus = useCallback((status: CardStatus | 'all') => {
-    setFilters({ ...filters, status });
+    setFilters({ ...filters, status: status === 'all' ? undefined : status });
   }, [filters, setFilters]);
 
   const filterByDateRange = useCallback((dateFrom?: string, dateTo?: string) => {
@@ -153,12 +156,16 @@ export const useCard = (options: UseCardOptions = {}) => {
   }, [filters, setFilters]);
 
   const searchByTerm = useCallback((searchTerm: string) => {
-    setFilters({ ...filters, searchTerm });
+    setFilters({ ...filters, searchTerm: searchTerm || undefined });
   }, [filters, setFilters]);
 
   const clearFilters = useCallback(() => {
     setFilters({});
-  }, [setFilters]);
+    // Also reset local filters state
+    if (options.filters) {
+      fetchCards({});
+    }
+  }, [setFilters, fetchCards, options.filters]);
 
   const resetState = useCallback(() => {
     clearValidationResult();
@@ -195,6 +202,7 @@ export const useCard = (options: UseCardOptions = {}) => {
     fetchCards,
     fetchCardById,
     fetchCardByNumber,
+    getCardWithAppointment,
     fetchCardStats,
     validateCard,
     checkIn,
@@ -291,15 +299,18 @@ export const useCardDashboard = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   useEffect(() => {
-    fetchCards();
-    fetchCardStats();
-    loadExpiringCards();
-  }, [fetchCards, fetchCardStats]);
+    const loadData = async () => {
+      await fetchCards();
+      await fetchCardStats();
+      await loadExpiringCards();
+    };
+    loadData();
+  }, [fetchCards, fetchCardStats]); // Fixed dependency array
 
-  const loadExpiringCards = async () => {
+  const loadExpiringCards = useCallback(async () => {
     const expiring = await getExpiringCards(24);
     setExpiringCards(expiring);
-  };
+  }, [getExpiringCards]);
 
   const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
@@ -310,11 +321,11 @@ export const useCardDashboard = () => {
     setFilters({ status: status === 'all' ? undefined : status });
   }, [setFilters]);
 
-  const refresh = useCallback(() => {
-    fetchCards();
-    fetchCardStats();
-    loadExpiringCards();
-  }, [fetchCards, fetchCardStats]);
+  const refresh = useCallback(async () => {
+    await fetchCards();
+    await fetchCardStats();
+    await loadExpiringCards();
+  }, [fetchCards, fetchCardStats, loadExpiringCards]);
 
   return {
     cards,
@@ -349,9 +360,12 @@ export const useCheckInScreen = () => {
     }
     
     setIsVerifying(true);
-    const result = await validateCard(cardNumber);
-    setIsVerifying(false);
-    return result;
+    try {
+      const result = await validateCard(cardNumber);
+      return result;
+    } finally {
+      setIsVerifying(false);
+    }
   }, [cardNumber, validateCard]);
 
   const handleCheckIn = useCallback(async (
@@ -372,10 +386,12 @@ export const useCheckInScreen = () => {
     if (result.success) {
       // Clear input on success
       setCardNumber('');
+      clearValidationResult();
+      clearCheckInResult();
     }
     
     return result;
-  }, [cardNumber, checkIn]);
+  }, [cardNumber, checkIn, clearValidationResult, clearCheckInResult]);
 
   const reset = useCallback(() => {
     setCardNumber('');
@@ -412,8 +428,11 @@ export const useCardManagement = () => {
   const [selectedCards, setSelectedCards] = React.useState<number[]>([]);
 
   useEffect(() => {
-    fetchCards();
-    fetchCardStats();
+    const loadData = async () => {
+      await fetchCards();
+      await fetchCardStats();
+    };
+    loadData();
   }, [fetchCards, fetchCardStats]);
 
   const handleExpireSelected = useCallback(async () => {
@@ -421,8 +440,9 @@ export const useCardManagement = () => {
       selectedCards.map(id => expireCard(id))
     );
     setSelectedCards([]);
+    await fetchCards(); // Refresh after expiration
     return results;
-  }, [selectedCards, expireCard]);
+  }, [selectedCards, expireCard, fetchCards]);
 
   const handleBulkGenerate = useCallback(async (
     appointmentIds: number[],
@@ -433,8 +453,9 @@ export const useCardManagement = () => {
       validityHours,
     }));
     const results = await bulkGenerateCards(requests);
+    await fetchCards(); // Refresh after generation
     return results;
-  }, [bulkGenerateCards]);
+  }, [bulkGenerateCards, fetchCards]);
 
   const toggleSelectCard = useCallback((cardId: number) => {
     setSelectedCards(prev =>
@@ -460,9 +481,9 @@ export const useCardManagement = () => {
     setFilters({ searchTerm: searchTerm || undefined });
   }, [setFilters]);
 
-  const refresh = useCallback(() => {
-    fetchCards();
-    fetchCardStats();
+  const refresh = useCallback(async () => {
+    await fetchCards();
+    await fetchCardStats();
   }, [fetchCards, fetchCardStats]);
 
   return {
@@ -482,4 +503,3 @@ export const useCardManagement = () => {
     setFilters,
   };
 };
-

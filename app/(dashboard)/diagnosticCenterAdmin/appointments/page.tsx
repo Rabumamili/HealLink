@@ -1,3 +1,4 @@
+// app/diagnosticCenter/appointments/page.tsx
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
@@ -43,7 +44,7 @@ const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCar
   }
 }
 
-export default function ClinicAppointmentsPage() {
+export default function DiagnosticAppointmentsPage() {
   const router = useRouter()
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentCardData | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
@@ -82,7 +83,7 @@ export default function ClinicAppointmentsPage() {
     return [
       { title: "Total Appointments", value: stats.total.toString(), icon: Users, description: "All appointments" },
       { title: "Today's Appointments", value: stats.today.toString(), icon: Calendar, description: "Scheduled today" },
-      { title: "Completed", value: stats.completed.toString(), icon: CheckCircle, description: "Finished appointments" },
+      { title: "Completed", value: stats.completed.toString(), icon: CheckCircle, description: "Completed tests" },
       { title: "Revenue", value: `ETB ${stats.revenue.toLocaleString()}`, icon: DollarSign, description: "Total earned" },
       { title: "Cards Issued", value: stats.cardsIssued.toString(), icon: ClipboardCheck, description: "Cards generated" },
       { title: "Cards Utilized", value: stats.cardsUtilized.toString(), icon: Users, description: "Cards used for check-in" },
@@ -105,31 +106,29 @@ export default function ClinicAppointmentsPage() {
     setIsRescheduleDialogOpen(true)
   }, [])
 
-  const handleStartConsultation = useCallback(async (appointment: AppointmentCardData) => {
+  const handleStartTest = useCallback(async (appointment: AppointmentCardData) => {
     try {
       await updateStatus(appointment.id, "In Progress")
       await refreshData()
-      toast.success("Consultation started")
+      toast.success("Test started")
     } catch (error) {
-      console.error("Error starting consultation:", error)
-      toast.error("Failed to start consultation")
+      console.error("Error starting test:", error)
+      toast.error("Failed to start test")
     }
   }, [updateStatus, refreshData])
 
-  // FIXED: Complete consultation - status changes to Completed, appointment moves to Past tab
-  const handleCompleteConsultation = useCallback(async (appointment: AppointmentCardData) => {
+  const handleCompleteTest = useCallback(async (appointment: AppointmentCardData) => {
     try {
       await updateStatus(appointment.id, "Completed")
       await refreshData()
-      toast.success("Consultation completed successfully")
+      toast.success("Test completed successfully")
       
-      // Optional: Show a message that appointment is now in Past tab
-      toast.info("Completed appointment moved to Past tab", {
+      toast.info("Completed test moved to Past tab", {
         duration: 3000,
       })
     } catch (error) {
-      console.error("Error completing consultation:", error)
-      toast.error("Failed to complete consultation")
+      console.error("Error completing test:", error)
+      toast.error("Failed to complete test")
     }
   }, [updateStatus, refreshData])
 
@@ -170,9 +169,8 @@ export default function ClinicAppointmentsPage() {
     }
   }, [updateStatus, refreshData])
 
-  // Check-in handler that navigates to check-in page
   const handleCheckIn = useCallback(async (appointment: AppointmentCardData) => {
-    router.push(`/clinic/checkin?appointmentId=${appointment.id}&cardNumber=${appointment.cardNumber}`)
+    router.push(`/diagnosticCenter/checkin?appointmentId=${appointment.id}&cardNumber=${appointment.cardNumber}`)
   }, [router])
 
   const handleCancel = useCallback(async (appointment: AppointmentCardData) => {
@@ -206,8 +204,8 @@ export default function ClinicAppointmentsPage() {
     <div className="min-h-screen bg-[#F8F9FF] pb-20">
       <div className="max-w-[1200px] mx-auto px-4 md:px-8 pt-8">
         <PageHeader
-          title="Clinic Appointments"
-          subtitle="Manage patient appointments, verify payments, and handle check-ins"
+          title="Diagnostic Appointments"
+          subtitle="Manage patient test appointments, verify payments, and handle check-ins"
           actions={
             <Button 
               onClick={handleRefresh}
@@ -246,7 +244,6 @@ export default function ClinicAppointmentsPage() {
             currentAppointments.map((appointment) => {
               const appointmentCardData = toAppointmentCardData(appointment)
               
-              // Determine which actions to show based on appointment status and tab
               const showConfirm = !isPastTab && 
                 appointment.status === "Scheduled" && 
                 appointment.paymentStatus === "Paid"
@@ -272,8 +269,8 @@ export default function ClinicAppointmentsPage() {
                   onView={handleView}
                   onReschedule={showReschedule ? handleReschedule : undefined}
                   onCancel={showCancel ? handleCancel : undefined}
-                  onStart={showStart ? handleStartConsultation : undefined}
-                  onComplete={showComplete ? handleCompleteConsultation : undefined}
+                  onStart={showStart ? handleStartTest : undefined}
+                  onComplete={showComplete ? handleCompleteTest : undefined}
                   onConfirm={showConfirm ? handleConfirmAppointment : undefined}
                   onCheckIn={showCheckin ? handleCheckIn : undefined}
                 />
@@ -283,14 +280,14 @@ export default function ClinicAppointmentsPage() {
             <EmptyState
               variant="appointment"
               message={
-                activeTab === "today" ? "No appointments today" : 
-                activeTab === "upcoming" ? "No upcoming appointments" : 
-                "No past appointments"
+                activeTab === "today" ? "No tests today" : 
+                activeTab === "upcoming" ? "No upcoming tests" : 
+                "No past tests"
               }
               submessage={
-                activeTab === "today" ? "No patient appointments scheduled for today" : 
-                activeTab === "upcoming" ? "No future appointments scheduled" : 
-                "Completed and cancelled appointments will appear here"
+                activeTab === "today" ? "No patient tests scheduled for today" : 
+                activeTab === "upcoming" ? "No future tests scheduled" : 
+                "Completed and cancelled tests will appear here"
               }
             />
           )}
@@ -301,8 +298,8 @@ export default function ClinicAppointmentsPage() {
         open={isViewDialogOpen}
         onOpenChange={setIsViewDialogOpen}
         appointment={selectedAppointment}
-        onStart={handleStartConsultation}
-        onComplete={handleCompleteConsultation}
+        onStart={handleStartTest}
+        onComplete={handleCompleteTest}
         onReschedule={handleReschedule}
         variant="clinic"
       />

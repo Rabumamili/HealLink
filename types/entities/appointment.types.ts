@@ -1,4 +1,8 @@
-// types/entities/appointment.types.ts (UPDATED)
+// types/entities/appointment.types.ts
+import { TimeSlot } from './schedule.types';
+import { PatientProfile } from './profile.types';
+import { Service, ServiceType } from './service.types';
+import { Card, CardStatus } from './card.types';
 
 export type AppointmentStatus = 
   | 'Scheduled' 
@@ -9,31 +13,16 @@ export type AppointmentStatus =
   | 'Cancelled' 
   | 'No-show';
 
-export type AppointmentType = 
-  | 'Diagnostic' 
-  | 'Consultation' 
-  | 'Follow-up' 
-  | 'Emergency' 
-  | 'Vaccination' 
-  | 'Procedure';
-
 export type PaymentStatus = 'Paid' | 'Pending' | 'Failed' | 'Refunded';
-
-// Import from the corrected schedule.types
-import { TimeSlot } from './schedule.types';
-import { PatientProfile } from './profile.types';
-import { Service } from './service.types';
-import { Card, CardStatus } from './card.types'; // NEW import
 
 export interface Appointment {
   id: number;
   patientId: number;
   serviceId: number;
-  slotId: number;           // References slot_id from schedule table
-  type: AppointmentType;
+  slotId: number;
   scheduledDateTime: string;
   status: AppointmentStatus;
-  checkInTime: string | null;  // Should match card.used_at
+  checkInTime: string | null;
   startTime: string | null;
   endTime: string | null;
   estimatedWaitMinutes: number | null;
@@ -41,12 +30,32 @@ export interface Appointment {
   createdAt: string;
   updatedAt: string;
   paymentId: number | null;
-  cardId: number | null;        // FIX: Add reference to card (FK → card.id)
+  cardId: number | null;
 }
 
-export interface AppointmentWithSlot extends Appointment {
-  slot?: TimeSlot;
-  availableSlots?: number;
+export interface CreateAppointmentDTO {
+  patientId: number;
+  serviceId: number;
+  slotId: number;
+  scheduledDateTime: string;
+  notes?: string | null;
+}
+
+export interface BookAppointmentRequest {
+  patientId: number;
+  serviceId: number;
+  slotId: number;
+  scheduledDateTime: string;
+  paymentConfirmed: boolean;
+  notes?: string | null;
+}
+
+export interface BookAppointmentResponse {
+  success: boolean;
+  appointment?: Appointment;
+  card?: Card;
+  paymentId?: number;
+  message?: string;
 }
 
 export interface AppointmentFilters {
@@ -57,9 +66,10 @@ export interface AppointmentFilters {
   patientId?: number;
   serviceId?: number;
   slotId?: number;
-  type?: AppointmentType;
-  hasCard?: boolean;            // FIX: Filter by card existence
-  cardStatus?: CardStatus;      // FIX: Filter by card status
+  type?: ServiceType | 'all';
+  hasCard?: boolean;
+  cardStatus?: CardStatus;
+  providerId?: number;
 }
 
 export interface AppointmentStats {
@@ -74,35 +84,33 @@ export interface AppointmentStats {
   averageWaitTime: number;
   revenue: number;
   upcoming: number;
-  cardsIssued: number;          // FIX: Track card issuance
-  cardsUtilized: number;        // FIX: Track card usage (check-ins)
+  cardsIssued: number;
+  cardsUtilized: number;
 }
 
 export interface CheckedInPatient {
-  id: string;                    // Consider changing to number to match card_id or appointment_id
+  id: number;
   patientName: string;
   cardNumber: string;
   serviceName: string;
+  serviceType?: ServiceType;
   checkInTime: string;
   scheduledTime: string;
   status: 'waiting' | 'in-progress' | 'completed';
   queueNumber: number;
   estimatedWaitMinutes: number;
-  cardId?: number;               // FIX: Add reference to card
-  appointmentId?: number;       // FIX: Add reference to appointment
+  cardId?: number;
+  appointmentId?: number;
 }
 
-// types/entities/appointment.types.ts
-
-// ... existing imports ...
-
 export interface EnrichedAppointment extends Appointment {
-  paymentStatus: string;
+  paymentStatus: PaymentStatus;
   fee: number;
   patientName: string;
   patientEmail?: string;
   patientPhone?: string;
   serviceName?: string;
+  serviceType?: ServiceType;
   slotTime?: string;
   cardNumber?: string;
   cardStatus?: CardStatus;
@@ -113,9 +121,8 @@ export interface EnrichedAppointment extends Appointment {
   locationDetail?: string;
 }
 
-
 export interface AppointmentWithDetails extends EnrichedAppointment {
   patient?: PatientProfile;
   service?: Service;
-  card?: Card;                  
+  card?: Card;
 }

@@ -1,6 +1,6 @@
 // mocks/card.mock.ts
 
-import { Card, CardStatus, CardWithAppointment, CardFilters, CardStats, CardValidationResult, CardGenerationRequest } from '@/types/entities/card.types';
+import { Card, CardStatus, CardWithAppointment, CardFilters, CardStats, CardValidationResult, CardGenerationRequest, CardCheckInResult, CardGenerationResult } from '@/types/entities/card.types';
 
 // Mock Cards
 export const mockCards: Card[] = [
@@ -86,105 +86,28 @@ export const mockCards: Card[] = [
   }
 ];
 
-// Mock Cards with Appointment Details (updated with providerType and providerName)
-export const mockCardsWithAppointments: CardWithAppointment[] = [
-  {
-    ...mockCards[0],
-    appointment: {
-      id: 101,
-      patientId: 201,
-      patientName: 'John Smith',
-      scheduledDateTime: '2026-01-27T10:00:00Z',
-      serviceName: 'Dental Cleaning',
-      providerType: 'clinic',
-      providerName: 'Hayat General Clinic'
-    }
-  },
-  {
-    ...mockCards[1],
-    appointment: {
-      id: 102,
-      patientId: 202,
-      patientName: 'Sarah Johnson',
-      scheduledDateTime: '2026-01-27T09:30:00Z',
-      serviceName: 'Root Canal',
-      providerType: 'clinic',
-      providerName: 'Hayat General Clinic'
-    }
-  },
-  {
-    ...mockCards[2],
-    appointment: {
-      id: 103,
-      patientId: 203,
-      patientName: 'Michael Brown',
-      scheduledDateTime: '2026-01-25T15:00:00Z',
-      serviceName: 'X-Ray',
-      providerType: 'diagnostic_center',
-      providerName: 'Ethio Diagnostic Center'
-    }
-  },
-  {
-    ...mockCards[3],
-    appointment: {
-      id: 104,
-      patientId: 204,
-      patientName: 'Emily Davis',
-      scheduledDateTime: '2026-01-27T14:00:00Z',
-      serviceName: 'Consultation',
-      providerType: 'doctor',
-      providerName: 'Dr. Robsan Chimdi'
-    }
-  },
-  {
-    ...mockCards[4],
-    appointment: {
-      id: 105,
-      patientId: 205,
-      patientName: 'David Wilson',
-      scheduledDateTime: '2026-01-26T13:00:00Z',
-      serviceName: 'Vaccination',
-      providerType: 'clinic',
-      providerName: 'Bole Medical Center'
-    }
-  },
-  {
-    ...mockCards[5],
-    appointment: {
-      id: 106,
-      patientId: 206,
-      patientName: 'Lisa Anderson',
-      scheduledDateTime: '2026-01-24T17:00:00Z',
-      serviceName: 'Follow-up',
-      providerType: 'doctor',
-      providerName: 'Dr. Robera Shimelis'
-    }
-  },
-  {
-    ...mockCards[6],
-    appointment: {
-      id: 107,
-      patientId: 207,
-      patientName: 'Robert Taylor',
-      scheduledDateTime: '2026-01-27T08:00:00Z',
-      serviceName: 'Emergency Procedure',
-      providerType: 'clinic',
-      providerName: 'St. Paul Clinic'
-    }
-  },
-  {
-    ...mockCards[7],
-    appointment: {
-      id: 108,
-      patientId: 208,
-      patientName: 'Jennifer Martinez',
-      scheduledDateTime: '2026-01-26T10:00:00Z',
-      serviceName: 'Dental Filling',
-      providerType: 'clinic',
-      providerName: 'Hayat General Clinic'
-    }
-  }
-];
+// Mock appointment data for enrichment
+const mockAppointmentsForCards = {
+  101: { patientId: 201, patientName: 'John Smith', scheduledDateTime: '2026-01-27T10:00:00Z', serviceName: 'Dental Cleaning', providerType: 'clinic' as const, providerName: 'Hayat General Clinic' },
+  102: { patientId: 202, patientName: 'Sarah Johnson', scheduledDateTime: '2026-01-27T09:30:00Z', serviceName: 'Root Canal', providerType: 'clinic' as const, providerName: 'Hayat General Clinic' },
+  103: { patientId: 203, patientName: 'Michael Brown', scheduledDateTime: '2026-01-25T15:00:00Z', serviceName: 'X-Ray', providerType: 'diagnostic_center' as const, providerName: 'Ethio Diagnostic Center' },
+  104: { patientId: 204, patientName: 'Emily Davis', scheduledDateTime: '2026-01-27T14:00:00Z', serviceName: 'Consultation', providerType: 'doctor' as const, providerName: 'Dr. Robsan Chimdi' },
+  105: { patientId: 205, patientName: 'David Wilson', scheduledDateTime: '2026-01-26T13:00:00Z', serviceName: 'Vaccination', providerType: 'clinic' as const, providerName: 'Bole Medical Center' },
+  106: { patientId: 206, patientName: 'Lisa Anderson', scheduledDateTime: '2026-01-24T17:00:00Z', serviceName: 'Follow-up', providerType: 'doctor' as const, providerName: 'Dr. Robera Shimelis' },
+  107: { patientId: 207, patientName: 'Robert Taylor', scheduledDateTime: '2026-01-27T08:00:00Z', serviceName: 'Emergency Procedure', providerType: 'clinic' as const, providerName: 'St. Paul Clinic' },
+  108: { patientId: 208, patientName: 'Jennifer Martinez', scheduledDateTime: '2026-01-26T10:00:00Z', serviceName: 'Dental Filling', providerType: 'clinic' as const, providerName: 'Hayat General Clinic' }
+};
+
+// Mock Cards with Appointment Details
+export const mockCardsWithAppointments: CardWithAppointment[] = mockCards.map(card => ({
+  ...card,
+  appointment: mockAppointmentsForCards[card.appointmentId as keyof typeof mockAppointmentsForCards]
+    ? {
+        id: card.appointmentId,
+        ...mockAppointmentsForCards[card.appointmentId as keyof typeof mockAppointmentsForCards]
+      }
+    : undefined
+}));
 
 // Mock Card Statistics
 export const mockCardStats: CardStats = {
@@ -196,7 +119,7 @@ export const mockCardStats: CardStats = {
   averageTimeToUseMinutes: 125.5
 };
 
-// Mock Card Validation Results (with updated error types)
+// Mock Card Validation Results
 export const mockCardValidationResults = {
   valid: {
     isValid: true,
@@ -213,14 +136,14 @@ export const mockCardValidationResults = {
   expired: {
     isValid: false,
     card: mockCards[2],
-    error: 'expired' as any, // Note: Update CardValidationResult error type to include 'expired'
+    error: 'expired',
     message: 'Card has expired. Please contact reception for assistance.'
   } as CardValidationResult,
   
   alreadyUsed: {
     isValid: false,
     card: mockCards[1],
-    error: 'already_used' as any, // Note: Update CardValidationResult error type to include 'already_used'
+    error: 'already_used',
     message: 'This card has already been used for check-in'
   } as CardValidationResult,
   
@@ -249,42 +172,51 @@ export const mockCardGenerationRequests: CardGenerationRequest[] = [
 
 // Helper function to filter cards
 export const filterMockCards = (filters: CardFilters): Card[] => {
-  return mockCards.filter(card => {
-    if (filters.status && filters.status !== 'all' && card.status !== filters.status) {
-      return false;
-    }
-    if (filters.appointmentId && card.appointmentId !== filters.appointmentId) {
-      return false;
-    }
-    if (filters.patientId) {
-      // Find appointment to check patientId
-      const cardWithAppt = mockCardsWithAppointments.find(c => c.id === card.id);
-      if (cardWithAppt?.appointment?.patientId !== filters.patientId) {
-        return false;
+  let filtered = [...mockCards];
+  
+  if (filters.status && filters.status !== 'all') {
+    filtered = filtered.filter(card => card.status === filters.status);
+  }
+  if (filters.appointmentId) {
+    filtered = filtered.filter(card => card.appointmentId === filters.appointmentId);
+  }
+  if (filters.dateFrom) {
+    filtered = filtered.filter(card => card.createdAt >= filters.dateFrom!);
+  }
+  if (filters.dateTo) {
+    filtered = filtered.filter(card => card.createdAt <= filters.dateTo!);
+  }
+  if (filters.searchTerm) {
+    const searchLower = filters.searchTerm.toLowerCase();
+    filtered = filtered.filter(card => 
+      card.cardNumber.toLowerCase().includes(searchLower) ||
+      card.id.toString().includes(searchLower)
+    );
+  }
+  
+  // Patient and provider filtering requires appointment lookup
+  if (filters.patientId || filters.providerId) {
+    filtered = filtered.filter(card => {
+      const appointment = mockAppointmentsForCards[card.appointmentId as keyof typeof mockAppointmentsForCards];
+      if (!appointment) return false;
+      if (filters.patientId && appointment.patientId !== filters.patientId) return false;
+      if (filters.providerId) {
+        // Map provider name to ID (simplified)
+        const providerIdMap: Record<string, number> = {
+          'Hayat General Clinic': 1,
+          'Ethio Diagnostic Center': 2,
+          'Dr. Robsan Chimdi': 3,
+          'Bole Medical Center': 4,
+          'Dr. Robera Shimelis': 5,
+          'St. Paul Clinic': 6
+        };
+        if (appointment.providerName && providerIdMap[appointment.providerName] !== filters.providerId) return false;
       }
-    }
-    if (filters.providerId) {
-      const cardWithAppt = mockCardsWithAppointments.find(c => c.id === card.id);
-      if (cardWithAppt?.appointment?.id !== filters.providerId) {
-        return false;
-      }
-    }
-    if (filters.dateFrom && card.createdAt < filters.dateFrom) {
-      return false;
-    }
-    if (filters.dateTo && card.createdAt > filters.dateTo) {
-      return false;
-    }
-    if (filters.searchTerm) {
-      const searchLower = filters.searchTerm.toLowerCase();
-      const cardNumberMatch = card.cardNumber.toLowerCase().includes(searchLower);
-      const cardIdMatch = card.id.toString().includes(searchLower);
-      if (!cardNumberMatch && !cardIdMatch) {
-        return false;
-      }
-    }
-    return true;
-  });
+      return true;
+    });
+  }
+  
+  return filtered;
 };
 
 // Pre-filtered card lists
@@ -338,11 +270,11 @@ export const mockCardCheckInResults = {
     serviceName: 'Dental Cleaning',
     scheduledDateTime: '2026-01-27T10:00:00Z',
     message: 'Successfully checked in. Please proceed to waiting area.'
-  },
+  } as CardCheckInResult,
   failure: {
     success: false,
     message: 'Check-in failed. Card is invalid.'
-  }
+  } as CardCheckInResult
 };
 
 // Mock Card Generation Results
@@ -351,9 +283,9 @@ export const mockCardGenerationResults = {
     success: true,
     card: mockCards[0],
     message: 'Card generated successfully'
-  },
+  } as CardGenerationResult,
   failure: {
     success: false,
     message: 'Failed to generate card. Appointment not found.'
-  }
+  } as CardGenerationResult
 };

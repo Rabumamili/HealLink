@@ -1,11 +1,10 @@
 // app/diagnostic-center/schedule/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Plus, TestTube } from 'lucide-react';
+import { Plus, TestTube, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSchedule } from '@/hooks/useSchedule';
 import { DaySchedule, TimeSlotTemplate } from '@/types/entities/schedule.types';
@@ -22,6 +21,7 @@ export default function DiagnosticCenterSchedulePage() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isAddSlotOpen, setIsAddSlotOpen] = useState(false);
   const [localSchedule, setLocalSchedule] = useState<DaySchedule[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
     daySchedule,
@@ -29,6 +29,8 @@ export default function DiagnosticCenterSchedulePage() {
     isLoading,
     saveDayScheduleTemplate,
     updateScheduleSettings,
+    fetchDayScheduleTemplate,
+    fetchScheduleSettings,
   } = useSchedule({
     providerId: DIAGNOSTIC_PROVIDER_ID,
     providerType: 'diagnostic',
@@ -40,6 +42,20 @@ export default function DiagnosticCenterSchedulePage() {
       setLocalSchedule(daySchedule);
     }
   }, [daySchedule]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      await fetchDayScheduleTemplate('diagnostic', DIAGNOSTIC_PROVIDER_ID)
+      await fetchScheduleSettings(DIAGNOSTIC_PROVIDER_ID)
+      toast.success("Schedule refreshed")
+    } catch (error) {
+      console.error("Error refreshing schedule:", error)
+      toast.error("Failed to refresh schedule")
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [fetchDayScheduleTemplate, fetchScheduleSettings])
 
   const addTimeSlot = (day: string, slotData: any) => {
     setLocalSchedule(prev => prev.map(d => {
@@ -108,7 +124,11 @@ export default function DiagnosticCenterSchedulePage() {
   };
 
   const handleSettingChange = async (key: string, value: any) => {
-    await updateScheduleSettings(DIAGNOSTIC_PROVIDER_ID, { [key]: value });
+    try {
+      await updateScheduleSettings(DIAGNOSTIC_PROVIDER_ID, { [key]: value });
+    } catch (error) {
+      toast.error("Failed to update settings");
+    }
   };
 
   if (isLoading && localSchedule.length === 0) {
@@ -121,6 +141,22 @@ export default function DiagnosticCenterSchedulePage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#006767]">Schedule Management</h1>
+          <p className="text-muted-foreground">Configure diagnostic center operating hours and test scheduling</p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="border-[#006767]/20 text-[#006767] hover:bg-[#006767]/5"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </div>
+
       <ScheduleHeader
         title="Center Schedule Management"
         description="Configure diagnostic center operating hours and test scheduling"

@@ -74,52 +74,53 @@ class CardService extends ApiService {
     }
   }
 
-  // Validate card for check-in
-  async validateCard(cardNumber: string): Promise<CardValidationResult> {
-    try {
-      return await this.post<CardValidationResult>('/cards/validate', { cardNumber });
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for validateCard:', error);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const card = mockCards.find(c => c.cardNumber === cardNumber);
-        
-        if (!card) {
-          return {
-            isValid: false,
-            error: 'not_found',
-            message: 'Card number not found in system'
-          };
-        }
-        
-        // For expired or used cards, we still return isValid: false
-        // but without the specific error type (just a generic message)
-        if (card.status === 'Expired') {
-          return {
-            isValid: false,
-            card,
-            message: 'Card has expired. Please contact reception for assistance.'
-          };
-        }
-        
-        if (card.status === 'Used') {
-          return {
-            isValid: false,
-            card,
-            message: 'This card has already been used for check-in'
-          };
-        }
-        
+  // In card.service.ts - Fix the error type mapping
+
+async validateCard(cardNumber: string): Promise<CardValidationResult> {
+  try {
+    return await this.post<CardValidationResult>('/cards/validate', { cardNumber });
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Using mock data for validateCard:', error);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const card = mockCards.find(c => c.cardNumber === cardNumber);
+      
+      if (!card) {
         return {
-          isValid: true,
-          card,
-          message: 'Card is valid and ready for check-in'
+          isValid: false,
+          error: 'not_found',
+          message: 'Card number not found in system'
         };
       }
-      throw error;
+      
+      if (card.status === 'Expired') {
+        return {
+          isValid: false,
+          card,
+          error: 'expired',  
+          message: 'Card has expired. Please contact reception for assistance.'
+        };
+      }
+      
+      if (card.status === 'Used') {
+        return {
+          isValid: false,
+          card,
+          error: 'already_used',  // FIXED: Added error property
+          message: 'This card has already been used for check-in'
+        };
+      }
+      
+      return {
+        isValid: true,
+        card,
+        message: 'Card is valid and ready for check-in'
+      };
     }
+    throw error;
   }
+}
 
   // Check in patient using card
   async checkIn(request: CardCheckInRequest): Promise<CardCheckInResult> {

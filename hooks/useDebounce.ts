@@ -1,4 +1,4 @@
-// hooks/useDebounce.ts
+// hooks/useDebounce.ts - FIXED (already correct, just adding comments)
 import { useState, useEffect } from "react";
 
 export function useDebounce<T>(value: T, delay: number = 500): T {
