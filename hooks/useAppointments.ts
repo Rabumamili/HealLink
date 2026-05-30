@@ -1,9 +1,14 @@
-// hooks/useAppointments.ts - FULLY FIXED
+// hooks/useAppointments.ts
 import { useEffect, useCallback } from 'react';
-import { useAppointmentStore } from '@/stores/slices/appiontmentSlice'; // FIXED: Corrected filename from 'appiontmentSlice' to 'appointment.slice'
-import { AppointmentStatus, BookAppointmentRequest } from '@/types/entities/appointment.types';
+import { useAppointmentStore } from '@/stores/slices/appiontmentSlice';
+import {
+  AppointmentStatus,
+  BookAppointmentRequest,
+  EnrichedAppointment,
+} from '@/types/entities/appointment.types';
+import { PaymentStatus } from '@/types/entities/payment.types';
 
-export const useAppointments = (providerId?: string) => {
+export const useAppointments = (providerId?: number) => {
   const {
     appointments,
     stats,
@@ -11,111 +16,238 @@ export const useAppointments = (providerId?: string) => {
     isLoading,
     error,
     filters,
+
     fetchAppointments,
     fetchStats,
     fetchCheckedInPatients,
+
     updateStatus,
     updateTiming,
     checkinPatient,
     cancelAppointment,
     createAppointment,
+
     bookAppointment,
-    bookAppointmentWithPendingPayment,  // ADDED
-    createChapaCheckout,               // ADDED
-    confirmAfterChapaPayment,          // ADDED
+    bookAppointmentWithPendingPayment,
+    createChapaCheckout,
+    confirmAfterChapaPayment,
+
+    getAppointmentPaymentStatus,
+    updateAppointmentPaymentStatus,
+    retryFailedPayment,
+
     setFilters,
     clearError,
+
     getAppointmentsByStatus,
+    getAppointmentsByPaymentStatus,
     getTodayAppointments,
     getAppointmentsByDate,
+
     setProviderContext,
+
+    fetchPatientAppointments,
+    fetchUpcomingPatientAppointments,
+    fetchPastPatientAppointments,
+
+    fetchProviderAppointments,
+    fetchUpcomingProviderAppointments,
+    fetchTodayProviderAppointments,
+
     refreshData: storeRefreshData,
   } = useAppointmentStore();
 
   const loadData = useCallback(async () => {
-    if (providerId) {
-      setProviderContext(providerId);
-      await fetchStats(providerId);
-      await fetchCheckedInPatients(providerId);
-    } else {
-      await fetchStats();
-      await fetchCheckedInPatients();
+    try {
+      if (providerId) {
+        setProviderContext(providerId);
+      }
+
+      await Promise.all([
+        fetchStats(),
+        fetchCheckedInPatients(),
+        fetchAppointments(),
+      ]);
+    } catch (error) {
+      console.error('Failed to load appointment data:', error);
     }
-    await fetchAppointments();
-  }, [providerId, fetchAppointments, fetchStats, fetchCheckedInPatients, setProviderContext]);
+  }, [
+    providerId,
+    setProviderContext,
+    fetchAppointments,
+    fetchStats,
+    fetchCheckedInPatients,
+  ]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
-  // Refresh function to reload all data
   const refreshData = useCallback(async () => {
-    await loadData();
-  }, [loadData]);
+    await storeRefreshData();
+  }, [storeRefreshData]);
 
   const upcomingAppointments = getAppointmentsByStatus('upcoming');
   const pastAppointments = getAppointmentsByStatus('past');
   const todayAppointments = getTodayAppointments();
 
-  // Helper method to get appointments for a specific date
-  const getAppointmentsForDate = (date: string) => {
-    return getAppointmentsByDate(date);
-  };
+  const getAppointmentsForDate = useCallback(
+    (date: string) => getAppointmentsByDate(date),
+    [getAppointmentsByDate]
+  );
 
-  // Helper method to get appointments by specific status
-  const getAppointmentsBySpecificStatus = (status: AppointmentStatus) => {
-    return getAppointmentsByStatus(status);
-  };
+  const getAppointmentsBySpecificStatus = useCallback(
+    (status: AppointmentStatus) => getAppointmentsByStatus(status),
+    [getAppointmentsByStatus]
+  );
 
-  // Helper method to book an appointment with Chapa payment
-  const bookNewAppointment = useCallback(async (request: BookAppointmentRequest) => {
-    return await bookAppointment(request);
-  }, [bookAppointment]);
+  const getAppointmentsByPaymentStatusFilter = useCallback(
+    (status: PaymentStatus) => getAppointmentsByPaymentStatus(status),
+    [getAppointmentsByPaymentStatus]
+  );
 
-  // Helper method to book an appointment with pending payment (pay later)
-  const bookPendingAppointment = useCallback(async (request: BookAppointmentRequest) => {
-    return await bookAppointmentWithPendingPayment(request);
-  }, [bookAppointmentWithPendingPayment]);
+  const bookNewAppointment = useCallback(
+    async (request: BookAppointmentRequest) => {
+      return await bookAppointment(request);
+    },
+    [bookAppointment]
+  );
 
-  // Helper method to create Chapa checkout URL
-  const createChapaPaymentLink = useCallback(async (request: BookAppointmentRequest) => {
-    return await createChapaCheckout(request);
-  }, [createChapaCheckout]);
+  const bookPendingAppointment = useCallback(
+    async (request: BookAppointmentRequest) => {
+      return await bookAppointmentWithPendingPayment(request);
+    },
+    [bookAppointmentWithPendingPayment]
+  );
 
-  // Helper method to confirm payment after Chapa webhook
-  const confirmPayment = useCallback(async (appointmentId: number, paymentId: number, txRef: string) => {
-    return await confirmAfterChapaPayment(appointmentId, paymentId, txRef);
-  }, [confirmAfterChapaPayment]);
+  const createChapaPaymentLink = useCallback(
+    async (request: BookAppointmentRequest) => {
+      return await createChapaCheckout(request);
+    },
+    [createChapaCheckout]
+  );
 
-  // Helper method to get appointments by service type
-  const getAppointmentsByServiceType = useCallback((serviceType: string) => {
-    return appointments.filter(a => a.serviceType === serviceType);
-  }, [appointments]);
+  const confirmPayment = useCallback(
+    async (
+      appointmentId: number,
+      paymentId: number,
+      txRef: string
+    ) => {
+      return await confirmAfterChapaPayment(
+        appointmentId,
+        paymentId,
+        txRef
+      );
+    },
+    [confirmAfterChapaPayment]
+  );
 
-  // Helper method to get appointments by provider
-  const getAppointmentsByProvider = useCallback((providerName: string) => {
-    return appointments.filter(a => a.providerName === providerName);
-  }, [appointments]);
+  const getPaymentStatus = useCallback(
+    async (appointmentId: number) => {
+      return await getAppointmentPaymentStatus(appointmentId);
+    },
+    [getAppointmentPaymentStatus]
+  );
 
-  // Helper method to get appointments with cards
-  const getAppointmentsWithCards = useCallback(() => {
-    return appointments.filter(a => a.cardNumber);
-  }, [appointments]);
+  const updatePaymentStatus = useCallback(
+    async (
+      appointmentId: number,
+      status: PaymentStatus
+    ) => {
+      return await updateAppointmentPaymentStatus(
+        appointmentId,
+        status
+      );
+    },
+    [updateAppointmentPaymentStatus]
+  );
 
-  // Helper method to get confirmed appointments
-  const getConfirmedAppointments = useCallback(() => {
-    return appointments.filter(a => a.status === 'Confirmed');
-  }, [appointments]);
+  const retryPayment = useCallback(
+    async (appointmentId: number) => {
+      return await retryFailedPayment(appointmentId);
+    },
+    [retryFailedPayment]
+  );
 
-  // Helper method to get checked-in appointments
-  const getCheckedInAppointments = useCallback(() => {
-    return appointments.filter(a => a.status === 'Checked-in');
-  }, [appointments]);
+  const getAppointmentsByServiceType = useCallback(
+  (serviceType: string): EnrichedAppointment[] => {
+    return appointments.filter(
+      (appointment: EnrichedAppointment) =>
+        appointment.serviceType === serviceType
+    );
+  },
+  [appointments]
+);
 
-  // Helper method to get completed appointments
-  const getCompletedAppointments = useCallback(() => {
-    return appointments.filter(a => a.status === 'Completed');
-  }, [appointments]);
+const getAppointmentsByProviderName = useCallback(
+  (providerName: string): EnrichedAppointment[] => {
+    return appointments.filter(
+      (appointment: EnrichedAppointment) =>
+        appointment.providerName === providerName
+    );
+  },
+  [appointments]
+);
+
+const getAppointmentsWithCards = useCallback((): EnrichedAppointment[] => {
+  return appointments.filter(
+    (appointment: EnrichedAppointment) =>
+      Boolean(appointment.cardNumber)
+  );
+}, [appointments]);
+
+const getConfirmedAppointments = useCallback((): EnrichedAppointment[] => {
+  return appointments.filter(
+    (appointment: EnrichedAppointment) =>
+      appointment.status === 'Confirmed'
+  );
+}, [appointments]);
+
+const getCheckedInAppointments = useCallback((): EnrichedAppointment[] => {
+  return appointments.filter(
+    (appointment: EnrichedAppointment) =>
+      appointment.status === 'Checked-in'
+  );
+}, [appointments]);
+
+const getCompletedAppointments = useCallback((): EnrichedAppointment[] => {
+  return appointments.filter(
+    (appointment: EnrichedAppointment) =>
+      appointment.status === 'Completed'
+  );
+}, [appointments]);
+
+const getPaidAppointments = useCallback((): EnrichedAppointment[] => {
+  return appointments.filter(
+    (appointment: EnrichedAppointment) =>
+      appointment.paymentStatus === 'SUCCESS'
+  );
+}, [appointments]);
+
+const getPendingPaymentAppointments = useCallback((): EnrichedAppointment[] => {
+  return appointments.filter(
+    (appointment: EnrichedAppointment) =>
+      appointment.paymentStatus === 'PENDING'
+  );
+}, [appointments]);
+
+const getFailedPaymentAppointments = useCallback((): EnrichedAppointment[] => {
+  return appointments.filter(
+    (appointment: EnrichedAppointment) =>
+      appointment.paymentStatus === 'FAILED'
+  );
+}, [appointments]);
+
+  const reschedule = useCallback(
+    async (
+      id: number,
+      startTime: string,
+      endTime: string
+    ) => {
+      await updateTiming(id, startTime, endTime);
+    },
+    [updateTiming]
+  );
 
   return {
     // Data
@@ -125,48 +257,69 @@ export const useAppointments = (providerId?: string) => {
     upcomingAppointments,
     pastAppointments,
     todayAppointments,
-    
-    // Status
+
+    // State
     isLoading,
     error,
     filters,
-    
-    // Actions
+
+    // Core actions
     updateStatus,
     updateTiming,
     checkinPatient,
     cancelAppointment,
     createAppointment,
+
+    // Booking
     bookAppointment: bookNewAppointment,
-    bookAppointmentWithPendingPayment: bookPendingAppointment,
+    bookAppointmentWithPendingPayment:
+      bookPendingAppointment,
     createChapaCheckout: createChapaPaymentLink,
     confirmAfterChapaPayment: confirmPayment,
+
+    // Payments
+    getPaymentStatus,
+    updatePaymentStatus,
+    retryFailedPayment: retryPayment,
+
+    // Filters
     setFilters,
     clearError,
+
+    // Refresh
     refreshData,
-    
-    // Expose fetch functions for manual refresh
+
+    // Raw fetch methods
     fetchAppointments,
     fetchStats,
     fetchCheckedInPatients,
-    
-    // Helper methods
+
+    // Patient methods
+    fetchPatientAppointments,
+    fetchUpcomingPatientAppointments,
+    fetchPastPatientAppointments,
+
+    // Provider methods
+    fetchProviderAppointments,
+    fetchUpcomingProviderAppointments,
+    fetchTodayProviderAppointments,
+
+    // Helpers
     getAppointmentsForDate,
     getAppointmentsBySpecificStatus,
+    getAppointmentsByPaymentStatusFilter,
     getAppointmentsByServiceType,
-    getAppointmentsByProvider,
+    getAppointmentsByProviderName,
     getAppointmentsWithCards,
     getConfirmedAppointments,
     getCheckedInAppointments,
     getCompletedAppointments,
-    
-    // Legacy compatibility (if needed for existing code)
-    reschedule: async (id: number, date: string, time: string) => {
-      console.warn('reschedule is deprecated. Please use updateTiming instead');
-      const startTime = `${date} ${time}`;
-      const endTime = `${date} ${parseInt(time) + 30}:00`;
-      await updateTiming(id, startTime, endTime);
-    },
+    getPaidAppointments,
+    getPendingPaymentAppointments,
+    getFailedPaymentAppointments,
+
+    // Legacy compatibility
+    reschedule,
     cancel: cancelAppointment,
   };
 };

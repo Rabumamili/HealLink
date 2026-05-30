@@ -1,6 +1,7 @@
 // types/entities/profile.types.ts
 
 import { ProviderType, VerificationStatus, ProfessionalVerificationStatus, StaffSubRole } from './auth.types';
+import { PaymentStatus } from './payment.types';
 
 // ===============================
 // BASE PROFILE TYPES
@@ -17,29 +18,32 @@ export interface BaseProfile {
 }
 
 // ===============================
-// PATIENT PROFILE (has first_name, last_name)
+// USER (PATIENT) PROFILE
 // ===============================
 
-export interface PatientProfile extends BaseProfile {
+export interface PatientProfile {
+  status: PaymentStatus;
+  id: number;
+  user_id: number;
   role: 'patient';
+  email: string;
+  phone_number: string;
   first_name: string;
   last_name: string;
   date_of_birth?: string;
   gender?: 'Male' | 'Female' | 'Other';
   blood_type?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
   address?: string;
+  profile_photo?: string;
   
-  // Medical history
-  allergies: string[];
-  chronic_conditions: string[];
-  current_medications: string[];
-  
-
   
   // Statistics
   total_appointments?: number;
   last_visit?: string;
   health_score?: number;
+  
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface PatientProfileUpdate {
@@ -50,21 +54,23 @@ export interface PatientProfileUpdate {
   gender?: string;
   blood_type?: string;
   address?: string;
-  allergies?: string[];
-  chronic_conditions?: string[];
-  current_medications?: string[];
-
+  profile_photo?: string;
 }
 
 // ===============================
-// DOCTOR PROFILE (has first_name, last_name)
+// DOCTOR PROFILE (without rating/review stats)
 // ===============================
 
-export interface DoctorProfile extends BaseProfile {
+export interface DoctorProfile {
+  id: number;
+  user_id: number;
   role: 'doctor';
   provider_type: 'doctor';
-  first_name: string;
-  last_name: string;
+  email: string;
+  phone_number: string;
+  full_name: string;
+  
+  // Professional details
   specialization: string;
   license_number: string;
   years_of_experience: number;
@@ -75,13 +81,10 @@ export interface DoctorProfile extends BaseProfile {
   location: string;
   description?: string;
   
-  // Working hours
-  available_days?: string[];
-  available_hours?: string;
   
   // Images
-  logo_url?: string;
-  cover_image_url?: string;
+  profile_photo?: string;
+
   
   // Documents
   license_document_url?: string;
@@ -93,18 +96,17 @@ export interface DoctorProfile extends BaseProfile {
   is_active: boolean;
   joined_date: string;
   
-  // Statistics
-  rating?: number;
-  total_reviews?: number;
+  // Statistics (reviews removed - now in review.types.ts)
   total_appointments?: number;
   total_patients?: number;
-  average_rating?: number;
+  
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface DoctorProfileUpdate {
-  first_name?: string;
-  last_name?: string;
-  phone?: string;
+  full_name?: string;
+  phone_number?: string;
   location?: string;
   description?: string;
   specialization?: string;
@@ -114,35 +116,31 @@ export interface DoctorProfileUpdate {
   qualifications?: string;
   bio?: string;
   education?: string;
-  hospital_affiliation?: string;
-  available_days?: string[];
-  available_hours?: string;
-  logo_url?: string;
-  cover_image_url?: string;
+  profile_photo?: string;
 }
 
 // ===============================
-// CLINIC PROFILE (has name, no first_name/last_name)
+// CLINIC PROFILE (without rating/review stats)
 // ===============================
 
-export interface ClinicProfile extends BaseProfile {
+export interface ClinicProfile {
+  id: number;
+  user_id: number;
   role: 'clinic';
   provider_type: 'clinic';
-  name: string;  // Consistent: just 'name' for organizations
+  email: string;
+  phone_number: string;
+  full_name: string;
   address: string;
-  phone: string;
   license_number: string;
   tin_number: string;
   operating_hours: string;
   description: string;
   established_year?: string;
-  emergency_contact?: string;
-  website?: string;
   location: string;
   
   // Images
-  logo_url?: string;
-  cover_image_url?: string;
+  profile_photo?: string;
   
   // Documents
   registration_document_url?: string;
@@ -153,61 +151,52 @@ export interface ClinicProfile extends BaseProfile {
   is_active: boolean;
   joined_date: string;
   
-  // Statistics
-  rating?: number;
-  total_reviews?: number;
-  total_doctors: number;
-  total_staff: number;
-  total_patients_served: number;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface ClinicProfileUpdate {
-  name?: string;
+  full_name?: string;
   address?: string;
-  phone?: string;
+  phone_number?: string;
   license_number?: string;
   tin_number?: string;
   operating_hours?: string;
   description?: string;
   established_year?: string;
-  emergency_contact?: string;
-  website?: string;
   location?: string;
-  logo_url?: string;
-  cover_image_url?: string;
+  profile_photo?: string;
 }
 
 // ===============================
-// DIAGNOSTIC CENTER PROFILE (has name, no first_name/last_name)
+// DIAGNOSTIC CENTER PROFILE (without rating/review stats)
 // ===============================
 
-export interface DiagnosticCenterProfile extends BaseProfile {
+export interface DiagnosticCenterProfile {
+  id: number;
+  user_id: number;
   role: 'diagnostic_center';
   provider_type: 'diagnostic_center';
-  name: string;  // Consistent: just 'name' for organizations
-  address: string;
-  phone: string;
   email: string;
+  phone_number: string;
+  full_name: string;
+  address: string;
   license_number: string;
   tin_number: string;
   accreditation: string;
   services_description: string;
   operating_hours: string;
   established_year?: string;
-  emergency_contact?: string;
-  website?: string;
   location: string;
   
   // Services offered
   services_offered: string[];
   
   // Images
-  logo_url?: string;
-  cover_image_url?: string;
+  profile_photo?: string;
   
   // Documents
   registration_document_url?: string;
-  accreditation_document_url?: string;
   
   // Status
   verification_status: VerificationStatus;
@@ -215,19 +204,16 @@ export interface DiagnosticCenterProfile extends BaseProfile {
   is_active: boolean;
   joined_date: string;
   
-  // Statistics
-  rating?: number;
-  total_reviews?: number;
-  total_tests_performed: number;
-  total_doctors: number;
-  total_staff: number;
-  total_patients_served: number;
+
+  
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface DiagnosticCenterProfileUpdate {
-  name?: string;
+  full_name?: string;
   address?: string;
-  phone?: string;
+  phone_number?: string;
   email?: string;
   website?: string;
   license_number?: string;
@@ -236,11 +222,9 @@ export interface DiagnosticCenterProfileUpdate {
   services_description?: string;
   operating_hours?: string;
   established_year?: string;
-  emergency_contact?: string;
   services_offered?: string[];
   location?: string;
-  logo_url?: string;
-  cover_image_url?: string;
+  profile_photo?: string;
 }
 
 // ===============================
@@ -254,16 +238,19 @@ export interface StaffProfile {
   employer_type: ProviderType;
   employer_name?: string;
   email: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
   role: StaffSubRole;
   is_active: boolean;
-  created_at: string;
   profile_photo?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface StaffProfileUpdate {
-  full_name?: string;
+  first_name?: string;
+  last_name?: string;
   phone_number?: string;
   profile_photo?: string;
   is_active?: boolean;
@@ -301,7 +288,7 @@ export interface ChangePasswordResponse {
 }
 
 // ===============================
-// PROFILE STATISTICS
+// PROFILE STATISTICS (without review stats)
 // ===============================
 
 export interface PatientStatistics {
@@ -317,8 +304,6 @@ export interface PatientStatistics {
 export interface DoctorStatistics {
   total_appointments: number;
   total_patients: number;
-  average_rating: number;
-  total_reviews: number;
   upcoming_appointments: number;
   completed_appointments: number;
   cancellation_rate: number;
@@ -344,27 +329,42 @@ export interface DiagnosticCenterStatistics {
   patient_satisfaction_rate?: number;
 }
 
+export interface StaffStatistics {
+  total_appointments_handled: number;
+  total_patients_served: number;
+  average_response_time?: number;
+  task_completion_rate?: number;
+}
+
 // ===============================
 // UNION TYPE FOR ALL PROFILES
 // ===============================
 
-export type UserProfile = 
+export type Profile = 
   | PatientProfile 
   | DoctorProfile 
   | ClinicProfile 
   | DiagnosticCenterProfile 
   | StaffProfile;
 
-// Helper type to get display name from profile
-export function getDisplayName(profile: UserProfile): string {
+// Helper function to get display name from profile
+export function getDisplayName(profile: Profile): string {
   if ('first_name' in profile && profile.first_name) {
-    return `${profile.first_name} ${(profile as any).last_name || ''}`.trim();
+    const lastName = (profile as any).last_name || '';
+    return `${profile.first_name} ${lastName}`.trim();
   }
-  if ('name' in profile && profile.name) {
-    return profile.name;
-  }
+  
   if ('full_name' in profile && profile.full_name) {
     return profile.full_name;
   }
+  
   return 'User';
+}
+
+// Helper function to get profile type
+export function getProfileType(profile: Profile): string {
+  if ('role' in profile) {
+    return profile.role;
+  }
+  return 'unknown';
 }

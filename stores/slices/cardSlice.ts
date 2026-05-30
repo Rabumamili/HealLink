@@ -1,5 +1,4 @@
 // stores/cardStore.ts
-
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { 
@@ -35,7 +34,7 @@ interface CardState {
   // Actions
   fetchCards: (filters?: CardFilters) => Promise<void>;
   fetchCardById: (id: number) => Promise<void>;
-  fetchCardByNumber: (cardNumber: string) => Promise<void>;
+  fetchCardByNumber: (cardNumber: string) => Promise<CardWithAppointment | null>;
   fetchCardStats: () => Promise<void>;
   validateCard: (cardNumber: string) => Promise<CardValidationResult>;
   checkIn: (request: CardCheckInRequest) => Promise<CardCheckInResult>;
@@ -111,11 +110,13 @@ export const useCardStore = create<CardState>()(
         try {
           const card = await cardService.getCardByNumber(cardNumber);
           set({ currentCard: card, isLoading: false });
+          return card;
         } catch (error) {
           set({ 
             error: error instanceof Error ? error.message : 'Failed to fetch card', 
             isLoading: false 
           });
+          return null;
         }
       },
 

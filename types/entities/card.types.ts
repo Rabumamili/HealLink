@@ -1,16 +1,15 @@
 // types/entities/card.types.ts
-
 export type CardStatus = 'Active' | 'Used' | 'Expired';
 
 export interface Card {
   id: number;
   appointmentId: number;
-  cardNumber: string;           // Formatted: 4512-7893-1023-6745
-  cardNumberHash: string;
+  cardNumber: string;     
   status: CardStatus;
   createdAt: string;
   expiresAt: string;
   usedAt: string | null;
+  updatedAt: string; // Added missing field
 }
 
 export interface CardWithAppointment extends Card {

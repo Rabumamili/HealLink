@@ -1,12 +1,16 @@
+// components/icons/healink-icon.tsx
+
 import {
   ArrowRight,
   BadgeCheck,
   Building2,
   Cake,
+  Calendar, // ADD THIS
   CheckCircle,
   ChevronDown,
   CloudUpload,
   Clock,
+  CreditCard,
   Dna,
   FlaskConical,
   Globe,
@@ -37,9 +41,11 @@ export const healLinkIcons = {
   cake: Cake,
   biotech: Dna,
   call: Phone,
+  calendar: Calendar, // ADD THIS
   check_circle: CheckCircle,
   clinical_notes: Stethoscope,
   cloud_upload: CloudUpload,
+  credit_card: CreditCard,
   domain: Building2,
   expand_more: ChevronDown,
   health_and_safety: Shield,
@@ -80,23 +86,4 @@ export function HealLinkIcon({
 }) {
   const Icon = healLinkIcons[name];
   return <Icon className={className} size={size} strokeWidth={2} aria-hidden />;
-}
-
-export function InputFieldIcon({
-  name,
-  className,
-}: {
-  name: HealLinkIconName;
-  className?: string;
-}) {
-  return (
-    <HealLinkIcon
-      name={name}
-      size={18}
-      className={cn(
-        'absolute right-3 top-2.5 text-outline-variant group-focus-within:text-primary transition-colors pointer-events-none',
-        className
-      )}
-    />
-  );
 }

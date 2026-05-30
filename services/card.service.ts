@@ -1,5 +1,4 @@
 // services/card.service.ts
-
 import { ApiService } from './api.service';
 import { 
   Card, 
@@ -10,19 +9,19 @@ import {
   CardCheckInResult,
   CardGenerationRequest,
   CardGenerationResult,
-  CardWithAppointment
+  CardWithAppointment,
+  CardStatus
 } from '@/types/entities/card.types';
-
-// Mock data imports (only for development fallback)
-import { 
-  mockCards, 
-  mockCardsWithAppointments, 
-  mockCardStats,
-  filterMockCards 
-} from '@/services/mock/card.mock';
+import { CardRepository } from './mock/card.repository';
 
 class CardService extends ApiService {
-  // Get all cards with optional filters
+  private repository: CardRepository;
+
+  constructor() {
+    super();
+    this.repository = CardRepository.getInstance();
+  }
+
   async getCards(filters?: CardFilters): Promise<Card[]> {
     try {
       const queryParams = new URLSearchParams();
@@ -37,276 +36,277 @@ class CardService extends ApiService {
       const endpoint = `/cards${queryString ? `?${queryString}` : ''}`;
       return await this.get<Card[]>(endpoint);
     } catch (error) {
-      // Fallback to mock data in development
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for getCards:', error);
-        return filterMockCards(filters || {});
+        console.warn('Using repository fallback for getCards:', error);
+        return this.repository.filterCards(filters || {});
       }
       throw error;
     }
   }
 
-  // Get card by ID
   async getCardById(id: number): Promise<CardWithAppointment | null> {
     try {
       return await this.get<CardWithAppointment>(`/cards/${id}`);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for getCardById:', error);
-        const card = mockCardsWithAppointments.find(c => c.id === id);
+        console.warn('Using repository fallback for getCardById:', error);
+        const card = this.repository.getCardWithAppointment(id);
         return card || null;
       }
       throw error;
     }
   }
 
-  // Get card by card number
   async getCardByNumber(cardNumber: string): Promise<CardWithAppointment | null> {
     try {
       return await this.get<CardWithAppointment>(`/cards/number/${encodeURIComponent(cardNumber)}`);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for getCardByNumber:', error);
-        const card = mockCardsWithAppointments.find(c => c.cardNumber === cardNumber);
-        return card || null;
+        console.warn('Using repository fallback for getCardByNumber:', error);
+        const card: Card | undefined = this.repository.findByCardNumber(cardNumber);
+        if (!card) return null;
+        return this.repository.getCardWithAppointment(card.id) || null;
       }
       throw error;
     }
   }
 
-  // In card.service.ts - Fix the error type mapping
-
-async validateCard(cardNumber: string): Promise<CardValidationResult> {
-  try {
-    return await this.post<CardValidationResult>('/cards/validate', { cardNumber });
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Using mock data for validateCard:', error);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const card = mockCards.find(c => c.cardNumber === cardNumber);
-      
-      if (!card) {
-        return {
-          isValid: false,
-          error: 'not_found',
-          message: 'Card number not found in system'
-        };
+  async validateCard(cardNumber: string): Promise<CardValidationResult> {
+    try {
+      return await this.post<CardValidationResult>('/cards/validate', { cardNumber });
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for validateCard:', error);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return this.repository.validateCard(cardNumber);
       }
-      
-      if (card.status === 'Expired') {
-        return {
-          isValid: false,
-          card,
-          error: 'expired',  
-          message: 'Card has expired. Please contact reception for assistance.'
-        };
-      }
-      
-      if (card.status === 'Used') {
-        return {
-          isValid: false,
-          card,
-          error: 'already_used',  // FIXED: Added error property
-          message: 'This card has already been used for check-in'
-        };
-      }
-      
-      return {
-        isValid: true,
-        card,
-        message: 'Card is valid and ready for check-in'
-      };
+      throw error;
     }
-    throw error;
   }
-}
 
-  // Check in patient using card
   async checkIn(request: CardCheckInRequest): Promise<CardCheckInResult> {
     try {
       return await this.post<CardCheckInResult>('/cards/check-in', request);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for checkIn:', error);
+        console.warn('Using repository fallback for checkIn:', error);
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const card = mockCards.find(c => c.cardNumber === request.cardNumber);
-        
-        if (!card) {
-          return {
-            success: false,
-            message: 'Card number not found'
-          };
-        }
-        
-        if (card.status !== 'Active') {
-          return {
-            success: false,
-            message: card.status === 'Expired' 
-              ? 'Card has expired. Please contact reception.' 
-              : 'Card has already been used'
-          };
-        }
-        
-        const cardWithAppt = mockCardsWithAppointments.find(c => c.id === card.id);
-        
-        return {
-          success: true,
-          appointmentId: cardWithAppt?.appointment?.id,
-          patientId: cardWithAppt?.appointment?.patientId,
-          patientName: cardWithAppt?.appointment?.patientName,
-          serviceName: cardWithAppt?.appointment?.serviceName,
-          scheduledDateTime: cardWithAppt?.appointment?.scheduledDateTime,
-          message: 'Successfully checked in'
-        };
-      }
-      throw error;
-    }
-  }
-
-  // Generate new card for appointment
-  async generateCard(request: CardGenerationRequest): Promise<CardGenerationResult> {
-    try {
-      return await this.post<CardGenerationResult>('/cards/generate', request);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for generateCard:', error);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Simulate card generation
-        const newCard: Card = {
-          id: mockCards.length + 1,
-          appointmentId: request.appointmentId,
-          cardNumber: this.generateMockCardNumber(),
-          cardNumberHash: `$2y$10$mock${Date.now()}`,
-          status: 'Active',
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + (request.validityHours || 24) * 60 * 60 * 1000).toISOString(),
-          usedAt: null
-        };
-        
-        return {
-          success: true,
-          card: newCard,
-          message: 'Card generated successfully'
-        };
-      }
-      throw error;
-    }
-  }
-
-  // Get card statistics
-  async getCardStats(): Promise<CardStats> {
-    try {
-      return await this.get<CardStats>('/cards/stats');
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for getCardStats:', error);
-        return mockCardStats;
-      }
-      throw error;
-    }
-  }
-
-  // Get cards by appointment ID
-  async getCardsByAppointment(appointmentId: number): Promise<Card[]> {
-    return this.getCards({ appointmentId });
-  }
-
-  // Get cards by patient ID
-  async getCardsByPatient(patientId: number): Promise<CardWithAppointment[]> {
-    try {
-      return await this.get<CardWithAppointment[]>(`/cards/patient/${patientId}`);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for getCardsByPatient:', error);
-        return mockCardsWithAppointments.filter(
-          card => card.appointment?.patientId === patientId
+        return this.repository.checkInWithCard(
+          request.cardNumber,
+          request.verifiedByStaffId,
+          request.verifiedByType
         );
       }
       throw error;
     }
   }
 
-  // Cancel/expire a card
+  async generateCard(request: CardGenerationRequest): Promise<CardGenerationResult> {
+    try {
+      return await this.post<CardGenerationResult>('/cards/generate', request);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for generateCard:', error);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return this.repository.generateCard(request);
+      }
+      throw error;
+    }
+  }
+
+  async getCardStats(): Promise<CardStats> {
+    try {
+      return await this.get<CardStats>('/cards/stats');
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for getCardStats:', error);
+        return this.repository.getCardStats();
+      }
+      throw error;
+    }
+  }
+
+  async getCardsByAppointment(appointmentId: number): Promise<Card[]> {
+    try {
+      return await this.getCards({ appointmentId });
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for getCardsByAppointment:', error);
+        const card: Card | undefined = this.repository.findByAppointmentId(appointmentId);
+        return card ? [card] : [];
+      }
+      throw error;
+    }
+  }
+
+  async getPatientCards(patientId: number): Promise<CardWithAppointment[]> {
+    try {
+      return await this.get<CardWithAppointment[]>(`/cards/patient/${patientId}`);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for getPatientCards:', error);
+        const cards: CardWithAppointment[] = this.repository.findByPatientId(patientId);
+        return cards;
+      }
+      throw error;
+    }
+  }
+
   async expireCard(cardId: number): Promise<Card> {
     try {
       return await this.patch<Card>(`/cards/${cardId}/expire`, {});
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for expireCard:', error);
-        const card = mockCards.find(c => c.id === cardId);
-        if (card) {
-          card.status = 'Expired';
+        console.warn('Using repository fallback for expireCard:', error);
+        const expiredCard: Card | undefined = this.repository.revokeCard(cardId);
+        if (!expiredCard) {
+          throw new Error(`Card with ID ${cardId} not found`);
         }
-        return card!;
+        return expiredCard;
       }
       throw error;
     }
   }
 
-  // Bulk generate cards for multiple appointments
   async bulkGenerateCards(requests: CardGenerationRequest[]): Promise<CardGenerationResult[]> {
     try {
       return await this.post<CardGenerationResult[]>('/cards/bulk-generate', { requests });
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for bulkGenerateCards:', error);
-        const results = await Promise.all(requests.map(req => this.generateCard(req)));
-        return results;
+        console.warn('Using repository fallback for bulkGenerateCards:', error);
+        return this.repository.bulkGenerateCards(requests);
       }
       throw error;
     }
   }
 
-  // Get cards expiring within a time window
   async getExpiringCards(hoursThreshold: number = 24): Promise<Card[]> {
     try {
       return await this.get<Card[]>(`/cards/expiring?hours=${hoursThreshold}`);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for getExpiringCards:', error);
-        const now = new Date();
-        const threshold = new Date(now.getTime() + hoursThreshold * 60 * 60 * 1000);
-        return mockCards.filter(card => {
-          if (card.status !== 'Active') return false;
-          const expiresAt = new Date(card.expiresAt);
-          return expiresAt <= threshold && expiresAt > now;
-        });
+        console.warn('Using repository fallback for getExpiringCards:', error);
+        return this.repository.findCardsExpiringSoon(hoursThreshold);
       }
       throw error;
     }
   }
 
-  // Get today's card usage statistics
   async getTodayStats(): Promise<{ used: number; active: number; expired: number }> {
     try {
       return await this.get<{ used: number; active: number; expired: number }>('/cards/stats/today');
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for getTodayStats:', error);
-        const today = new Date().toDateString();
-        const used = mockCards.filter(c => 
-          c.status === 'Used' && c.usedAt && new Date(c.usedAt).toDateString() === today
+        console.warn('Using repository fallback for getTodayStats:', error);
+        const today: string = new Date().toDateString();
+        const cards: CardWithAppointment[] = this.repository.getAllCardsWithAppointments();
+        const used: number = cards.filter((card: CardWithAppointment) => 
+          card.status === 'Used' && card.usedAt && new Date(card.usedAt).toDateString() === today
         ).length;
-        const active = mockCards.filter(c => c.status === 'Active').length;
-        const expired = mockCards.filter(c => c.status === 'Expired').length;
+        const active: number = this.repository.findActiveCards().length;
+        const expired: number = this.repository.findExpiredCards().length;
         return { used, active, expired };
       }
       throw error;
     }
   }
 
-  // Helper method to generate mock card number (only for development)
-  private generateMockCardNumber(): string {
-    const groups = [];
-    for (let i = 0; i < 4; i++) {
-      groups.push(Math.floor(Math.random() * 10000).toString().padStart(4, '0'));
+  async getRecentCheckIns(limit: number = 10): Promise<{
+    cardNumber: string;
+    patientName: string;
+    serviceName: string;
+    checkInTime: string;
+    appointmentTime: string;
+  }[]> {
+    try {
+      return await this.get<{
+        cardNumber: string;
+        patientName: string;
+        serviceName: string;
+        checkInTime: string;
+        appointmentTime: string;
+      }[]>(`/cards/recent-checkins?limit=${limit}`);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for getRecentCheckIns:', error);
+        return this.repository.getRecentCheckIns(limit);
+      }
+      throw error;
     }
-    return groups.join('-');
+  }
+
+  async getExpiringSoonCards(hoursThreshold: number = 2): Promise<{
+    id: number;
+    cardNumber: string;
+    patientName: string;
+    expiresAt: string;
+    minutesUntilExpiry: number;
+  }[]> {
+    try {
+      return await this.get<{
+        id: number;
+        cardNumber: string;
+        patientName: string;
+        expiresAt: string;
+        minutesUntilExpiry: number;
+      }[]>(`/cards/expiring-soon?hours=${hoursThreshold}`);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for getExpiringSoonCards:', error);
+        return this.repository.getExpiringSoonCards(hoursThreshold);
+      }
+      throw error;
+    }
+  }
+
+  async getCardUsageStats(startDate: string, endDate: string): Promise<{
+    totalUsed: number;
+    averageTimeToUse: number | null;
+    usageByHour: Record<number, number>;
+  }> {
+    try {
+      return await this.get<{
+        totalUsed: number;
+        averageTimeToUse: number | null;
+        usageByHour: Record<number, number>;
+      }>(`/cards/usage-stats?startDate=${startDate}&endDate=${endDate}`);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for getCardUsageStats:', error);
+        return this.repository.getCardUsageStats(startDate, endDate);
+      }
+      throw error;
+    }
+  }
+
+  async isCardValid(cardNumber: string): Promise<boolean> {
+    try {
+      const result: CardValidationResult = await this.validateCard(cardNumber);
+      return result.isValid;
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for isCardValid:', error);
+        return this.repository.isCardValidForCheckIn(cardNumber);
+      }
+      throw error;
+    }
+  }
+
+  async updateCardStatus(cardId: number, status: CardStatus): Promise<Card> {
+    try {
+      return await this.patch<Card>(`/cards/${cardId}/status`, { status });
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using repository fallback for updateCardStatus:', error);
+        const updatedCard: Card | undefined = this.repository.update(cardId, { status });
+        if (!updatedCard) {
+          throw new Error(`Card with ID ${cardId} not found`);
+        }
+        return updatedCard;
+      }
+      throw error;
+    }
   }
 }
 
-// Export singleton instance
 export const cardService = new CardService();

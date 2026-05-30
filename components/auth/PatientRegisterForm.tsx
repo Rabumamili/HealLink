@@ -5,9 +5,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/auth.service';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import {
   RegisterFormShell,
   SectionHeader,
@@ -41,7 +41,7 @@ type PatientFormData = z.infer<typeof patientSchema>;
 
 export const PatientRegisterForm = () => {
   const router = useRouter();
-  const [isRegistering, setIsRegistering] = useState(false);
+  const { registerUser, isRegistering } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,27 +56,21 @@ export const PatientRegisterForm = () => {
 
   const onSubmit = async (data: PatientFormData) => {
     setError(null);
-    setIsRegistering(true);
-
     try {
       const { confirmPassword, ...submitData } = data;
-      const response = await authService.register({
+      const response = await registerUser({
         ...submitData,
         role: 'patient',
       });
 
       toast.success('Registration successful! Please verify your email.');
+      
+      const tempUserId = response?.data?.userId || response?.userId;
       router.push(
-        `/verify-email?email=${encodeURIComponent(data.email)}&role=patient&tempUserId=${response.data.userId}`
+        `/verify-email?email=${encodeURIComponent(data.email)}&role=patient&tempUserId=${tempUserId || ''}`
       );
-    } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setError(message || 'Registration failed');
-    } finally {
-      setIsRegistering(false);
+    } catch (err: any) {
+      setError(err?.message || 'Registration failed');
     }
   };
 
@@ -100,7 +94,7 @@ export const PatientRegisterForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className={labelClass}>First Name</label>
+              <label className={labelClass}>First Name *</label>
               <div className="relative group">
                 <input className={inputClass} placeholder="John" type="text" {...register('first_name')} />
                 <InputFieldIcon name="badge" />
@@ -111,7 +105,7 @@ export const PatientRegisterForm = () => {
             </div>
 
             <div className="space-y-1">
-              <label className={labelClass}>Last Name</label>
+              <label className={labelClass}>Last Name *</label>
               <div className="relative group">
                 <input className={inputClass} placeholder="Doe" type="text" {...register('last_name')} />
                 <InputFieldIcon name="badge" />
@@ -122,7 +116,7 @@ export const PatientRegisterForm = () => {
             </div>
 
             <div className="space-y-1">
-              <label className={labelClass}>Email Address</label>
+              <label className={labelClass}>Email Address *</label>
               <div className="relative group">
                 <input
                   className={inputClass}
@@ -136,7 +130,7 @@ export const PatientRegisterForm = () => {
             </div>
 
             <div className="space-y-1">
-              <label className={labelClass}>Phone Number</label>
+              <label className={labelClass}>Phone Number *</label>
               <div className="relative group">
                 <input className={inputClass} placeholder="+251 ..." type="tel" {...register('phone_number')} />
                 <InputFieldIcon name="call" />
@@ -165,8 +159,22 @@ export const PatientRegisterForm = () => {
                   <option value="">Select Gender</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
                 <InputFieldIcon name="wc" />
+              </div>
+            </div>
+
+            <div className="space-y-1 md:col-span-2">
+              <label className={labelClass}>Emergency Contact</label>
+              <div className="relative group">
+                <input
+                  className={inputClass}
+                  placeholder="+251 ..."
+                  type="tel"
+                  {...register('emergency_contact')}
+                />
+               <InputFieldIcon name="health_and_safety" />
               </div>
             </div>
 
@@ -187,7 +195,7 @@ export const PatientRegisterForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className={labelClass}>Password</label>
+              <label className={labelClass}>Password *</label>
               <div className="relative group">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -199,7 +207,6 @@ export const PatientRegisterForm = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant hover:text-primary transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -210,7 +217,7 @@ export const PatientRegisterForm = () => {
             </div>
 
             <div className="space-y-1">
-              <label className={labelClass}>Confirm Password</label>
+              <label className={labelClass}>Confirm Password *</label>
               <div className="relative group">
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
@@ -222,7 +229,6 @@ export const PatientRegisterForm = () => {
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant hover:text-primary transition-colors"
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
                   {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>

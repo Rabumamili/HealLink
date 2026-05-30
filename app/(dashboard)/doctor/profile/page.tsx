@@ -1,457 +1,614 @@
-"use client"
+"use client";
 
-import { useState, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
+import { useState, useRef, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   User,
-  Mail,
-  Phone,
-  MapPin,
-  Calendar,
-  Award,
   Stethoscope,
-  Clock,
-  DollarSign,
+  Save,
   Camera,
-  Lock,
+  Key,
+  Trash2,
+  Shield,
   Eye,
   EyeOff,
-  Save,
-  AlertCircle,
-  Building2,
-  GraduationCap
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { toast } from "sonner"
+  Users,
+  Calendar,
+  BadgeCheck,
+  LogOut,
+  Upload,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { DoctorProfile, DoctorProfileUpdate } from "@/types/entities/profile.types";
 
-export default function DoctorProfile() {
-  const [isEditing, setIsEditing] = useState(false)
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [profileImage, setProfileImage] = useState<string | null>(null)
-  
-  const [profile, setProfile] = useState({
-    firstName: "Sarah",
-    lastName: "Mitchell",
-    email: "dr.sarah@heallink.com",
-    phone: "+251 911 234 567",
-    specialization: "Cardiologist",
-    licenseNumber: "MD-12345",
-    yearsOfExperience: "7",
-    consultationFee: "750",
-    bio: "Dr. Sarah Mitchell is a renowned cardiologist with over 7 years of experience. She specializes in interventional cardiology and has helped numerous patients with heart-related conditions.",
-    address: "123 Clinical St, Medical District, Addis Ababa",
-    qualifications: "MBBS, MD - Cardiology",
-    education: "Stanford University School of Medicine",
-    hospital: "Black Lion Hospital"
-  })
+export default function DoctorProfilePage() {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const licenseInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    profile,
+    statistics,
+    loading,
+    uploadLoading,
+    passwordLoading,
+    deleteLoading,
+    loadDoctorProfile,
+    updateDoctor,
+    uploadPhoto,
+    uploadLicense,
+    updatePassword,
+    loadDoctorStatistics,
+    removeAccount,
+  } = useProfile();
+
+  const { logout } = useAuth();
+
+  const [formData, setFormData] = useState<DoctorProfileUpdate>({});
   const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  })
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
 
-  const [showChangePassword, setShowChangePassword] = useState(false)
+  useEffect(() => {
+    loadDoctorProfile();
+    loadDoctorStatistics();
+  }, [loadDoctorProfile, loadDoctorStatistics]);
 
-  const handleSaveProfile = () => {
-    setIsEditing(false)
-    toast.success("Profile updated successfully")
-  }
-
-  const handleChangePassword = () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("New passwords do not match")
-      return
+  useEffect(() => {
+    if (profile && "full_name" in profile && (profile as DoctorProfile).role === "doctor") {
+      const p = profile as DoctorProfile;
+      setFormData({
+        full_name: p.full_name,
+        phone_number: p.phone_number,
+        location: p.location,
+        description: p.description,
+        specialization: p.specialization,
+        license_number: p.license_number,
+        years_of_experience: p.years_of_experience,
+        consultation_fee: p.consultation_fee,
+        qualifications: p.qualifications,
+        bio: p.bio,
+        education: p.education,
+      });
     }
-    if (passwordData.newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters")
-      return
-    }
-    toast.success("Password changed successfully")
-    setShowChangePassword(false)
-    setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" })
-  }
+  }, [profile]);
 
-  const handleProfileImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+  const handleSave = async () => {
+    const updated = await updateDoctor(formData);
+    if (updated) setIsEditing(false);
+  };
+
+  const handlePasswordChange = async () => {
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast.error("New password and confirm password do not match");
+      return;
+    }
+    if (passwordData.new_password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+    const success = await updatePassword(passwordData);
+    if (success) {
+      setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string)
-        toast.success("Profile picture updated")
-      }
-      reader.readAsDataURL(file)
+      await uploadPhoto(file);
+      await loadDoctorProfile();
     }
+  };
+
+  const handleLicenseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadLicense(file);
+      await loadDoctorProfile();
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const success = await removeAccount();
+    if (success) logout();
+  };
+
+  const doctorProfile = profile as DoctorProfile | null;
+
+  const statsData = [
+    {
+      icon: Calendar,
+      label: "Appointments",
+      value: (statistics as any)?.total_appointments ?? 0,
+      detail: `Upcoming: ${(statistics as any)?.upcoming_appointments ?? 0}`,
+    },
+    {
+      icon: Users,
+      label: "Patients",
+      value: (statistics as any)?.total_patients ?? 0,
+      detail: `Completed: ${(statistics as any)?.completed_appointments ?? 0}`,
+    },
+    {
+      icon: BadgeCheck,
+      label: "Verified",
+      value: doctorProfile?.verification_status === "verified" ? "Yes" : "No",
+      detail: doctorProfile?.professional_verification_status ?? "Pending",
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="max-w-[1280px] mx-auto flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#006767] mx-auto" />
+          <p className="mt-4 text-[#3d4949]">Loading profile...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-[1280px] mx-auto space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#006767]">Profile Settings</h1>
-          <p className="text-muted-foreground">Manage your personal and professional information</p>
+          <h1 className="text-3xl font-bold tracking-tight text-[#0b1c30] mb-2">Doctor Profile</h1>
+          <p className="text-[#3d4949] text-base">Manage your professional information and account security.</p>
         </div>
-        <Button 
-          onClick={() => isEditing ? handleSaveProfile() : setIsEditing(true)}
-          className="bg-[#006767] hover:bg-[#006767]/90"
-        >
-          {isEditing ? (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
-            </>
-          ) : (
-            "Edit Profile"
-          )}
+        <Button variant="destructive" onClick={logout} className="flex items-center gap-2">
+          <LogOut className="h-4 w-4" />
+          Logout
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <Card className="lg:col-span-1 bg-white/80 backdrop-blur-sm border-[#E2E8F0] shadow-sm">
-          <CardContent className="p-6 text-center">
-            <div className="relative inline-block">
-              <Avatar className="h-32 w-32 mx-auto">
-                <AvatarImage src={profileImage || undefined} />
-                <AvatarFallback className="bg-primary/10 text-primary text-3xl font-bold">
-                  {profile.firstName[0]}{profile.lastName[0]}
-                </AvatarFallback>
-              </Avatar>
-              {isEditing && (
-                <button 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 p-2 bg-[#006767] text-white rounded-full hover:bg-[#006767]/90 transition-all"
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          {/* Profile Card */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
+            <CardContent className="p-6 flex flex-col items-center text-center">
+              <div className="relative mb-6">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#e5eeff]">
+                  <Avatar className="w-full h-full">
+                    <AvatarImage src={doctorProfile?.profile_photo} />
+                    <AvatarFallback className="bg-[#006767] text-white text-3xl font-semibold">
+                      {doctorProfile?.full_name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadLoading}
+                  className="absolute bottom-1 right-1 bg-[#006767] text-white p-2 rounded-full shadow-lg border-2 border-white hover:scale-105 transition-transform"
                 >
                   <Camera className="h-4 w-4" />
                 </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleProfileImageUpload}
-              />
-            </div>
-            <h2 className="mt-4 text-xl font-bold text-[#0b1c30]">Dr. {profile.firstName} {profile.lastName}</h2>
-            <p className="text-[#006767] font-medium">{profile.specialization}</p>
-            <Badge className="mt-2 bg-green-100 text-green-700">Active</Badge>
-            
-            <Separator className="my-4" />
-            
-            <div className="space-y-3 text-left">
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{profile.email}</span>
+                <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{profile.phone}</span>
+              <h3 className="text-2xl font-semibold text-[#0b1c30]">{doctorProfile?.full_name}</h3>
+              <p className="text-[#006767] text-sm font-medium mb-1">{doctorProfile?.specialization}</p>
+              <p className="text-[#3d4949] text-sm mb-6">Doctor ID: #{doctorProfile?.id}</p>
+              <div className="w-full space-y-4 pt-6 border-t border-[#bcc9c8]/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#3d4949] text-sm font-medium">Status</span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      doctorProfile?.is_active
+                        ? "bg-[#8cf3f3] text-[#002020]"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {doctorProfile?.is_active ? "Active" : "Inactive"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#3d4949] text-sm font-medium">Verification</span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      doctorProfile?.verification_status === "verified"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {doctorProfile?.verification_status ?? "Pending"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#3d4949] text-sm font-medium">Joined</span>
+                  <span className="text-[#0b1c30] text-sm">
+                    {doctorProfile?.joined_date
+                      ? new Date(doctorProfile.joined_date).toLocaleDateString()
+                      : "N/A"}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{profile.address}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Award className="h-4 w-4 text-muted-foreground" />
-                <span>License: {profile.licenseNumber}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span>{profile.hospital}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Profile Details */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Personal Information */}
-          <Card className="bg-white/80 backdrop-blur-sm border-[#E2E8F0] shadow-sm">
+          {/* Activity Overview */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-[#006767]">
-                <User className="h-5 w-5" />
-                Personal Information
+              <CardTitle className="text-[#006767] text-sm font-bold uppercase tracking-wider">
+                Activity Overview
               </CardTitle>
-              <CardDescription>Your basic personal details</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {statsData.map((stat, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#e5eeff] flex items-center justify-center text-[#515f78]">
+                    <stat.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#0b1c30]">{stat.value} {stat.label}</p>
+                    <p className="text-xs text-[#3d4949]">{stat.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          {/* Personal & Contact Information */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <User className="h-5 w-5 text-[#006767]" />
+                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Personal Information</CardTitle>
+              </div>
+              <CardDescription>Your basic contact details</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-6 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Full Name</Label>
                   <Input
-                    id="firstName"
-                    value={profile.firstName}
-                    onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
+                    value={formData.full_name || ""}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     disabled={!isEditing}
-                    className="bg-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={profile.lastName}
-                    onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
-                    disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Email Address</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    disabled={!isEditing}
-                    className="bg-white"
+                    value={doctorProfile?.email || ""}
+                    disabled
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 opacity-70"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Phone Number</Label>
                   <Input
-                    id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                    value={formData.phone_number || ""}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                     disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="address">Address</Label>
-                  <Textarea
-                    id="address"
-                    value={profile.address}
-                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Location</Label>
+                  <Input
+                    value={formData.location || ""}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     disabled={!isEditing}
-                    rows={2}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
+              </div>
+              <div className="flex justify-end mt-6">
+                <Button
+                  onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
+                  className="bg-[#006767] text-white px-8 py-3 rounded-xl hover:shadow-lg transition-all"
+                >
+                  {isEditing ? (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  ) : (
+                    "Edit Profile"
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
 
           {/* Professional Information */}
-          <Card className="bg-white/80 backdrop-blur-sm border-[#E2E8F0] shadow-sm">
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-[#006767]">
-                <Stethoscope className="h-5 w-5" />
-                Professional Information
-              </CardTitle>
-              <CardDescription>Your medical credentials and practice details</CardDescription>
+              <div className="flex items-center gap-3">
+                <Stethoscope className="h-5 w-5 text-[#006767]" />
+                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Professional Details</CardTitle>
+              </div>
+              <CardDescription>Your medical credentials and practice information</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-6 sm:grid-cols-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="specialization">Specialization</Label>
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Specialization</Label>
                   <Input
-                    id="specialization"
-                    value={profile.specialization}
-                    onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
+                    value={formData.specialization || ""}
+                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
                     disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="licenseNumber">License Number</Label>
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">License Number</Label>
                   <Input
-                    id="licenseNumber"
-                    value={profile.licenseNumber}
-                    onChange={(e) => setProfile({ ...profile, licenseNumber: e.target.value })}
+                    value={formData.license_number || ""}
+                    onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
                     disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="yearsOfExperience">Years of Experience</Label>
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Years of Experience</Label>
                   <Input
-                    id="yearsOfExperience"
                     type="number"
-                    value={profile.yearsOfExperience}
-                    onChange={(e) => setProfile({ ...profile, yearsOfExperience: e.target.value })}
+                    value={formData.years_of_experience ?? ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, years_of_experience: Number(e.target.value) })
+                    }
                     disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="consultationFee">Consultation Fee (ETB)</Label>
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Consultation Fee</Label>
                   <Input
-                    id="consultationFee"
                     type="number"
-                    value={profile.consultationFee}
-                    onChange={(e) => setProfile({ ...profile, consultationFee: e.target.value })}
+                    value={formData.consultation_fee ?? ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, consultation_fee: Number(e.target.value) })
+                    }
                     disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="qualifications">Qualifications</Label>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Qualifications</Label>
                   <Input
-                    id="qualifications"
-                    value={profile.qualifications}
-                    onChange={(e) => setProfile({ ...profile, qualifications: e.target.value })}
+                    value={formData.qualifications || ""}
+                    onChange={(e) => setFormData({ ...formData, qualifications: e.target.value })}
                     disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="education">Education</Label>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Education</Label>
                   <Input
-                    id="education"
-                    value={profile.education}
-                    onChange={(e) => setProfile({ ...profile, education: e.target.value })}
+                    value={formData.education || ""}
+                    onChange={(e) => setFormData({ ...formData, education: e.target.value })}
                     disabled={!isEditing}
-                    className="bg-white"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="hospital">Hospital/Clinic Affiliation</Label>
-                  <Input
-                    id="hospital"
-                    value={profile.hospital}
-                    onChange={(e) => setProfile({ ...profile, hospital: e.target.value })}
-                    disabled={!isEditing}
-                    className="bg-white"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="bio">Biography</Label>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Bio</Label>
                   <Textarea
-                    id="bio"
-                    value={profile.bio}
-                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                    value={formData.bio || ""}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     disabled={!isEditing}
-                    rows={4}
-                    className="bg-white"
+                    rows={3}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Description</Label>
+                  <Textarea
+                    value={formData.description || ""}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    disabled={!isEditing}
+                    rows={2}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Security Section */}
-          <Card className="bg-white/80 backdrop-blur-sm border-[#E2E8F0] shadow-sm">
+          {/* Documents */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-[#006767]">
-                <Lock className="h-5 w-5" />
-                Security
-              </CardTitle>
+              <div className="flex items-center gap-3">
+                <Upload className="h-5 w-5 text-[#006767]" />
+                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Documents</CardTitle>
+              </div>
+              <CardDescription>Upload your professional documents for verification</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-[#F1F5F9] rounded-xl">
+                <div>
+                  <p className="text-sm font-medium text-[#0b1c30]">License Document</p>
+                  <p className="text-xs text-[#3d4949]">
+                    {doctorProfile?.license_document_url ? "Uploaded" : "Not uploaded"}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadLoading}
+                  onClick={() => licenseInputRef.current?.click()}
+                  className="border-[#006767] text-[#006767]"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </Button>
+                <input ref={licenseInputRef} type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={handleLicenseUpload} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Account Security */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-[#006767]" />
+                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Account Security</CardTitle>
+              </div>
               <CardDescription>Manage your password and security settings</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <p className="font-medium">Password</p>
-                  <p className="text-sm text-muted-foreground">Last changed 30 days ago</p>
+              <div className="bg-[#eff4ff] rounded-xl p-6 mb-8 border border-[#bcc9c8]/30">
+                <div className="flex items-start gap-4">
+                  <div className="p-2 bg-[#008282] text-white rounded-lg">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#0b1c30] mb-1">Update Password</h4>
+                    <p className="text-[#3d4949] text-sm">
+                      Ensure your account is using a long, random password to stay secure.
+                    </p>
+                  </div>
                 </div>
-                <Button variant="outline" onClick={() => setShowChangePassword(true)}>
-                  Change Password
-                </Button>
+              </div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[#3d4949] text-sm font-medium ml-1">Current Password</Label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={passwordData.current_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                        className="bg-[#F1F5F9] border-none rounded-xl pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div />
+                  <div className="space-y-2">
+                    <Label className="text-[#3d4949] text-sm font-medium ml-1">New Password</Label>
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={passwordData.new_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                        className="bg-[#F1F5F9] border-none rounded-xl pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[#3d4949] text-sm font-medium ml-1">Confirm New Password</Label>
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={passwordData.confirm_password}
+                        onChange={(e) =>
+                          setPasswordData({ ...passwordData, confirm_password: e.target.value })
+                        }
+                        className="bg-[#F1F5F9] border-none rounded-xl pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handlePasswordChange}
+                    disabled={passwordLoading}
+                    variant="outline"
+                    className="border-2 border-[#006767] text-[#006767] px-8 py-3 rounded-xl hover:bg-[#006767]/5"
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Update Security
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Danger Zone */}
+          <Card className="bg-red-50/20 border border-red-200 rounded-xl">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-red-600 mb-1">Delete Account</h3>
+                  <p className="text-[#3d4949] text-sm">
+                    Once you delete your account, there is no going back. Please be certain.
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleteLoading} className="bg-red-600 hover:bg-red-700">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Account
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account and remove all
+                        your data from our servers.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteAccount} className="bg-red-600">
+                        Delete Account
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* Change Password Dialog */}
-      <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
-        <DialogContent className="sm:max-w-[450px]">
-          <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>
-              Enter your current password and choose a new one
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <div className="relative">
-                <Input
-                  id="currentPassword"
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
-                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">New Password</Label>
-              <div className="relative">
-                <Input
-                  id="newPassword"
-                  type={showNewPassword ? "text" : "password"}
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
-                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowChangePassword(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleChangePassword} className="bg-[#006767] hover:bg-[#006767]/90">
-              Update Password
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
-  )
+  );
 }

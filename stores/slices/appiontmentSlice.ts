@@ -1,4 +1,4 @@
-// stores/slices/appointment.slice.ts
+// stores/slices/appointmentSlice.ts - Fully Fixed
 import { create } from 'zustand';
 import { 
   Appointment, 
@@ -9,8 +9,8 @@ import {
   AppointmentStatus,
   BookAppointmentRequest,
   BookAppointmentResponse,
-  PaymentStatus  // IMPORTANT: Added this
 } from '@/types/entities/appointment.types';
+import { PaymentStatus } from '@/types/entities/payment.types';
 import { appointmentService } from '@/services/appointment.service';
 import { toast } from 'sonner';
 
@@ -21,35 +21,48 @@ interface AppointmentState {
   isLoading: boolean;
   error: string | null;
   filters: AppointmentFilters;
-  providerContext: string | null;
+  providerContext: number | null;
+  patientContext: number | null;
   
-  // Fetch operations
+  // Core CRUD operations
   fetchAppointments: () => Promise<void>;
-  fetchStats: (providerId?: string) => Promise<void>;
-  fetchCheckedInPatients: (providerId?: string) => Promise<void>;
-  
-  // Appointment management
+  fetchStats: () => Promise<void>;
+  fetchCheckedInPatients: () => Promise<void>;
   updateStatus: (id: number, status: AppointmentStatus) => Promise<void>;
   updateTiming: (id: number, startTime: string, endTime: string) => Promise<void>;
   checkinPatient: (id: number, checkInTime: string, estimatedWaitMinutes: number) => Promise<EnrichedAppointment | null>;
   cancelAppointment: (id: number) => Promise<void>;
   createAppointment: (data: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Appointment | null>;
   
-  // Booking with Chapa payment
+  // Patient-specific methods
+  fetchPatientAppointments: (patientId: number) => Promise<void>;
+  fetchUpcomingPatientAppointments: (patientId: number) => Promise<EnrichedAppointment[]>;
+  fetchPastPatientAppointments: (patientId: number) => Promise<EnrichedAppointment[]>;
+  
+  // Provider-specific methods
+  fetchProviderAppointments: (providerId: number) => Promise<void>;
+  fetchUpcomingProviderAppointments: (providerId: number) => Promise<EnrichedAppointment[]>;
+  fetchTodayProviderAppointments: (providerId: number) => Promise<EnrichedAppointment[]>;
+  
+  // Payment-related methods
   bookAppointment: (request: BookAppointmentRequest) => Promise<BookAppointmentResponse | null>;
   bookAppointmentWithPendingPayment: (request: BookAppointmentRequest) => Promise<BookAppointmentResponse | null>;
   createChapaCheckout: (request: BookAppointmentRequest) => Promise<{ checkoutUrl: string; txRef: string } | null>;
   confirmAfterChapaPayment: (appointmentId: number, paymentId: number, txRef: string) => Promise<BookAppointmentResponse | null>;
+  getAppointmentPaymentStatus: (appointmentId: number) => Promise<PaymentStatus | null>;
+  updateAppointmentPaymentStatus: (appointmentId: number, status: PaymentStatus) => Promise<boolean>;
+  retryFailedPayment: (appointmentId: number) => Promise<{ checkoutUrl: string; txRef: string } | null>;
   
-  // Filtering
+  // Filter and utility methods
   setFilters: (filters: Partial<AppointmentFilters>) => void;
   clearError: () => void;
-  
-  // Helper methods
   getAppointmentsByStatus: (status: AppointmentStatus | 'upcoming' | 'past') => EnrichedAppointment[];
+  getAppointmentsByPaymentStatus: (status: PaymentStatus) => EnrichedAppointment[];
   getTodayAppointments: () => EnrichedAppointment[];
   getAppointmentsByDate: (date: string) => EnrichedAppointment[];
-  setProviderContext: (providerId: string) => void;
+  setProviderContext: (providerId: number) => void;
+  setPatientContext: (patientId: number) => void;
+  clearContexts: () => void;
   refreshData: () => Promise<void>;
 }
 
@@ -61,14 +74,22 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
   error: null,
   filters: { searchTerm: '', status: 'all' },
   providerContext: null,
+  patientContext: null,
 
+  // Core CRUD operations
   fetchAppointments: async () => {
     set({ isLoading: true, error: null });
     try {
       const filters = { ...get().filters };
+      
+      // Apply context filters
       if (get().providerContext) {
-        filters.providerId = parseInt(get().providerContext!);
+        filters.providerId = get().providerContext!;
       }
+      if (get().patientContext) {
+        filters.patientId = get().patientContext!;
+      }
+      
       const appointments = await appointmentService.getAppointments(filters);
       set({ appointments, isLoading: false });
     } catch (error) {
@@ -78,7 +99,7 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
     }
   },
 
-  fetchStats: async (providerId?: string) => {
+  fetchStats: async () => {
     set({ isLoading: true });
     try {
       const stats = await appointmentService.getAppointmentStats();
@@ -90,7 +111,7 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
     }
   },
 
-  fetchCheckedInPatients: async (providerId?: string) => {
+  fetchCheckedInPatients: async () => {
     set({ isLoading: true });
     try {
       const checkedInPatients = await appointmentService.getCheckedInPatients();
@@ -108,9 +129,7 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
       const updated = await appointmentService.updateAppointmentStatus(id, status);
       if (updated) {
         set((state) => ({
-          appointments: state.appointments.map((a) => 
-            a.id === id ? updated : a
-          ),
+          appointments: state.appointments.map((a) => a.id === id ? updated : a),
           isLoading: false,
         }));
         await get().fetchStats();
@@ -131,9 +150,7 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
       const updated = await appointmentService.updateAppointmentTiming(id, startTime, endTime);
       if (updated) {
         set((state) => ({
-          appointments: state.appointments.map((a) => 
-            a.id === id ? updated : a
-          ),
+          appointments: state.appointments.map((a) => a.id === id ? updated : a),
           isLoading: false,
         }));
         toast.success('Appointment timing updated successfully');
@@ -153,9 +170,7 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
       const appointment = await appointmentService.checkInPatient(id, checkInTime, estimatedWaitMinutes);
       if (appointment) {
         set((state) => ({
-          appointments: state.appointments.map((a) => 
-            a.id === appointment.id ? appointment : a
-          ),
+          appointments: state.appointments.map((a) => a.id === appointment.id ? appointment : a),
           isLoading: false,
         }));
         await get().fetchCheckedInPatients();
@@ -215,31 +230,100 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
     }
   },
 
-  /**
-   * BOOK APPOINTMENT WITH CHAPA PAYMENT
-   * Flow: Create appointment -> Process Chapa payment -> Generate card number
-   */
+  // Patient-specific methods
+  fetchPatientAppointments: async (patientId: number) => {
+    set({ isLoading: true, error: null, patientContext: patientId });
+    try {
+      const appointments = await appointmentService.getPatientAppointments(patientId);
+      set({ appointments, isLoading: false });
+    } catch (error) {
+      console.error('Failed to fetch patient appointments:', error);
+      set({ error: 'Failed to fetch patient appointments', isLoading: false });
+      toast.error('Failed to fetch your appointments');
+    }
+  },
+
+  fetchUpcomingPatientAppointments: async (patientId: number) => {
+    try {
+      return await appointmentService.getUpcomingPatientAppointments(patientId);
+    } catch (error) {
+      console.error('Failed to fetch upcoming appointments:', error);
+      toast.error('Failed to fetch upcoming appointments');
+      return [];
+    }
+  },
+
+  fetchPastPatientAppointments: async (patientId: number) => {
+    try {
+      return await appointmentService.getPastPatientAppointments(patientId);
+    } catch (error) {
+      console.error('Failed to fetch past appointments:', error);
+      toast.error('Failed to fetch past appointments');
+      return [];
+    }
+  },
+
+  // Provider-specific methods
+  fetchProviderAppointments: async (providerId: number) => {
+    set({ isLoading: true, error: null, providerContext: providerId });
+    try {
+      const appointments = await appointmentService.getProviderAppointments(providerId);
+      set({ appointments, isLoading: false });
+    } catch (error) {
+      console.error('Failed to fetch provider appointments:', error);
+      set({ error: 'Failed to fetch appointments', isLoading: false });
+      toast.error('Failed to fetch appointments');
+    }
+  },
+
+  fetchUpcomingProviderAppointments: async (providerId: number) => {
+    try {
+      return await appointmentService.getUpcomingProviderAppointments(providerId);
+    } catch (error) {
+      console.error('Failed to fetch upcoming provider appointments:', error);
+      toast.error('Failed to fetch upcoming appointments');
+      return [];
+    }
+  },
+
+  fetchTodayProviderAppointments: async (providerId: number) => {
+    try {
+      return await appointmentService.getTodayProviderAppointments(providerId);
+    } catch (error) {
+      console.error('Failed to fetch today\'s appointments:', error);
+      toast.error('Failed to fetch today\'s appointments');
+      return [];
+    }
+  },
+
+  // Payment-related methods
   bookAppointment: async (request: BookAppointmentRequest) => {
     set({ isLoading: true, error: null });
     try {
       const response = await appointmentService.bookAppointment(request);
       
-      if (response.success && response.appointment) {
+      if (response.appointment) {
         set((state) => ({
           appointments: [...state.appointments, response.appointment as EnrichedAppointment],
           isLoading: false,
         }));
         await get().fetchStats();
         
-        if (request.paymentConfirmed && response.card) {
-          toast.success(`Appointment confirmed!`, {
-            description: `Your card number: ${response.card.cardNumber}`,
+        if (response.paymentStatus === 'SUCCESS' && response.card) {
+          toast.success(`APPOINTMENT CONFIRMED!`, {
+            description: `Payment SUCCESSFUL. Card: ${response.card.cardNumber}`,
             duration: 10000,
           });
-        } else if (request.paymentConfirmed) {
+        } else if (response.paymentStatus === 'SUCCESS') {
           toast.success('Appointment confirmed successfully');
+        } else if (response.paymentStatus === 'FAILED') {
+          toast.error('Payment FAILED. Please try again.', {
+            description: response.message,
+            duration: 5000,
+          });
         } else {
-          toast.info('Appointment booked. Please complete Chapa payment to confirm.', {
+          toast.warning('Payment PENDING. Complete payment to confirm appointment.', {
+            description: response.message,
             duration: 5000,
           });
         }
@@ -256,10 +340,6 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
     }
   },
 
-  /**
-   * BOOK APPOINTMENT WITH PENDING PAYMENT (Pay later at clinic)
-   * No payment required upfront
-   */
   bookAppointmentWithPendingPayment: async (request: BookAppointmentRequest) => {
     set({ isLoading: true, error: null });
     try {
@@ -271,7 +351,7 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
           isLoading: false,
         }));
         await get().fetchStats();
-        toast.info('Appointment booked. Please complete payment at the clinic.', {
+        toast.info('Appointment booked. Payment is pending. Please complete payment at the clinic.', {
           duration: 5000,
         });
       } else {
@@ -287,10 +367,6 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
     }
   },
 
-  /**
-   * CREATE CHAPA CHECKOUT URL
-   * Returns a URL to redirect patient to Chapa payment page
-   */
   createChapaCheckout: async (request: BookAppointmentRequest) => {
     set({ isLoading: true, error: null });
     try {
@@ -305,55 +381,95 @@ export const useAppointmentStore = create<AppointmentState>((set, get) => ({
     }
   },
 
-  /**
-   * CONFIRM APPOINTMENT AFTER CHAPA PAYMENT
-   * Called after Chapa webhook confirms payment
-   */
-// stores/slices/appointment.slice.ts - Fixed confirmAfterChapaPayment method
-
-confirmAfterChapaPayment: async (appointmentId: number, paymentId: number, txRef: string) => {
-  set({ isLoading: true, error: null });
-  try {
-    const response = await appointmentService.confirmAfterChapaPayment(appointmentId, paymentId, txRef);
-    
-    if (response.success && response.card) {
-      // Update appointment in store with proper type handling
-      set((state) => ({
-        appointments: state.appointments.map((a) => {
-          if (a.id === appointmentId) {
-            // Return updated appointment with proper types
-            const updatedAppointment: EnrichedAppointment = {
-              ...a,
-              status: 'Confirmed' as AppointmentStatus,
-              cardId: response.card?.id ?? null,  // number | null - OK
-              cardNumber: response.card?.cardNumber ?? undefined,  // string | undefined - FIXED
-              paymentId: paymentId,
-              paymentStatus: 'Paid' as PaymentStatus,
-            };
-            return updatedAppointment;
-          }
-          return a;
-        }),
-        isLoading: false,
-      }));
+  confirmAfterChapaPayment: async (appointmentId: number, paymentId: number, txRef: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await appointmentService.confirmAfterChapaPayment(appointmentId, paymentId, txRef);
       
-      await get().fetchStats();
+      if (response.success && response.card) {
+        set((state) => ({
+          appointments: state.appointments.map((a) => {
+            if (a.id === appointmentId) {
+              return {
+                ...a,
+                status: 'Confirmed' as AppointmentStatus,
+                cardId: response.card?.id ?? null,
+                cardNumber: response.card?.cardNumber,
+                paymentId: paymentId,
+                paymentStatus: 'SUCCESS',
+              };
+            }
+            return a;
+          }),
+          isLoading: false,
+        }));
+        
+        await get().fetchStats();
+        
+        toast.success(`Payment CONFIRMED! Appointment confirmed.`, {
+          description: `Transaction: ${txRef}. Card: ${response.card.cardNumber}`,
+          duration: 10000,
+        });
+      } else {
+        toast.error(response.message || 'Failed to confirm payment');
+      }
       
-      toast.success(`Payment confirmed!`, {
-        description: `Your card number: ${response.card.cardNumber}`,
-        duration: 10000,
-      });
+      return response;
+    } catch (error) {
+      console.error('Failed to confirm payment:', error);
+      set({ error: 'Failed to confirm payment', isLoading: false });
+      toast.error('Failed to confirm payment');
+      return null;
     }
-    
-    return response;
-  } catch (error) {
-    console.error('Failed to confirm payment:', error);
-    set({ error: 'Failed to confirm payment', isLoading: false });
-    toast.error('Failed to confirm payment');
-    return null;
-  }
-},
+  },
 
+  getAppointmentPaymentStatus: async (appointmentId: number) => {
+    try {
+      return await appointmentService.getAppointmentPaymentStatus(appointmentId);
+    } catch (error) {
+      console.error('Failed to get payment status:', error);
+      return null;
+    }
+  },
+
+  updateAppointmentPaymentStatus: async (appointmentId: number, status: PaymentStatus) => {
+    set({ isLoading: true });
+    try {
+      const success = await appointmentService.updateAppointmentPaymentStatus(appointmentId, status);
+      if (success) {
+        set((state) => ({
+          appointments: state.appointments.map((a) => 
+            a.id === appointmentId ? { ...a, paymentStatus: status } : a
+          ),
+          isLoading: false,
+        }));
+        toast.success(`Payment status updated to ${status}`);
+      }
+      return success;
+    } catch (error) {
+      console.error('Failed to update payment status:', error);
+      set({ isLoading: false });
+      toast.error('Failed to update payment status');
+      return false;
+    }
+  },
+
+  retryFailedPayment: async (appointmentId: number) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await appointmentService.retryFailedPayment(appointmentId);
+      set({ isLoading: false });
+      toast.info('Redirecting to payment page...');
+      return result;
+    } catch (error) {
+      console.error('Failed to retry payment:', error);
+      set({ error: 'Failed to retry payment', isLoading: false });
+      toast.error('Failed to retry payment');
+      return null;
+    }
+  },
+
+  // Filter and utility methods
   setFilters: (filters) => {
     set((state) => ({
       filters: { ...state.filters, ...filters },
@@ -368,21 +484,22 @@ confirmAfterChapaPayment: async (appointmentId: number, paymentId: number, txRef
     
     if (status === 'upcoming') {
       return appointments.filter(a => 
-        a.status === 'Scheduled' || 
-        a.status === 'Confirmed' || 
-        a.status === 'Checked-in'
+        a.status === 'Scheduled' || a.status === 'Confirmed' || a.status === 'Checked-in'
       );
     }
     
     if (status === 'past') {
       return appointments.filter(a => 
-        a.status === 'Completed' || 
-        a.status === 'Cancelled' || 
-        a.status === 'No-show'
+        a.status === 'Completed' || a.status === 'Cancelled' || a.status === 'No-show'
       );
     }
     
     return appointments.filter(a => a.status === status);
+  },
+
+  getAppointmentsByPaymentStatus: (status: PaymentStatus) => {
+    const { appointments } = get();
+    return appointments.filter(a => a.paymentStatus === status);
   },
 
   getTodayAppointments: () => {
@@ -396,8 +513,19 @@ confirmAfterChapaPayment: async (appointmentId: number, paymentId: number, txRef
     return appointments.filter(a => a.scheduledDateTime.startsWith(date));
   },
 
-  setProviderContext: (providerId: string) => {
-    set({ providerContext: providerId });
+  setProviderContext: (providerId: number) => {
+    set({ providerContext: providerId, patientContext: null });
+    get().fetchAppointments();
+  },
+
+  setPatientContext: (patientId: number) => {
+    set({ patientContext: patientId, providerContext: null });
+    get().fetchAppointments();
+  },
+
+  clearContexts: () => {
+    set({ providerContext: null, patientContext: null });
+    get().fetchAppointments();
   },
 
   refreshData: async () => {

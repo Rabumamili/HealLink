@@ -1,8 +1,8 @@
 // hooks/useAnalytics.ts
 import { useEffect, useMemo, useCallback, useState } from 'react';
-import { useAnalyticsStore } from '@/stores/slices/analyticsSlice'; // Fixed import path
+import { useAnalyticsStore } from '@/stores/slices/analyticsSlice'; // Fixed import path - changed from slices/analyticsSlice
 import { analyticsService } from '@/services/analytics.service';
-import { AnalyticsQueryParams } from '@/types/entities/analytics.types';
+import { AnalyticsQueryParams } from '@/types/entities/analytics.types'; // Fixed import path
 
 // Main analytics hook
 export const useAnalytics = (type: 'clinic' | 'diagnostic' | 'doctor') => {
@@ -13,22 +13,29 @@ export const useAnalytics = (type: 'clinic' | 'diagnostic' | 'doctor') => {
     isLoading,
     error,
     period,
+    selectedDoctorId,
     fetchClinicAnalytics,
     fetchDiagnosticAnalytics,
     fetchDoctorAnalytics,
     setPeriod,
+    setSelectedDoctor, // This is being destructured
     clearError,
   } = useAnalyticsStore();
 
+  // Get the specific loading and error states for this type
+  const typeIsLoading = isLoading[type];
+  const typeError = error[type];
+
   useEffect(() => {
     if (type === 'clinic' && !clinicData) {
-      fetchClinicAnalytics();
+      fetchClinicAnalytics({ period });
     } else if (type === 'diagnostic' && !diagnosticData) {
-      fetchDiagnosticAnalytics();
-    } else if (type === 'doctor' && !doctorData) {
-      fetchDoctorAnalytics();
+      fetchDiagnosticAnalytics({ period });
+    } else if (type === 'doctor' && !doctorData && selectedDoctorId) {
+      fetchDoctorAnalytics(selectedDoctorId, { period });
     }
-  }, [type, clinicData, diagnosticData, doctorData, fetchClinicAnalytics, fetchDiagnosticAnalytics, fetchDoctorAnalytics]); // Fixed dependencies
+  }, [type, clinicData, diagnosticData, doctorData, selectedDoctorId, period, 
+      fetchClinicAnalytics, fetchDiagnosticAnalytics, fetchDoctorAnalytics]);
 
   const data = useMemo(() => {
     switch (type) {
@@ -40,23 +47,39 @@ export const useAnalytics = (type: 'clinic' | 'diagnostic' | 'doctor') => {
   }, [type, clinicData, diagnosticData, doctorData]);
 
   const refetch = useCallback((params?: AnalyticsQueryParams) => {
+    const queryParams = { period, ...params };
+    
     if (type === 'clinic') {
-      fetchClinicAnalytics(params);
+      fetchClinicAnalytics(queryParams);
     } else if (type === 'diagnostic') {
-      fetchDiagnosticAnalytics(params);
-    } else if (type === 'doctor') {
-      fetchDoctorAnalytics(undefined, params);
+      fetchDiagnosticAnalytics(queryParams);
+    } else if (type === 'doctor' && selectedDoctorId) {
+      fetchDoctorAnalytics(selectedDoctorId, queryParams);
     }
-  }, [type, fetchClinicAnalytics, fetchDiagnosticAnalytics, fetchDoctorAnalytics]);
+  }, [type, period, selectedDoctorId, fetchClinicAnalytics, fetchDiagnosticAnalytics, fetchDoctorAnalytics]);
+
+  const handleSetPeriod = useCallback((newPeriod: typeof period) => {
+    setPeriod(newPeriod);
+  }, [setPeriod]);
+
+  const handleClearError = useCallback(() => {
+    clearError(type);
+  }, [clearError, type]);
+
+  const handleSetSelectedDoctor = useCallback((doctorId: string | null) => {
+    setSelectedDoctor(doctorId);
+  }, [setSelectedDoctor]);
 
   return {
     data,
-    isLoading,
-    error,
+    isLoading: typeIsLoading,
+    error: typeError,
     period,
-    setPeriod,
+    selectedDoctorId,
+    setPeriod: handleSetPeriod,
+    setSelectedDoctor: handleSetSelectedDoctor, // Add this to the return object
     refetch,
-    clearError,
+    clearError: handleClearError,
   };
 };
 
@@ -69,22 +92,24 @@ export const useRevenueAnalytics = () => {
       return {
         total: clinicData.revenue.total,
         change: clinicData.revenue.change,
+        series: clinicData.revenue.series || [],
         trend: clinicData.revenue.trend,
-        data: clinicData.revenue.data || clinicData.monthlyData?.revenue || [],
       };
     }
     if (diagnosticData?.revenue) {
       return {
         total: diagnosticData.revenue.total,
         change: diagnosticData.revenue.change,
+        series: diagnosticData.revenue.series || [],
         trend: diagnosticData.revenue.trend,
-        data: diagnosticData.revenue.weeklyData || [],
       };
     }
     return null;
   }, [clinicData, diagnosticData]);
 
-  return { revenueData, isLoading };
+  const isLoadingRevenue = isLoading.clinic || isLoading.diagnostic;
+
+  return { revenueData, isLoading: isLoadingRevenue };
 };
 
 // Hook for appointment analytics
@@ -93,20 +118,28 @@ export const useAppointmentAnalytics = () => {
   
   const appointmentData = useMemo(() => {
     if (clinicData?.appointments) {
+      const appointments = clinicData.appointments;
       return {
-        total: clinicData.appointments.total,
-        change: clinicData.appointments.change,
-        trend: clinicData.appointments.trend,
-        completed: clinicData.appointments.completed,
-        cancelled: clinicData.appointments.cancelled,
-        noShow: clinicData.appointments.noShow,
-        completionRate: (clinicData.appointments.completed / clinicData.appointments.total) * 100,
+        total: appointments.total,
+        change: appointments.change,
+        completed: appointments.completed,
+        cancelled: appointments.cancelled,
+        noShow: appointments.noShowCount,
+        completionRate: appointments.total > 0 
+          ? (appointments.completed / appointments.total) * 100 
+          : 0,
+        cancellationRate: appointments.total > 0
+          ? (appointments.cancelled / appointments.total) * 100
+          : 0,
+        noShowRate: appointments.total > 0
+          ? (appointments.noShowCount / appointments.total) * 100
+          : 0,
       };
     }
     return null;
   }, [clinicData]);
 
-  return { appointmentData, isLoading };
+  return { appointmentData, isLoading: isLoading.clinic };
 };
 
 // Hook for service breakdown
@@ -114,21 +147,62 @@ export const useServiceBreakdown = () => {
   const { clinicData, diagnosticData, isLoading } = useAnalyticsStore();
   
   const services = useMemo(() => {
-    if (clinicData?.serviceBreakdown) {
+    if (clinicData?.serviceBreakdown && clinicData.serviceBreakdown.length > 0) {
       return clinicData.serviceBreakdown;
     }
+    if (diagnosticData?.serviceBreakdown && diagnosticData.serviceBreakdown.length > 0) {
+      return diagnosticData.serviceBreakdown;
+    }
+    // Handle popularTests if available in diagnostic data
     if (diagnosticData?.popularTests) {
-      return diagnosticData.popularTests.map(test => ({
+      return diagnosticData.popularTests.map((test: any, index: number) => ({
+        id: test.id || `test-${index}`,
         name: test.name,
-        count: 0, // Popular tests might not have count
-        percentage: test.percentage,
-        revenue: test.revenue,
+        count: test.count || 0,
+        percentage: test.percentage || 0,
+        revenue: test.revenue || 0,
       }));
     }
     return [];
   }, [clinicData, diagnosticData]);
 
-  return { services, isLoading };
+  const isLoadingServices = isLoading.clinic || isLoading.diagnostic;
+
+  return { services, isLoading: isLoadingServices };
+};
+
+// Hook for monthly/trend data
+export const useMonthlyTrends = () => {
+  const { clinicData, diagnosticData, isLoading } = useAnalyticsStore();
+  
+  const monthlyData = useMemo(() => {
+    const data = clinicData?.monthlyData?.data || diagnosticData?.monthlyData?.data;
+    
+    if (data && data.length > 0) {
+      return {
+        labels: data.map((item: any) => item.label),
+        appointments: data.map((item: any) => item.appointments),
+        revenue: data.map((item: any) => item.revenue),
+        rawData: data,
+      };
+    }
+    return null;
+  }, [clinicData, diagnosticData]);
+
+  const peakHours = useMemo(() => {
+    return clinicData?.peakHours || diagnosticData?.peakHours || [];
+  }, [clinicData, diagnosticData]);
+
+  const noShowRate = useMemo(() => {
+    return clinicData?.noShowRate || diagnosticData?.noShowRate || null;
+  }, [clinicData, diagnosticData]);
+
+  return { 
+    monthlyData, 
+    peakHours, 
+    noShowRate, 
+    isLoading: isLoading.clinic || isLoading.diagnostic 
+  };
 };
 
 // Hook for export functionality
@@ -144,9 +218,10 @@ export const useAnalyticsExport = () => {
     setIsExporting(true);
     setExportError(null);
     try {
-      await analyticsService.downloadReport(type, format as 'pdf' | 'csv', params);
+      await analyticsService.downloadReport(type, format, params);
     } catch (error: any) {
-      setExportError(error.message || 'Failed to export data');
+      const errorMessage = error?.response?.data?.message || error.message || 'Failed to export data';
+      setExportError(errorMessage);
       throw error;
     } finally {
       setIsExporting(false);
@@ -160,18 +235,26 @@ export const useAnalyticsExport = () => {
 export const useRealTimeAnalytics = (refreshInterval: number = 30000) => {
   const [realTimeData, setRealTimeData] = useState<any>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
+    let isMounted = true;
     
     const fetchRealTimeData = async () => {
       try {
         const data = await analyticsService.getRealTimeAnalytics();
-        setRealTimeData(data);
-        setIsConnected(true);
+        if (isMounted) {
+          setRealTimeData(data);
+          setIsConnected(true);
+          setError(null);
+        }
       } catch (error) {
-        setIsConnected(false);
-        console.error('Error fetching real-time data:', error);
+        if (isMounted) {
+          setIsConnected(false);
+          setError('Failed to fetch real-time data');
+          console.error('Error fetching real-time data:', error);
+        }
       }
     };
 
@@ -179,28 +262,40 @@ export const useRealTimeAnalytics = (refreshInterval: number = 30000) => {
     intervalId = setInterval(fetchRealTimeData, refreshInterval);
 
     return () => {
+      isMounted = false;
       if (intervalId) clearInterval(intervalId);
     };
   }, [refreshInterval]);
 
-  return { realTimeData, isConnected };
+  return { realTimeData, isConnected, error };
 };
 
 // Hook for comparative analytics
 export const useComparativeAnalytics = () => {
   const [comparison, setComparison] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const comparePeriods = useCallback(async (
     currentPeriod: AnalyticsQueryParams,
-    previousPeriod: AnalyticsQueryParams
+    previousPeriod: AnalyticsQueryParams,
+    type: string = 'clinic',
+    doctorId?: string
   ) => {
     setIsLoading(true);
+    setError(null);
     try {
-      const data = await analyticsService.getComparativeAnalytics(currentPeriod, previousPeriod);
+      const data = await analyticsService.getComparativeAnalytics(
+        currentPeriod, 
+        previousPeriod, 
+        type, 
+        doctorId
+      );
       setComparison(data);
       return data;
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 'Failed to compare periods';
+      setError(errorMessage);
       console.error('Failed to compare periods:', error);
       throw error;
     } finally {
@@ -208,5 +303,10 @@ export const useComparativeAnalytics = () => {
     }
   }, []);
 
-  return { comparison, isLoading, comparePeriods };
+  const clearComparison = useCallback(() => {
+    setComparison(null);
+    setError(null);
+  }, []);
+
+  return { comparison, isLoading, error, comparePeriods, clearComparison };
 };

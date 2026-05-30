@@ -1,4 +1,3 @@
-// app/(auth)/register/page.tsx
 'use client';
 
 import { Suspense } from 'react';
@@ -17,8 +16,10 @@ function RegisterContent() {
   switch (role) {
     case 'doctor':
       return <DoctorRegisterForm />;
+    case 'clinic':
     case 'clinic_admin':
       return <ClinicRegisterForm />;
+    case 'diagnostic_center':
     case 'diagnostic_admin':
       return <DiagnosticRegisterForm />;
     case 'patient':

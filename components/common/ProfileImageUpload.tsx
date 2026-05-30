@@ -1,77 +1,85 @@
-// components/common/ProfileImageUpload.tsx
-'use client';
-
-import { useRef } from 'react';
+// components/profile/ProfileImageUpload.tsx
+import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Camera } from 'lucide-react';
+import { Camera, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ProfileImageUploadProps {
-  imageUrl?: string | null;
+  currentImage?: string;
   name: string;
-  onImageUpload: (file: File) => void;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  editable?: boolean;
+  onUpload: (file: File) => Promise<string | null>;
   className?: string;
+  size?: 'sm' | 'md' | 'lg';
 }
 
 const sizeClasses = {
-  sm: 'w-16 h-16',
-  md: 'w-24 h-24',
-  lg: 'w-32 h-32',
-  xl: 'w-40 h-40'
+  sm: 'h-16 w-16',
+  md: 'h-24 w-24',
+  lg: 'h-32 w-32',
 };
 
-export function ProfileImageUpload({
-  imageUrl,
-  name,
-  onImageUpload,
-  size = 'lg',
-  editable = true,
-  className
-}: ProfileImageUploadProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const iconSizes = {
+  sm: 16,
+  md: 20,
+  lg: 24,
+};
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && onImageUpload) {
-      onImageUpload(file);
-    }
+export const ProfileImageUpload = ({
+  currentImage,
+  name,
+  onUpload,
+  className,
+  size = 'md',
+}: ProfileImageUploadProps) => {
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    await onUpload(file);
+    setIsUploading(false);
   };
 
-  const initials = name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   return (
-    <div className={cn("relative inline-block", className)}>
-      <Avatar className={cn(sizeClasses[size], "ring-4 ring-background shadow-lg")}>
-        <AvatarImage src={imageUrl || undefined} />
-        <AvatarFallback className="bg-gradient-to-br from-teal-500 to-teal-600 text-white text-2xl font-semibold">
-          {initials}
-        </AvatarFallback>
+    <div className={cn('relative inline-block', className)}>
+      <Avatar className={cn(sizeClasses[size], 'border-2 border-border')}>
+        <AvatarImage src={currentImage} alt={name} />
+        <AvatarFallback>{getInitials(name)}</AvatarFallback>
       </Avatar>
-      {editable && (
-        <>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-0 right-0 p-2 bg-teal-600 text-white rounded-full shadow-lg hover:bg-teal-700 transition-all hover:scale-105"
-          >
-            <Camera className="h-4 w-4" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-        </>
-      )}
+      <label
+        htmlFor="profile-image-upload"
+        className={cn(
+          'absolute bottom-0 right-0 cursor-pointer rounded-full bg-primary p-1 text-primary-foreground shadow-lg transition-colors hover:bg-primary/90',
+          size === 'sm' && 'p-0.5',
+          size === 'lg' && 'p-1.5'
+        )}
+      >
+        {isUploading ? (
+          <Loader2 className={cn('animate-spin', `h-${iconSizes[size]} w-${iconSizes[size]}`)} />
+        ) : (
+          <Camera className={cn(`h-${iconSizes[size]} w-${iconSizes[size]}`)} />
+        )}
+        <input
+          id="profile-image-upload"
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+          disabled={isUploading}
+        />
+      </label>
     </div>
   );
-}
+};

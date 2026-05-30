@@ -1,5 +1,5 @@
 // services/mock/schedule.repository.ts
-import { BaseRepository } from './mock.service';
+import { BaseRepository } from '.';
 import { 
   ScheduleSlot, 
   TimeSlot, 

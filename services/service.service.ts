@@ -9,7 +9,7 @@ import {
   ServiceStatus,
   ServiceType
 } from '@/types/entities/service.types';
-import { MockServiceRegistry } from './mock/mock.service';
+import { MockServiceRegistry } from './mock';
 
 class ServiceService extends ApiService {
   private useMock = true;

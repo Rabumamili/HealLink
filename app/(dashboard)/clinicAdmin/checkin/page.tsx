@@ -1,3 +1,4 @@
+// app/(dashboard)/clinic/checkin/page.tsx
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
@@ -9,16 +10,30 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatsCard } from "@/components/common/StatsCard"
 import { useCard, useCardCheckIn, useCardValidation, useCardStats } from "@/hooks/useCard"
 import { useAppointments } from "@/hooks/useAppointments"
-import { Search, CheckCircle, AlertCircle, Loader2, Calendar, Users, Clock, QrCode } from "lucide-react"
+import { Search, CheckCircle, AlertCircle, Loader2, Calendar, Users, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+
+interface CardWithAppointment {
+  id: number
+  cardNumber: string
+  status: string
+  appointmentId: number
+  expiresAt: string
+  usedAt: string | null
+  appointment?: {
+    patientName: string
+    patientId: number
+    serviceName: string
+    scheduledDateTime: string
+    providerName: string
+  }
+}
 
 export default function ClinicCheckinPage() {
-  const router = useRouter()
   const [cardNumber, setCardNumber] = useState("")
   const [isVerifying, setIsVerifying] = useState(false)
-  const [foundCard, setFoundCard] = useState<any>(null)
+  const [foundCard, setFoundCard] = useState<CardWithAppointment | null>(null)
   const [checkInSuccess, setCheckInSuccess] = useState(false)
 
   const { cards, fetchCards, isLoading: cardsLoading } = useCard({ autoFetch: true })
@@ -31,8 +46,8 @@ export default function ClinicCheckinPage() {
   const staffId = 1
   const staffType = "clinic" as const
 
-  // Filter active cards - DON'T show card numbers in the list
-  const clinicCards = cards.filter(card => card.status === 'Active')
+  // Filter active cards
+  const clinicCards = (cards as CardWithAppointment[]).filter(card => card.status === 'Active')
 
   const handleVerify = async () => {
     if (!cardNumber.trim()) {
@@ -47,7 +62,9 @@ export default function ClinicCheckinPage() {
     const result = await validateCard(cardNumber)
     
     if (result.isValid && result.card) {
-      setFoundCard(result.card)
+      // Fetch full card details with appointment
+      const fullCard = (cards as CardWithAppointment[]).find(c => c.cardNumber === cardNumber)
+      setFoundCard(fullCard || null)
       toast.success("Patient found")
     } else {
       setFoundCard(null)
@@ -101,7 +118,7 @@ export default function ClinicCheckinPage() {
   }
 
   const today = new Date().toDateString()
-  const todayCheckIns = cards.filter(card => 
+  const todayCheckIns = (cards as CardWithAppointment[]).filter(card => 
     card.status === 'Used' && 
     card.usedAt && 
     new Date(card.usedAt).toDateString() === today
@@ -183,7 +200,6 @@ export default function ClinicCheckinPage() {
                 </Button>
               </div>
 
-              {/* Results - Card number NOT displayed here */}
               {(validationResult || foundCard || checkInResult) && (
                 <div className={cn(
                   "p-4 rounded-lg border",
@@ -227,7 +243,7 @@ export default function ClinicCheckinPage() {
                         </div>
                         <Badge className="bg-green-100 text-green-700">Verified</Badge>
                       </div>
-                      {/* CARD NUMBER NOT DISPLAYED HERE - just patient info */}
+                      {/* Card number NOT displayed - only patient info */}
                       <div className="grid gap-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Service</span>
@@ -298,12 +314,11 @@ export default function ClinicCheckinPage() {
                 {clinicCards.slice(0, 5).map((card) => (
                   <div key={card.id} className="flex items-center justify-between p-3 rounded-lg border hover:border-teal-200 transition-colors">
                     <div className="flex-1">
-                      {/* Show patient name, NOT card number */}
                       <p className="font-medium">
-                        {(card as any).appointment?.patientName || `Appointment #${card.appointmentId}`}
+                        {card.appointment?.patientName || `Appointment #${card.appointmentId}`}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {(card as any).appointment?.serviceName || "Service"}
+                        {card.appointment?.serviceName || "Service"}
                       </p>
                     </div>
                     <Badge className="bg-green-100 text-green-700">Ready</Badge>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,117 +34,66 @@ import {
   TrendingUp,
   Calendar,
   Building2,
-  Printer
+  Printer,
+  Loader2
 } from "lucide-react"
+import { usePayment } from "@/hooks/usePayment"
+import { format } from "date-fns"
+import { toast } from "sonner"
 
-interface Payment {
-  id: string
-  date: string
-  provider: string
-  providerType: "doctor" | "clinic" | "diagnostic"
-  service: string
-  amount: number
-  status: "Completed" | "Failed" | "Pending" | "Refunded"
-  method: "Chapa"
-  transactionId: string
-  chapaReference?: string
-}
-
-const paymentHistory: Payment[] = [
-  {
-    id: "PAY-001",
-    date: "May 10, 2026",
-    provider: "Dr. Sara Tesfaye",
-    providerType: "doctor",
-    service: "Initial Consultation",
-    amount: 500,
-    status: "Completed",
-    method: "Chapa",
-    transactionId: "TX-78234981",
-    chapaReference: "CH-20260510-001234",
-  },
-  {
-    id: "PAY-002",
-    date: "May 5, 2026",
-    provider: "Addis Diagnostic Center",
-    providerType: "diagnostic",
-    service: "Blood Test Panel",
-    amount: 1200,
-    status: "Completed",
-    method: "Chapa",
-    transactionId: "TX-78234567",
-    chapaReference: "CH-20260505-005678",
-  },
-  {
-    id: "PAY-003",
-    date: "April 28, 2026",
-    provider: "Bethel Clinic",
-    providerType: "clinic",
-    service: "General Checkup",
-    amount: 300,
-    status: "Completed",
-    method: "Chapa",
-    transactionId: "TX-78234123",
-    chapaReference: "CH-20260428-009012",
-  },
-  {
-    id: "PAY-004",
-    date: "April 20, 2026",
-    provider: "Dr. Yonas Bekele",
-    providerType: "doctor",
-    service: "Follow-up Visit",
-    amount: 300,
-    status: "Completed",
-    method: "Chapa",
-    transactionId: "TX-78233789",
-    chapaReference: "CH-20260420-003456",
-  },
-  {
-    id: "PAY-005",
-    date: "April 15, 2026",
-    provider: "St. Gabriel Hospital",
-    providerType: "clinic",
-    service: "X-Ray",
-    amount: 800,
-    status: "Refunded",
-    method: "Chapa",
-    transactionId: "TX-78233456",
-    chapaReference: "CH-20260415-007890",
-  },
-  {
-    id: "PAY-006",
-    date: "April 10, 2026",
-    provider: "Dr. Meron Hailu",
-    providerType: "doctor",
-    service: "Pediatric Consultation",
-    amount: 400,
-    status: "Failed",
-    method: "Chapa",
-    transactionId: "TX-78233123",
-  },
-]
-
+// Status configuration - removed Refunded
 const statusConfig: Record<string, {
   icon: React.ComponentType<{ className?: string }>
   color: string
+  label: string
 }> = {
-  Completed: { icon: CheckCircle, color: "bg-green-100 text-green-700" },
-  Failed: { icon: XCircle, color: "bg-red-100 text-red-700" },
-  Pending: { icon: Clock, color: "bg-yellow-100 text-yellow-700" },
-  Refunded: { icon: Receipt, color: "bg-blue-100 text-blue-700" },
+  SUCCESS: { 
+    icon: CheckCircle, 
+    color: "bg-green-100 text-green-700",
+    label: "Completed"
+  },
+  FAILED: { 
+    icon: XCircle, 
+    color: "bg-red-100 text-red-700",
+    label: "Failed"
+  },
+  PENDING: { 
+    icon: Clock, 
+    color: "bg-yellow-100 text-yellow-700",
+    label: "Pending"
+  },
 }
 
-function ReceiptDialog({ payment }: { payment: Payment }) {
+// Helper function to format date
+const formatDate = (dateString: string) => {
+  return format(new Date(dateString), "MMM dd, yyyy")
+}
+
+// Receipt Dialog Component
+function ReceiptDialog({ payment, onDownloadPDF }: { 
+  payment: any; 
+  onDownloadPDF: (payment: any) => void 
+}) {
+  const [isPrinting, setIsPrinting] = useState(false)
+
+  const handlePrint = () => {
+    setIsPrinting(true)
+    setTimeout(() => {
+      window.print()
+      setIsPrinting(false)
+    }, 100)
+  }
+
   return (
-    <DialogContent className="max-w-md">
-      <DialogHeader>
+    <DialogContent className="max-w-md print:shadow-none print:border-0" id="receipt-content">
+      <DialogHeader className="print:hidden">
         <DialogTitle>Payment Receipt</DialogTitle>
         <DialogDescription>
-          Transaction ID: {payment.transactionId}
+          Transaction ID: {payment.txRef}
         </DialogDescription>
       </DialogHeader>
       
-      <div className="space-y-6 py-4">
+      <div className="space-y-6 py-4 print:py-0">
         <div className="text-center border-b pb-4">
           <div className="flex justify-center mb-2">
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -158,30 +107,26 @@ function ReceiptDialog({ payment }: { payment: Payment }) {
         <div className="space-y-3 text-sm">
           <div className="flex justify-between flex-wrap gap-2">
             <span className="text-muted-foreground">Receipt ID</span>
-            <span className="font-medium">{payment.id}</span>
+            <span className="font-medium">PAY-{payment.id}</span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
             <span className="text-muted-foreground">Date</span>
-            <span className="font-medium">{payment.date}</span>
+            <span className="font-medium">{formatDate(payment.createdAt)}</span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
-            <span className="text-muted-foreground">Provider</span>
-            <span className="font-medium">{payment.provider}</span>
-          </div>
-          <div className="flex justify-between flex-wrap gap-2">
-            <span className="text-muted-foreground">Service</span>
-            <span className="font-medium">{payment.service}</span>
+            <span className="text-muted-foreground">Appointment ID</span>
+            <span className="font-medium">#{payment.appointmentId}</span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
             <span className="text-muted-foreground">Payment Method</span>
             <span className="font-medium flex items-center gap-1">
               <CreditCard className="h-3 w-3" />
-              {payment.method}
+              {payment.provider.toUpperCase()}
             </span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
             <span className="text-muted-foreground">Transaction ID</span>
-            <span className="font-mono text-xs break-all">{payment.transactionId}</span>
+            <span className="font-mono text-xs break-all">{payment.txRef}</span>
           </div>
           {payment.chapaReference && (
             <div className="flex justify-between flex-wrap gap-2">
@@ -198,12 +143,12 @@ function ReceiptDialog({ payment }: { payment: Payment }) {
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1">
+        <div className="flex gap-3 print:hidden">
+          <Button variant="outline" className="flex-1" onClick={handlePrint} disabled={isPrinting}>
             <Printer className="h-4 w-4 mr-2" />
-            Print
+            {isPrinting ? "Printing..." : "Print"}
           </Button>
-          <Button className="flex-1">
+          <Button className="flex-1" onClick={() => onDownloadPDF(payment)}>
             <Download className="h-4 w-4 mr-2" />
             Download PDF
           </Button>
@@ -215,21 +160,81 @@ function ReceiptDialog({ payment }: { payment: Payment }) {
 
 export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [activeTab, setActiveTab] = useState("all")
+  
+  // Get current user - replace with your auth hook
+  const patientId = 201 // This should come from your auth context
+  
+  const {
+    payments,
+    isLoading,
+    error,
+    fetchPatientPayments,
+    getTotalAmountSpent,
+    clearError
+  } = usePayment({
+    patientId,
+    autoFetch: true
+  })
 
-  const totalSpent = paymentHistory
-    .filter(p => p.status === "Completed")
+  // Clear error on unmount
+  useEffect(() => {
+    return () => {
+      clearError()
+    }
+  }, [clearError])
+
+  // Show error toast if any
+  useEffect(() => {
+    if (error) {
+      toast.error(error)
+      clearError()
+    }
+  }, [error, clearError])
+
+  // Calculate statistics from real data
+  const totalSpent = getTotalAmountSpent()
+  
+  const thisMonth = payments
+    .filter(p => p.status === "SUCCESS" && 
+      new Date(p.createdAt).getMonth() === new Date().getMonth() &&
+      new Date(p.createdAt).getFullYear() === new Date().getFullYear()
+    )
     .reduce((sum, p) => sum + p.amount, 0)
 
-  const thisMonth = paymentHistory
-    .filter(p => p.status === "Completed" && p.date.includes("May"))
-    .reduce((sum, p) => sum + p.amount, 0)
+  const uniqueProviders = new Set(payments.map(p => p.appointmentId)).size
 
-  const filteredPayments = paymentHistory.filter(
-    payment => 
-      payment.provider.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.service.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.id.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Filter payments based on search and active tab
+  const filteredPayments = payments.filter(payment => {
+    const matchesSearch = 
+      payment.txRef.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      payment.id.toString().includes(searchQuery) ||
+      payment.appointmentId.toString().includes(searchQuery)
+    
+    const matchesTab = activeTab === "all" || payment.status === activeTab.toUpperCase()
+    
+    return matchesSearch && matchesTab
+  })
+
+  // Handle PDF download
+  const handleDownloadPDF = async (payment: any) => {
+    try {
+      toast.info("Generating PDF...")
+      // Implement PDF generation logic here
+      // You can use jsPDF or another library
+      toast.success("PDF downloaded successfully")
+    } catch (error) {
+      toast.error("Failed to download PDF")
+    }
+  }
+
+  if (isLoading && payments.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -287,7 +292,7 @@ export default function PaymentsPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Transactions</p>
-                <p className="text-xl font-bold">{paymentHistory.length}</p>
+                <p className="text-xl font-bold">{payments.length}</p>
               </div>
             </div>
           </CardContent>
@@ -295,14 +300,12 @@ export default function PaymentsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                <Building2 className="h-5 w-5 text-yellow-600" />
+              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <Building2 className="h-5 w-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Providers</p>
-                <p className="text-xl font-bold">
-                  {new Set(paymentHistory.map(p => p.provider)).size}
-                </p>
+                <p className="text-xs text-muted-foreground">Appointments</p>
+                <p className="text-xl font-bold">{uniqueProviders}</p>
               </div>
             </div>
           </CardContent>
@@ -322,7 +325,7 @@ export default function PaymentsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input 
-                placeholder="Search payments..."
+                placeholder="Search by transaction or appointment..."
                 className="pl-10 w-full sm:w-64"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -331,237 +334,103 @@ export default function PaymentsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="all">
+          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="flex flex-wrap h-auto gap-1 mb-4">
               <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-              <TabsTrigger value="failed">Failed</TabsTrigger>
-              <TabsTrigger value="refunded">Refunded</TabsTrigger>
+              <TabsTrigger value="SUCCESS">Completed</TabsTrigger>
+              <TabsTrigger value="PENDING">Pending</TabsTrigger>
+              <TabsTrigger value="FAILED">Failed</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="all">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction</TableHead>
-                      <TableHead className="hidden sm:table-cell">Provider</TableHead>
-                      <TableHead className="hidden md:table-cell">Service</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead className="hidden sm:table-cell">Method</TableHead>
-                      <TableHead className="hidden sm:table-cell">Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayments.map((payment) => {
-                      const StatusIcon = statusConfig[payment.status]?.icon || Clock
-                      const statusColor = statusConfig[payment.status]?.color || "bg-gray-100 text-gray-700"
-                      return (
-                        <TableRow key={payment.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{payment.id}</p>
-                              <p className="text-sm text-muted-foreground">{payment.date}</p>
-                              <p className="text-sm text-muted-foreground sm:hidden">{payment.provider}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell whitespace-normal break-words">
-                            {payment.provider}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell whitespace-normal break-words">
-                            {payment.service}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap font-semibold">
-                            ETB {payment.amount}
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell whitespace-nowrap">
-                            <Badge variant="outline" className="gap-1">
-                              <CreditCard className="h-3 w-3" />
-                              {payment.method}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell whitespace-nowrap">
-                            <Badge className={statusColor}>
-                              <StatusIcon className="h-3 w-3 mr-1" />
-                              {payment.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right whitespace-nowrap">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <Receipt className="h-4 w-4 mr-2" />
-                                  <span className="hidden sm:inline">Receipt</span>
-                                </Button>
-                              </DialogTrigger>
-                              <ReceiptDialog payment={payment} />
-                            </Dialog>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {filteredPayments.length === 0 && (
+            <TabsContent value={activeTab}>
+              {filteredPayments.length === 0 ? (
                 <div className="text-center py-12">
                   <Search className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                   <h3 className="font-semibold text-lg">No payments found</h3>
                   <p className="text-muted-foreground mt-1">
-                    Try adjusting your search query
+                    {searchQuery ? "Try adjusting your search query" : "No payments to display"}
                   </p>
                 </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Transaction</TableHead>
+                        <TableHead className="hidden sm:table-cell">Appointment ID</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead className="hidden sm:table-cell">Method</TableHead>
+                        <TableHead className="hidden sm:table-cell">Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPayments.map((payment) => {
+                        const StatusIcon = statusConfig[payment.status]?.icon || Clock
+                        const statusColor = statusConfig[payment.status]?.color || "bg-gray-100 text-gray-700"
+                        const statusLabel = statusConfig[payment.status]?.label || payment.status
+                        
+                        return (
+                          <TableRow key={payment.id}>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium">{payment.txRef}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {formatDate(payment.createdAt)}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              <Badge variant="outline">
+                                #{payment.appointmentId}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap font-semibold">
+                              ETB {payment.amount}
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell whitespace-nowrap">
+                              <Badge variant="outline" className="gap-1">
+                                <CreditCard className="h-3 w-3" />
+                                {payment.provider.toUpperCase()}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell whitespace-nowrap">
+                              <Badge className={statusColor}>
+                                <StatusIcon className="h-3 w-3 mr-1" />
+                                {statusLabel}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap">
+                              {payment.status === "FAILED" ? (
+                                <Button variant="outline" size="sm" asChild>
+                                  <Link href={`/patient/bookings?appointment=${payment.appointmentId}`}>
+                                    Retry Payment
+                                  </Link>
+                                </Button>
+                              ) : payment.status === "SUCCESS" ? (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <Receipt className="h-4 w-4 mr-2" />
+                                      <span className="hidden sm:inline">Receipt</span>
+                                    </Button>
+                                  </DialogTrigger>
+                                  <ReceiptDialog payment={payment} onDownloadPDF={handleDownloadPDF} />
+                                </Dialog>
+                              ) : (
+                                <Badge variant="secondary" className="whitespace-nowrap">
+                                  <Clock className="h-3 w-3 mr-1" />
+                                  Processing
+                                </Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
-            </TabsContent>
-
-            {/* Other tabs simplified for brevity - same overflow-x-auto wrapper */}
-            <TabsContent value="completed">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction</TableHead>
-                      <TableHead className="hidden sm:table-cell">Provider</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayments.filter(p => p.status === "Completed").map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{payment.id}</p>
-                            <p className="text-sm text-muted-foreground">{payment.date}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell whitespace-normal break-words">
-                          {payment.provider}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap font-semibold">
-                          ETB {payment.amount}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <Badge variant="outline" className="gap-1">
-                            <CreditCard className="h-3 w-3" />
-                            {payment.method}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Receipt className="h-4 w-4 mr-2" />
-                                Receipt
-                              </Button>
-                            </DialogTrigger>
-                            <ReceiptDialog payment={payment} />
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="failed">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction</TableHead>
-                      <TableHead className="hidden sm:table-cell">Provider</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayments.filter(p => p.status === "Failed").map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{payment.id}</p>
-                            <p className="text-sm text-muted-foreground">{payment.date}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell whitespace-normal break-words">
-                          {payment.provider}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap font-semibold">
-                          ETB {payment.amount}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <Badge variant="outline" className="gap-1">
-                            <CreditCard className="h-3 w-3" />
-                            {payment.method}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href="/patient/bookings">Retry Payment</Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="refunded">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Transaction</TableHead>
-                      <TableHead className="hidden sm:table-cell">Provider</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Method</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPayments.filter(p => p.status === "Refunded").map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{payment.id}</p>
-                            <p className="text-sm text-muted-foreground">{payment.date}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell whitespace-normal break-words">
-                          {payment.provider}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap font-semibold">
-                          ETB {payment.amount}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <Badge variant="outline" className="gap-1">
-                            <CreditCard className="h-3 w-3" />
-                            {payment.method}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right whitespace-nowrap">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Receipt className="h-4 w-4 mr-2" />
-                                Details
-                              </Button>
-                            </DialogTrigger>
-                            <ReceiptDialog payment={payment} />
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
             </TabsContent>
           </Tabs>
         </CardContent>

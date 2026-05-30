@@ -1,7 +1,7 @@
 // stores/slices/service.slice.ts
 import { create } from 'zustand';
 import { Service, ServiceFilters, ServiceStats, CreateServiceDTO, UpdateServiceDTO, ServiceStatus, ServiceType } from '@/types/entities/service.types';
-import { getServiceRepository } from '@/services/mock/mock.service';
+import { getServiceRepository } from '@/services/mock';
 import { toast } from 'sonner';
 
 interface ServiceState {

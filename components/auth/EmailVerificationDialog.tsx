@@ -1,11 +1,8 @@
-// components/auth/EmailVerificationDialog.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, RotateCw, X } from 'lucide-react';
-import { authService } from '@/services/auth.service';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 interface EmailVerificationDialogProps {
@@ -27,10 +24,10 @@ export const EmailVerificationDialog = ({
   onVerificationComplete,
   onCancel,
 }: EmailVerificationDialogProps) => {
+  const { verifyEmail, resendVerificationCode, isVerifyingEmail } = useAuth();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [timeLeft, setTimeLeft] = useState(60);
   const [canResend, setCanResend] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -47,49 +44,55 @@ export const EmailVerificationDialog = ({
     }
   }, [timeLeft, canResend, open]);
 
-  // Reset state when dialog opens
   useEffect(() => {
     if (open) {
       setCode(['', '', '', '', '', '']);
       setTimeLeft(60);
       setCanResend(false);
       setError(null);
-      setIsVerifying(false);
-      // Focus first input
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
     }
   }, [open]);
 
   const handleVerify = async () => {
+    // FIXED: Use code.join('') instead of verificationCode
+    const verificationCodeString = code.join('');
+    if (!verificationCodeString || verificationCodeString.length !== 6) {
+      setError('Please enter a valid 6-digit verification code');
+      return;
+    }
+
     setError(null);
-    setIsVerifying(true);
 
     try {
-      await authService.verifyEmail({
+      // This will verify email AND submit professional verification documents
+      // (since documents were already sent during registration)
+      await verifyEmail({
         email,
-        code: code.join(''),
+        code: verificationCodeString,
+        tempUserId,
       });
       
-      toast.success('Email verified successfully!');
+      toast.success('Email verified successfully! Professional verification submitted.');
       onVerificationComplete();
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Invalid verification code');
-    } finally {
-      setIsVerifying(false);
+      setError(err?.message || 'Verification failed');
     }
   };
 
   const handleResend = async () => {
+    // FIXED: Use timeLeft instead of resendTimer
+    if (timeLeft > 0) return;
     setError(null);
     setIsResending(true);
 
     try {
-      await authService.resendVerificationCode({ email });
+      await resendVerificationCode(email);
       setTimeLeft(60);
       setCanResend(false);
       toast.success('Verification code resent!');
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to resend code');
+      setError(err?.message || 'Failed to resend code');
     } finally {
       setIsResending(false);
     }
@@ -124,7 +127,6 @@ export const EmailVerificationDialog = ({
     }
     setCode(newCode);
     
-    // Focus the next empty input or last filled
     const lastFilledIndex = newCode.findLastIndex(digit => digit !== '');
     if (lastFilledIndex < 5) {
       inputRefs.current[lastFilledIndex + 1]?.focus();
@@ -137,82 +139,96 @@ export const EmailVerificationDialog = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
-        {/* Header */}
-        <div className="relative p-6 pb-0">
-          <button
-            onClick={onCancel}
-            className="absolute right-4 top-4 p-1 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X className="h-5 w-5 text-gray-500" />
-          </button>
-          <div className="text-center">
-            <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="h-8 w-8 text-teal-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900">Verify Your Email</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              We've sent a verification code to <br />
-              <strong className="text-teal-600">{email}</strong>
-            </p>
-          </div>
-        </div>
+      <div className="relative w-full max-w-[480px] mx-4">
+        <div className="rounded-2xl border border-white/20 bg-white/90 shadow-2xl backdrop-blur-xl sm:rounded-3xl">
+          <div className="relative px-6 py-5 sm:px-8 sm:py-6">
+            {/* Close Button */}
+            <button
+              onClick={onCancel}
+              className="absolute right-4 top-4 p-1 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <X className="h-5 w-5 text-slate-500" />
+            </button>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {error && (
-            <Alert variant="destructive" className="text-sm">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex justify-center gap-3">
-            {code.map((digit, index) => (
-              <input
-                key={index}
-                ref={(el) => { inputRefs.current[index] = el; }}
-                type="text"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleCodeChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                onPaste={handlePaste}
-                className="w-12 h-12 text-center text-2xl font-bold border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all"
-                autoFocus={index === 0}
-              />
-            ))}
-          </div>
-
-          <Button
-            onClick={handleVerify}
-            disabled={isVerifying || !isComplete}
-            className="w-full h-11 bg-teal-600 hover:bg-teal-700 text-white"
-          >
-            {isVerifying ? (
-              <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Verifying...
-              </>
-            ) : (
-              'Verify Email'
-            )}
-          </Button>
-
-          <div className="text-center">
-            {canResend ? (
-              <button
-                onClick={handleResend}
-                disabled={isResending}
-                className="text-teal-600 hover:text-teal-700 text-sm font-medium flex items-center justify-center gap-2 mx-auto"
-              >
-                <RotateCw className={`h-4 w-4 ${isResending ? 'animate-spin' : ''}`} />
-                {isResending ? 'Sending...' : 'Resend verification code'}
-              </button>
-            ) : (
-              <p className="text-sm text-gray-500">
-                Resend code in <span className="font-medium text-teal-600">{timeLeft}</span> seconds
+            {/* Header */}
+            <div className="mb-4 flex flex-col items-center text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-teal-700 to-cyan-500 shadow-lg sm:h-14 sm:w-14">
+                <Mail className="h-6 w-6 text-white sm:h-7 sm:w-7" />
+              </div>
+              <h1 className="text-lg font-bold text-slate-900 sm:text-xl">
+                Verify Your Email
+              </h1>
+              <p className="mt-1 text-xs text-slate-500">
+                We've sent a verification code to <br />
+                <strong className="text-teal-600">{email}</strong>
               </p>
-            )}
+              {role !== 'patient' && (
+                <p className="mt-2 text-xs text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
+                  Professional verification will be submitted automatically
+                </p>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="space-y-4 sm:space-y-5">
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 sm:rounded-xl sm:px-4 sm:py-2.5">
+                  {error}
+                </div>
+              )}
+
+              {/* Code Inputs */}
+              <div className="flex justify-center gap-2 sm:gap-3">
+                {code.map((digit, index) => (
+                  <input
+                    key={index}
+                    ref={(el) => { inputRefs.current[index] = el; }}
+                    type="text"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleCodeChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={handlePaste}
+                    className="h-12 w-12 text-center text-xl font-bold border-2 border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-all sm:h-14 sm:w-14 sm:text-2xl"
+                    autoFocus={index === 0}
+                  />
+                ))}
+              </div>
+
+              {/* Verify Button */}
+              <button
+                onClick={handleVerify}
+                disabled={isVerifyingEmail || !isComplete}
+                className="group flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-700 to-cyan-600 py-2 text-xs font-bold tracking-wide text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] disabled:opacity-60 sm:rounded-xl sm:py-2.5 sm:text-sm"
+              >
+                {isVerifyingEmail ? (
+                  <>
+                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent sm:h-3.5 sm:w-3.5" />
+                    Verifying & Submitting...
+                  </>
+                ) : (
+                  'Verify Email & Submit'
+                )}
+              </button>
+
+              {/* Resend Section */}
+              <div className="text-center">
+                {canResend ? (
+                  <button
+                    onClick={handleResend}
+                    disabled={isResending}
+                    className="inline-flex items-center gap-2 text-teal-700 hover:text-teal-800 text-xs font-semibold sm:text-sm"
+                  >
+                    <RotateCw className={`h-3.5 w-3.5 ${isResending ? 'animate-spin' : ''}`} />
+                    {isResending ? 'Sending...' : 'Resend verification code'}
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Resend code in <span className="font-semibold text-teal-600">{timeLeft}</span> seconds
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

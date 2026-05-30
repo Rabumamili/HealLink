@@ -1,20 +1,19 @@
-"use client"
+"use client";
 
-import { useState, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useState, useRef, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,209 +24,165 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { 
-  User, 
+} from "@/components/ui/alert-dialog";
+import {
+  User,
   Droplets,
   Heart,
-  Pill,
   UserPlus,
   Save,
   Camera,
   Key,
-  LogOut,
   Trash2,
   Shield,
   Eye,
   EyeOff,
   Activity,
   FileText,
-  Calendar as CalendarIcon
-} from "lucide-react"
-import { toast } from "sonner"
+  Calendar,
+  LogOut,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { PatientProfile, PatientProfileUpdate } from "@/types/entities/profile.types";
 
-const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
-export default function HealthProfilePage() {
-  const [isEditing, setIsEditing] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [profileImage, setProfileImage] = useState<string | null>(null)
-  
-  const [profile, setProfile] = useState({
-    firstName: "Sarah",
-    lastName: "Johnson",
-    email: "sarah.johnson@example.com",
-    phone: "+1 (555) 000-0000",
-    dateOfBirth: "1992-03-14",
-    gender: "Female",
-    address: "123 Wellness Way, Apt 4B, San Francisco, CA 94103",
-    bloodType: "O+",
-    height: "165",
-    weight: "62",
-    allergies: ["Penicillin", "Pollen"],
-    chronicConditions: [] as string[],
-    currentMedications: [] as string[],
-    emergencyContact: {
-      name: "Michael Johnson",
-      relationship: "Spouse",
-      phone: "+1 (555) 111-2222",
-    },
-  })
+export default function PatientProfilePage() {
+  const [isEditing, setIsEditing] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const {
+    profile,
+    statistics,
+    loading,
+    uploadLoading,
+    passwordLoading,
+    deleteLoading,
+    loadPatientProfile,
+    updatePatient,
+    uploadPhoto,
+    updatePassword,
+    loadPatientStatistics,
+    removeAccount,
+  } = useProfile();
+
+  const { logout } = useAuth();
+
+  const [formData, setFormData] = useState<PatientProfileUpdate>({});
   const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  })
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
 
-  const [newAllergy, setNewAllergy] = useState("")
-  const [newCondition, setNewCondition] = useState("")
-  const [newMedication, setNewMedication] = useState("")
+  useEffect(() => {
+    loadPatientProfile();
+    loadPatientStatistics();
+  }, [loadPatientProfile, loadPatientStatistics]);
+
+  useEffect(() => {
+    if (profile && "first_name" in profile) {
+      const p = profile as PatientProfile;
+      setFormData({
+        first_name: p.first_name,
+        last_name: p.last_name,
+        phone_number: p.phone_number,
+        date_of_birth: p.date_of_birth,
+        gender: p.gender,
+        address: p.address,
+        blood_type: p.blood_type,
+      });
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    const updated = await updatePatient(formData);
+    if (updated) setIsEditing(false);
+  };
+
+  const handlePasswordChange = async () => {
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast.error("New password and confirm password do not match");
+      return;
+    }
+    if (passwordData.new_password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+    const success = await updatePassword(passwordData);
+    if (success) {
+      setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
+    }
+  };
+
+  const handleProfileImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      await uploadPhoto(file);
+      await loadPatientProfile();
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const success = await removeAccount();
+    if (success) logout();
+  };
+
+  const patientProfile = profile as PatientProfile | null;
 
   const statsData = [
-    { icon: CalendarIcon, label: "Appointments", value: "12", detail: "Last visit: 3 days ago" },
-    { icon: FileText, label: "Lab Reports", value: "04", detail: "Pending review: 01" },
-    { icon: Activity, label: "Health Score", value: "92", detail: "Excellent" },
-  ]
+    {
+      icon: Calendar,
+      label: "Appointments",
+      value: (statistics as any)?.total_appointments ?? 0,
+      detail: `Upcoming: ${(statistics as any)?.upcoming_appointments ?? 0}`,
+    },
+    {
+      icon: FileText,
+      label: "Lab Results",
+      value: (statistics as any)?.pending_lab_results ?? 0,
+      detail: "Pending review",
+    },
+    {
+      icon: Activity,
+      label: "Health Score",
+      value: (statistics as any)?.health_score ?? 0,
+      detail: (statistics as any)?.health_score >= 80 ? "Excellent" : "Good",
+    },
+  ];
 
-  const addAllergy = () => {
-    if (newAllergy.trim()) {
-      setProfile({ ...profile, allergies: [...profile.allergies, newAllergy.trim()] })
-      setNewAllergy("")
-      toast.success(`${newAllergy} has been added to your profile`, {
-        description: "Allergy added successfully",
-      })
-    }
-  }
-
-  const removeAllergy = (index: number) => {
-    const removed = profile.allergies[index]
-    setProfile({ ...profile, allergies: profile.allergies.filter((_, i) => i !== index) })
-    toast.info(`${removed} has been removed from your profile`, {
-      description: "Allergy removed",
-    })
-  }
-
-  const addCondition = () => {
-    if (newCondition.trim()) {
-      setProfile({ ...profile, chronicConditions: [...profile.chronicConditions, newCondition.trim()] })
-      setNewCondition("")
-      toast.success(`${newCondition} has been added to your profile`, {
-        description: "Condition added successfully",
-      })
-    }
-  }
-
-  const removeCondition = (index: number) => {
-    const removed = profile.chronicConditions[index]
-    setProfile({ ...profile, chronicConditions: profile.chronicConditions.filter((_, i) => i !== index) })
-    toast.info(`${removed} has been removed from your profile`, {
-      description: "Condition removed",
-    })
-  }
-
-  const addMedication = () => {
-    if (newMedication.trim()) {
-      setProfile({ ...profile, currentMedications: [...profile.currentMedications, newMedication.trim()] })
-      setNewMedication("")
-      toast.success(`${newMedication} has been added to your profile`, {
-        description: "Medication added successfully",
-      })
-    }
-  }
-
-  const removeMedication = (index: number) => {
-    const removed = profile.currentMedications[index]
-    setProfile({ ...profile, currentMedications: profile.currentMedications.filter((_, i) => i !== index) })
-    toast.info(`${removed} has been removed from your profile`, {
-      description: "Medication removed",
-    })
-  }
-
-  const handleSave = () => {
-    setIsEditing(false)
-    toast.success("Your health profile has been successfully updated", {
-      description: "Profile updated",
-    })
-  }
-
-  const handlePasswordChange = () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("New password and confirm password do not match", {
-        description: "Password mismatch",
-      })
-      return
-    }
-    if (passwordData.newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters long", {
-        description: "Password too short",
-      })
-      return
-    }
-    toast.success("Your password has been successfully updated", {
-      description: "Password changed",
-    })
-    setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" })
-  }
-
-  const handleProfileImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string)
-        toast.success("Your profile picture has been changed", {
-          description: "Profile picture updated",
-        })
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const handleDeleteAccount = () => {
-    toast.error("Your account has been permanently deleted", {
-      description: "Account deleted",
-    })
-    setTimeout(() => {
-      window.location.href = "/login"
-    }, 2000)
-  }
-
-  const handleExportData = () => {
-    const data = JSON.stringify(profile, null, 2)
-    const blob = new Blob([data], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `health-profile-${profile.firstName}-${profile.lastName}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast.success("Your health data has been downloaded", {
-      description: "Data exported",
-    })
+  if (loading) {
+    return (
+      <div className="max-w-[1280px] mx-auto flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#006767] mx-auto" />
+          <p className="mt-4 text-[#3d4949]">Loading profile...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="max-w-[1280px] mx-auto space-y-8">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#0b1c30] mb-2">Patient Profile</h1>
           <p className="text-[#3d4949] text-base">Manage your personal information and account security.</p>
         </div>
-        <Button variant="destructive" className="flex items-center gap-2">
+        <Button variant="destructive" onClick={logout} className="flex items-center gap-2">
           <LogOut className="h-4 w-4" />
           Logout
         </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column - Profile Summary */}
+        {/* Left Column */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           {/* Profile Card */}
           <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
@@ -235,14 +190,15 @@ export default function HealthProfilePage() {
               <div className="relative mb-6">
                 <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#e5eeff]">
                   <Avatar className="w-full h-full">
-                    <AvatarImage src={profileImage || undefined} />
+                    <AvatarImage src={patientProfile?.profile_photo} />
                     <AvatarFallback className="bg-[#006767] text-white text-3xl font-semibold">
-                      {profile.firstName[0]}{profile.lastName[0]}
+                      {patientProfile?.first_name?.[0]}{patientProfile?.last_name?.[0]}
                     </AvatarFallback>
                   </Avatar>
                 </div>
-                <button 
+                <button
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadLoading}
                   className="absolute bottom-1 right-1 bg-[#006767] text-white p-2 rounded-full shadow-lg border-2 border-white hover:scale-105 transition-transform"
                 >
                   <Camera className="h-4 w-4" />
@@ -255,8 +211,10 @@ export default function HealthProfilePage() {
                   onChange={handleProfileImageUpload}
                 />
               </div>
-              <h3 className="text-2xl font-semibold text-[#0b1c30]">{profile.firstName} {profile.lastName}</h3>
-              <p className="text-[#3d4949] text-sm font-medium mb-6">Patient ID: #HL-88291</p>
+              <h3 className="text-2xl font-semibold text-[#0b1c30]">
+                {patientProfile?.first_name} {patientProfile?.last_name}
+              </h3>
+              <p className="text-[#3d4949] text-sm font-medium mb-6">Patient ID: #{patientProfile?.id}</p>
               <div className="w-full space-y-4 pt-6 border-t border-[#bcc9c8]/20">
                 <div className="flex items-center justify-between">
                   <span className="text-[#3d4949] text-sm font-medium">Status</span>
@@ -264,16 +222,22 @@ export default function HealthProfilePage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[#3d4949] text-sm font-medium">Member Since</span>
-                  <span className="text-[#0b1c30] text-sm">Jan 2023</span>
+                  <span className="text-[#0b1c30] text-sm">
+                    {patientProfile?.created_at
+                      ? new Date(patientProfile.created_at).toLocaleDateString()
+                      : "N/A"}
+                  </span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Activity Overview Card */}
+          {/* Activity Overview */}
           <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
-              <CardTitle className="text-[#006767] text-sm font-bold uppercase tracking-wider">Activity Overview</CardTitle>
+              <CardTitle className="text-[#006767] text-sm font-bold uppercase tracking-wider">
+                Activity Overview
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {statsData.map((stat, index) => (
@@ -291,7 +255,7 @@ export default function HealthProfilePage() {
           </Card>
         </div>
 
-        {/* Right Column - Forms */}
+        {/* Right Column */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           {/* Personal Information */}
           <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
@@ -305,50 +269,55 @@ export default function HealthProfilePage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Full Name</Label>
-                  <Input 
-                    value={`${profile.firstName} ${profile.lastName}`}
-                    onChange={(e) => {
-                      const names = e.target.value.split(' ')
-                      setProfile({ ...profile, firstName: names[0] || '', lastName: names[1] || '' })
-                    }}
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">First Name</Label>
+                  <Input
+                    value={formData.first_name || ""}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Last Name</Label>
+                  <Input
+                    value={formData.last_name || ""}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                     disabled={!isEditing}
                     className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[#3d4949] text-sm font-medium ml-1">Email Address</Label>
-                  <Input 
-                    value={profile.email}
-                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    disabled={!isEditing}
-                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  <Input
+                    value={patientProfile?.email || ""}
+                    disabled
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 opacity-70"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[#3d4949] text-sm font-medium ml-1">Phone Number</Label>
-                  <Input 
-                    value={profile.phone}
-                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  <Input
+                    value={formData.phone_number || ""}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                     disabled={!isEditing}
                     className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[#3d4949] text-sm font-medium ml-1">Date of Birth</Label>
-                  <Input 
+                  <Input
                     type="date"
-                    value={profile.dateOfBirth}
-                    onChange={(e) => setProfile({ ...profile, dateOfBirth: e.target.value })}
+                    value={formData.date_of_birth?.split("T")[0] || ""}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
                     disabled={!isEditing}
                     className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[#3d4949] text-sm font-medium ml-1">Gender</Label>
-                  <Select 
-                    value={profile.gender} 
-                    onValueChange={(value) => setProfile({ ...profile, gender: value })}
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
                     disabled={!isEditing}
                   >
                     <SelectTrigger className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]">
@@ -363,9 +332,9 @@ export default function HealthProfilePage() {
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label className="text-[#3d4949] text-sm font-medium ml-1">Residential Address</Label>
-                  <Textarea 
-                    value={profile.address}
-                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                  <Textarea
+                    value={formData.address || ""}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     disabled={!isEditing}
                     rows={2}
                     className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
@@ -373,8 +342,8 @@ export default function HealthProfilePage() {
                 </div>
               </div>
               <div className="flex justify-end mt-6">
-                <Button 
-                  onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                <Button
+                  onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
                   className="bg-[#006767] text-white px-8 py-3 rounded-xl hover:shadow-lg transition-all"
                 >
                   {isEditing ? (
@@ -390,7 +359,7 @@ export default function HealthProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Medical Information */}
+          {/* Medical Information — blood type only */}
           <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -399,127 +368,28 @@ export default function HealthProfilePage() {
               </div>
               <CardDescription>Your health and medical details</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-[#3d4949] text-sm font-medium ml-1">Blood Type</Label>
-                  <Select 
-                    value={profile.bloodType} 
-                    onValueChange={(value) => setProfile({ ...profile, bloodType: value })}
+                  <Select
+                    value={formData.blood_type}
+                    onValueChange={(value) => setFormData({ ...formData, blood_type: value })}
                     disabled={!isEditing}
                   >
-                    <SelectTrigger className="bg-[#F1F5F9] border-none rounded-xl">
-                      <Droplets className="h-4 w-4 mr-2 text-red-500" />
-                      <SelectValue placeholder="Select blood type" />
+                    <SelectTrigger className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]">
+                      <div className="flex items-center gap-2">
+                        <Droplets className="h-4 w-4 text-red-500 shrink-0" />
+                        <SelectValue placeholder="Select blood type" />
+                      </div>
                     </SelectTrigger>
                     <SelectContent>
-                      {bloodTypes.map(type => (
+                      {bloodTypes.map((type) => (
                         <SelectItem key={type} value={type}>{type}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Height (cm)</Label>
-                  <Input 
-                    type="number"
-                    value={profile.height}
-                    onChange={(e) => setProfile({ ...profile, height: e.target.value })}
-                    disabled={!isEditing}
-                    className="bg-[#F1F5F9] border-none rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Weight (kg)</Label>
-                  <Input 
-                    type="number"
-                    value={profile.weight}
-                    onChange={(e) => setProfile({ ...profile, weight: e.target.value })}
-                    disabled={!isEditing}
-                    className="bg-[#F1F5F9] border-none rounded-xl"
-                  />
-                </div>
-              </div>
-
-              {/* Allergies */}
-              <div className="space-y-3">
-                <Label className="text-[#3d4949] text-sm font-medium">Allergies</Label>
-                <div className="flex flex-wrap gap-2">
-                  {profile.allergies.map((allergy, index) => (
-                    <Badge key={index} className="bg-[#8cf3f3] text-[#002020] hover:bg-[#8cf3f3]/80">
-                      {allergy}
-                      {isEditing && (
-                        <button onClick={() => removeAllergy(index)} className="ml-2 hover:text-red-600">×</button>
-                      )}
-                    </Badge>
-                  ))}
-                </div>
-                {isEditing && (
-                  <div className="flex gap-2 mt-2">
-                    <Input 
-                      placeholder="Add allergy..."
-                      value={newAllergy}
-                      onChange={(e) => setNewAllergy(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addAllergy()}
-                      className="bg-[#F1F5F9] border-none rounded-xl"
-                    />
-                    <Button variant="outline" onClick={addAllergy}>Add</Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Chronic Conditions */}
-              <div className="space-y-3">
-                <Label className="text-[#3d4949] text-sm font-medium">Chronic Conditions</Label>
-                <div className="flex flex-wrap gap-2">
-                  {profile.chronicConditions.map((condition, index) => (
-                    <Badge key={index} variant="secondary" className="bg-red-100 text-red-700">
-                      {condition}
-                      {isEditing && (
-                        <button onClick={() => removeCondition(index)} className="ml-2 hover:text-red-600">×</button>
-                      )}
-                    </Badge>
-                  ))}
-                </div>
-                {isEditing && (
-                  <div className="flex gap-2 mt-2">
-                    <Input 
-                      placeholder="Add condition..."
-                      value={newCondition}
-                      onChange={(e) => setNewCondition(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addCondition()}
-                      className="bg-[#F1F5F9] border-none rounded-xl"
-                    />
-                    <Button variant="outline" onClick={addCondition}>Add</Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Current Medications */}
-              <div className="space-y-3">
-                <Label className="text-[#3d4949] text-sm font-medium">Current Medications</Label>
-                <div className="flex flex-wrap gap-2">
-                  {profile.currentMedications.map((medication, index) => (
-                    <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-700">
-                      {medication}
-                      {isEditing && (
-                        <button onClick={() => removeMedication(index)} className="ml-2 hover:text-red-600">×</button>
-                      )}
-                    </Badge>
-                  ))}
-                </div>
-                {isEditing && (
-                  <div className="flex gap-2 mt-2">
-                    <Input 
-                      placeholder="Add medication..."
-                      value={newMedication}
-                      onChange={(e) => setNewMedication(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addMedication()}
-                      className="bg-[#F1F5F9] border-none rounded-xl"
-                    />
-                    <Button variant="outline" onClick={addMedication}>Add</Button>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -534,55 +404,7 @@ export default function HealthProfilePage() {
               <CardDescription>Person to contact in case of emergency</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Full Name</Label>
-                  <Input 
-                    value={profile.emergencyContact.name}
-                    onChange={(e) => setProfile({ 
-                      ...profile, 
-                      emergencyContact: { ...profile.emergencyContact, name: e.target.value }
-                    })}
-                    disabled={!isEditing}
-                    className="bg-[#F1F5F9] border-none rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Relationship</Label>
-                  <Select 
-                    value={profile.emergencyContact.relationship} 
-                    onValueChange={(value) => setProfile({ 
-                      ...profile, 
-                      emergencyContact: { ...profile.emergencyContact, relationship: value }
-                    })}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger className="bg-[#F1F5F9] border-none rounded-xl">
-                      <SelectValue placeholder="Select relationship" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Spouse">Spouse</SelectItem>
-                      <SelectItem value="Parent">Parent</SelectItem>
-                      <SelectItem value="Child">Child</SelectItem>
-                      <SelectItem value="Sibling">Sibling</SelectItem>
-                      <SelectItem value="Friend">Friend</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Phone Number</Label>
-                  <Input 
-                    value={profile.emergencyContact.phone}
-                    onChange={(e) => setProfile({ 
-                      ...profile, 
-                      emergencyContact: { ...profile.emergencyContact, phone: e.target.value }
-                    })}
-                    disabled={!isEditing}
-                    className="bg-[#F1F5F9] border-none rounded-xl"
-                  />
-                </div>
-              </div>
+              <p className="text-sm text-[#3d4949]">Emergency contact management coming soon.</p>
             </CardContent>
           </Card>
 
@@ -603,21 +425,22 @@ export default function HealthProfilePage() {
                   </div>
                   <div>
                     <h4 className="font-bold text-[#0b1c30] mb-1">Update Password</h4>
-                    <p className="text-[#3d4949] text-sm">Ensure your account is using a long, random password to stay secure.</p>
+                    <p className="text-[#3d4949] text-sm">
+                      Ensure your account is using a long, random password to stay secure.
+                    </p>
                   </div>
                 </div>
               </div>
-
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="text-[#3d4949] text-sm font-medium ml-1">Current Password</Label>
                     <div className="relative">
-                      <Input 
+                      <Input
                         type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        value={passwordData.currentPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                        value={passwordData.current_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
                         className="bg-[#F1F5F9] border-none rounded-xl pr-10"
                       />
                       <button
@@ -629,15 +452,15 @@ export default function HealthProfilePage() {
                       </button>
                     </div>
                   </div>
-                  <div></div>
+                  <div />
                   <div className="space-y-2">
                     <Label className="text-[#3d4949] text-sm font-medium ml-1">New Password</Label>
                     <div className="relative">
-                      <Input 
+                      <Input
                         type={showNewPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        value={passwordData.newPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                        value={passwordData.new_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
                         className="bg-[#F1F5F9] border-none rounded-xl pr-10"
                       />
                       <button
@@ -652,11 +475,13 @@ export default function HealthProfilePage() {
                   <div className="space-y-2">
                     <Label className="text-[#3d4949] text-sm font-medium ml-1">Confirm New Password</Label>
                     <div className="relative">
-                      <Input 
+                      <Input
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        value={passwordData.confirmPassword}
-                        onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                        value={passwordData.confirm_password}
+                        onChange={(e) =>
+                          setPasswordData({ ...passwordData, confirm_password: e.target.value })
+                        }
                         className="bg-[#F1F5F9] border-none rounded-xl pr-10"
                       />
                       <button
@@ -670,8 +495,9 @@ export default function HealthProfilePage() {
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <Button 
+                  <Button
                     onClick={handlePasswordChange}
+                    disabled={passwordLoading}
                     variant="outline"
                     className="border-2 border-[#006767] text-[#006767] px-8 py-3 rounded-xl hover:bg-[#006767]/5"
                   >
@@ -689,21 +515,23 @@ export default function HealthProfilePage() {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-bold text-red-600 mb-1">Delete Account</h3>
-                  <p className="text-[#3d4949] text-sm">Once you delete your account, there is no going back. Please be certain.</p>
+                  <p className="text-[#3d4949] text-sm">
+                    Once you delete your account, there is no going back. Please be certain.
+                  </p>
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" className="bg-red-600 hover:bg-red-700">
+                    <Button variant="destructive" disabled={deleteLoading} className="bg-red-600 hover:bg-red-700">
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Deactivate
+                      Delete Account
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your
-                        account and remove all your data from our servers.
+                        This action cannot be undone. This will permanently delete your account and remove all
+                        your data from our servers.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -720,5 +548,5 @@ export default function HealthProfilePage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

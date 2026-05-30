@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { ReactNode } from 'react';
-import { HealLinkIcon, InputFieldIcon, type HealLinkIconName } from '@/components/icons/healink-icon';
+import { HealLinkIcon, type HealLinkIconName } from '@/components/icons/healink-icon';
+import {InputFieldIcon} from '@/components/icons/ui-icons';
 
 export const inputClass =
   'w-full px-4 py-2.5 bg-surface-container-low rounded-lg border-none focus:ring-2 focus:ring-primary focus:bg-surface-container-lowest transition-all text-[14px]';

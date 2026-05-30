@@ -1,620 +1,586 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
+import { useState, useRef, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Building,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Building2,
   Save,
+  Camera,
   Key,
-  Bell,
-  CheckCircle,
+  Trash2,
   Shield,
-  Calendar,
-  MapPin,
-  FileText,
-  Clock,
-  Award,
+  Eye,
+  EyeOff,
   Users,
-  DollarSign,
-  Phone,
-  Mail,
-  Globe,
-  Star,
-  TrendingUp,
-  AlertCircle,
+  Calendar,
+  BadgeCheck,
+  LogOut,
   Upload,
-  X
-} from "lucide-react"
-import { cn } from "@/lib/utils"
-import { toast } from "sonner"
-
-interface ClinicProfile {
-  // Clinic Information
-  clinic_name: string
-  clinic_address: string
-  clinic_phone: string
-  clinic_email: string
-  clinic_website?: string
-  clinic_license_number: string
-  clinic_tin_number: string
-  operating_hours: string
-  description: string
-  established_year?: string
-  emergency_contact?: string
-  
-  // Images
-  logo_url?: string
-  cover_image_url?: string
-  
-  // Statistics
-  total_doctors: number
-  total_staff: number
-  total_patients_served: number
-  rating: number
-  total_reviews: number
-  
-  // Status
-  status: "active" | "pending" | "suspended"
-  verification_status: "verified" | "pending" | "unverified"
-  joined_date: string
-}
-
-// Mock clinic data based on registration form
-const mockClinicProfile: ClinicProfile = {
-  // Clinic Information
-  clinic_name: "Hayat General Clinic",
-  clinic_address: "Bole Road, Near Bole Medhanialem Church, Addis Ababa, Ethiopia",
-  clinic_phone: "+251-911-678-901",
-  clinic_email: "info@hayatclinic.com",
-  clinic_website: "www.hayatclinic.com",
-  clinic_license_number: "CL-2024-00123",
-  clinic_tin_number: "123456789",
-  operating_hours: "Monday - Friday: 8:00 AM - 8:00 PM\nSaturday: 9:00 AM - 5:00 PM\nSunday: Closed",
-  description: "Hayat General Clinic is a full-service medical center offering comprehensive healthcare services including general medicine, pediatrics, gynecology, laboratory tests, and specialist referrals. We are committed to providing quality, accessible healthcare to our community with compassion and excellence.",
-  established_year: "2015",
-  emergency_contact: "+251-911-000-000",
-  
-  // Images
-  logo_url: "",
-  cover_image_url: "",
-  
-  // Statistics
-  total_doctors: 8,
-  total_staff: 15,
-  total_patients_served: 12500,
-  rating: 4.8,
-  total_reviews: 234,
-  
-  // Status
-  status: "active",
-  verification_status: "verified",
-  joined_date: "2023-10-12"
-}
+  Clock,
+  MapPin,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/hooks/useAuth";
+import { ClinicProfile, ClinicProfileUpdate } from "@/types/entities/profile.types";
 
 export default function ClinicProfilePage() {
-  const [profile, setProfile] = useState<ClinicProfile>(mockClinicProfile)
-  const [isEditing, setIsEditing] = useState(false)
-  const [showSaveDialog, setShowSaveDialog] = useState(false)
-  const [editForm, setEditForm] = useState<ClinicProfile>(profile)
-  const [activeTab, setActiveTab] = useState("overview")
-  const [logoPreview, setLogoPreview] = useState<string | null>(profile.logo_url || null)
-  const [coverPreview, setCoverPreview] = useState<string | null>(profile.cover_image_url || null)
+  const [isEditing, setIsEditing] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const registrationInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    profile,
+    statistics,
+    loading,
+    uploadLoading,
+    passwordLoading,
+    deleteLoading,
+    loadClinicProfile,
+    updateClinic,
+    uploadPhoto,
+    uploadRegistration,
+    updatePassword,
+    loadClinicStatistics,
+    removeAccount,
+  } = useProfile();
+
+  const { logout } = useAuth();
+
+  const [formData, setFormData] = useState<ClinicProfileUpdate>({});
+  const [passwordData, setPasswordData] = useState({
+    current_password: "",
+    new_password: "",
+    confirm_password: "",
+  });
 
   useEffect(() => {
-    // Load from localStorage if exists
-    const savedClinic = localStorage.getItem('clinicRegistration')
-    if (savedClinic) {
-      const clinicData = JSON.parse(savedClinic)
-      setProfile(prev => ({
-        ...prev,
-        clinic_name: clinicData.clinic_name || prev.clinic_name,
-        clinic_address: clinicData.clinic_address || prev.clinic_address,
-        clinic_phone: clinicData.clinic_phone || prev.clinic_phone,
-        clinic_email: clinicData.email || prev.clinic_email,
-        clinic_license_number: clinicData.clinic_license_number || prev.clinic_license_number,
-        clinic_tin_number: clinicData.clinic_tin_number || prev.clinic_tin_number,
-        operating_hours: clinicData.operating_hours || prev.operating_hours,
-      }))
+    loadClinicProfile();
+    loadClinicStatistics();
+  }, [loadClinicProfile, loadClinicStatistics]);
+
+  useEffect(() => {
+    if (profile && "role" in profile && profile.role === "clinic") {
+      const p = profile as ClinicProfile;
+      setFormData({
+        full_name: p.full_name,
+        address: p.address,
+        phone_number: p.phone_number,
+        license_number: p.license_number,
+        tin_number: p.tin_number,
+        operating_hours: p.operating_hours,
+        description: p.description,
+        established_year: p.established_year,
+        location: p.location,
+      });
     }
-  }, [])
+  }, [profile]);
 
-  const handleEdit = () => {
-    setEditForm(profile)
-    setIsEditing(true)
-  }
+  const handleSave = async () => {
+    const updated = await updateClinic(formData);
+    if (updated) setIsEditing(false);
+  };
 
-  const handleSave = () => {
-    setProfile(editForm)
-    setIsEditing(false)
-    setShowSaveDialog(true)
-    toast.success("Clinic profile updated successfully!")
-    setTimeout(() => setShowSaveDialog(false), 3000)
-  }
+  const handlePasswordChange = async () => {
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      toast.error("New password and confirm password do not match");
+      return;
+    }
+    if (passwordData.new_password.length < 8) {
+      toast.error("Password must be at least 8 characters long");
+      return;
+    }
+    const success = await updatePassword(passwordData);
+    if (success) {
+      setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
+    }
+  };
 
-  const handleCancel = () => {
-    setIsEditing(false)
-    setEditForm(profile)
-    setLogoPreview(profile.logo_url || null)
-    setCoverPreview(profile.cover_image_url || null)
-  }
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const result = reader.result as string
-        setLogoPreview(result)
-        setEditForm({ ...editForm, logo_url: result })
-      }
-      reader.readAsDataURL(file)
+      await uploadPhoto(file);
+      await loadClinicProfile();
     }
-  }
+  };
 
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleRegistrationUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const result = reader.result as string
-        setCoverPreview(result)
-        setEditForm({ ...editForm, cover_image_url: result })
-      }
-      reader.readAsDataURL(file)
+      await uploadRegistration(file);
+      await loadClinicProfile();
     }
-  }
+  };
 
-  const stats = [
-    { title: "Total Doctors", value: profile.total_doctors, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
-    { title: "Total Staff", value: profile.total_staff, icon: Users, color: "text-green-600", bg: "bg-green-50" },
-    { title: "Patients Served", value: profile.total_patients_served.toLocaleString(), icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-50" },
-    { title: "Rating", value: `${profile.rating} ★`, icon: Star, color: "text-yellow-600", bg: "bg-yellow-50" },
-  ]
+  const handleDeleteAccount = async () => {
+    const success = await removeAccount();
+    if (success) logout();
+  };
+
+  const clinicProfile = profile as ClinicProfile | null;
+
+  const statsData = [
+    {
+      icon: Users,
+      label: "Doctors",
+      value: (statistics as any)?.total_doctors ?? 0,
+      detail: `Staff: ${(statistics as any)?.total_staff ?? 0}`,
+    },
+    {
+      icon: Calendar,
+      label: "Appointments",
+      value: (statistics as any)?.total_appointments ?? 0,
+      detail: `This month: ${(statistics as any)?.monthly_appointments ?? 0}`,
+    },
+    {
+      icon: BadgeCheck,
+      label: "Patients Served",
+      value: (statistics as any)?.total_patients_served ?? 0,
+      detail: clinicProfile?.verification_status ?? "Pending",
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="max-w-[1280px] mx-auto flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#006767] mx-auto" />
+          <p className="mt-4 text-[#3d4949]">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="max-w-[1280px] mx-auto space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-teal-600">Clinic Profile</h1>
-          <p className="text-muted-foreground">Manage your clinic information and settings</p>
+          <h1 className="text-3xl font-bold tracking-tight text-[#0b1c30] mb-2">Clinic Profile</h1>
+          <p className="text-[#3d4949] text-base">Manage your clinic information and account security.</p>
         </div>
-        {!isEditing ? (
-          <Button onClick={handleEdit} className="bg-teal-600 hover:bg-teal-700">
-            Edit Clinic Info
-          </Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} className="bg-teal-600 hover:bg-teal-700">
-              <Save className="mr-2 h-4 w-4" />
-              Save Changes
-            </Button>
-          </div>
-        )}
+        <Button variant="destructive" onClick={logout} className="flex items-center gap-2">
+          <LogOut className="h-4 w-4" />
+          Logout
+        </Button>
       </div>
 
-      {/* Save Success Message */}
-      {showSaveDialog && (
-        <div className="fixed bottom-4 right-4 z-50 animate-in slide-in-from-right-5 duration-300">
-          <div className="bg-green-100 border border-green-300 rounded-lg p-4 shadow-lg">
-            <div className="flex items-center gap-3 text-green-700">
-              <CheckCircle className="h-5 w-5" />
-              <p>Clinic profile updated successfully!</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cover Image Section */}
-      <div className="relative h-48 md:h-64 rounded-2xl overflow-hidden bg-gradient-to-r from-teal-500 to-teal-700">
-        {coverPreview ? (
-          <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-white/50">
-            <Building className="h-20 w-20" />
-          </div>
-        )}
-        {isEditing && (
-          <div className="absolute bottom-4 right-4">
-            <label className="cursor-pointer bg-white/90 hover:bg-white rounded-lg px-3 py-2 text-sm font-medium text-teal-600 shadow-md transition-all">
-              <Upload className="h-4 w-4 inline mr-2" />
-              Change Cover
-              <input type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
-            </label>
-          </div>
-        )}
-        
-        {/* Logo */}
-        <div className="absolute -bottom-12 left-6">
-          <div className="relative">
-            <div className="w-24 h-24 rounded-2xl bg-white shadow-lg overflow-hidden border-4 border-white">
-              {logoPreview ? (
-                <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-teal-100 to-teal-200 flex items-center justify-center">
-                  <Building className="h-10 w-10 text-teal-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          {/* Profile Card */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
+            <CardContent className="p-6 flex flex-col items-center text-center">
+              <div className="relative mb-6">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-[#e5eeff]">
+                  <Avatar className="w-full h-full">
+                    <AvatarImage src={clinicProfile?.profile_photo} />
+                    <AvatarFallback className="bg-[#006767] text-white text-3xl font-semibold">
+                      {clinicProfile?.full_name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
-              )}
-            </div>
-            {isEditing && (
-              <label className="absolute -bottom-2 -right-2 cursor-pointer bg-teal-600 hover:bg-teal-700 rounded-full p-1.5 shadow-md transition-all">
-                <Upload className="h-3 w-3 text-white" />
-                <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-              </label>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Spacer for logo */}
-      <div className="h-12"></div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full max-w-md grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="details">Clinic Details</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {stats.map((stat, idx) => (
-              <div key={idx} className="bg-white rounded-xl p-4 border shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div className={cn("p-2 rounded-lg", stat.bg)}>
-                    <stat.icon className={cn("h-5 w-5", stat.color)} />
-                  </div>
-                  <span className="text-2xl font-bold text-gray-800">{stat.value}</span>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">{stat.title}</p>
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadLoading}
+                  className="absolute bottom-1 right-1 bg-[#006767] text-white p-2 rounded-full shadow-lg border-2 border-white hover:scale-105 transition-transform"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+                <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
               </div>
-            ))}
-          </div>
+              <h3 className="text-2xl font-semibold text-[#0b1c30]">{clinicProfile?.full_name}</h3>
+              <p className="text-[#3d4949] text-sm mb-6">Clinic ID: #{clinicProfile?.id}</p>
+              <div className="w-full space-y-4 pt-6 border-t border-[#bcc9c8]/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#3d4949] text-sm font-medium">Status</span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      clinicProfile?.is_active
+                        ? "bg-[#8cf3f3] text-[#002020]"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {clinicProfile?.is_active ? "Active" : "Inactive"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#3d4949] text-sm font-medium">Verification</span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      clinicProfile?.verification_status === "verified"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
+                  >
+                    {clinicProfile?.verification_status ?? "Pending"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[#3d4949] text-sm font-medium">Joined</span>
+                  <span className="text-[#0b1c30] text-sm">
+                    {clinicProfile?.joined_date
+                      ? new Date(clinicProfile.joined_date).toLocaleDateString()
+                      : "N/A"}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Clinic Info Card */}
-          <Card>
+          {/* Activity Overview */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5 text-teal-600" />
-                Clinic Information
+              <CardTitle className="text-[#006767] text-sm font-bold uppercase tracking-wider">
+                Activity Overview
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-teal-600 mt-0.5" />
+              {statsData.map((stat, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#e5eeff] flex items-center justify-center text-[#515f78]">
+                    <stat.icon className="h-5 w-5" />
+                  </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Address</p>
-                    <p className="text-gray-800">{profile.clinic_address}</p>
+                    <p className="text-sm font-bold text-[#0b1c30]">{stat.value} {stat.label}</p>
+                    <p className="text-xs text-[#3d4949]">{stat.detail}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-teal-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Phone</p>
-                    <p className="text-gray-800">{profile.clinic_phone}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-teal-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Email</p>
-                    <p className="text-gray-800">{profile.clinic_email}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Globe className="h-5 w-5 text-teal-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Website</p>
-                    <p className="text-gray-800">{profile.clinic_website || "Not provided"}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-teal-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Operating Hours</p>
-                    <p className="text-gray-800 whitespace-pre-line">{profile.operating_hours}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Award className="h-5 w-5 text-teal-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">License Number</p>
-                    <p className="text-gray-800 font-mono">{profile.clinic_license_number}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="pt-4 border-t">
-                <p className="text-sm font-medium text-gray-500 mb-2">About the Clinic</p>
-                <p className="text-gray-700 leading-relaxed">{profile.description}</p>
-              </div>
-
-              <div className="flex flex-wrap gap-4 pt-4 border-t">
-                <div className="flex items-center gap-2">
-                  <Badge variant={profile.verification_status === "verified" ? "default" : "secondary"} 
-                         className={cn(profile.verification_status === "verified" && "bg-green-100 text-green-700")}>
-                    {profile.verification_status === "verified" ? "✓ Verified" : "Pending Verification"}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Calendar className="h-4 w-4" />
-                  Joined: {profile.joined_date}
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  {profile.rating} ({profile.total_reviews} reviews)
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-        {/* Clinic Details Tab - Editable */}
-        <TabsContent value="details">
-          <Card>
+        {/* Right Column */}
+        <div className="lg:col-span-8 flex flex-col gap-6">
+          {/* Clinic Information */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
-              <CardTitle>Clinic Details</CardTitle>
-              <CardDescription>Complete clinic information and credentials</CardDescription>
+              <div className="flex items-center gap-3">
+                <Building2 className="h-5 w-5 text-[#006767]" />
+                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Clinic Information</CardTitle>
+              </div>
+              <CardDescription>Your clinic's basic details</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* Clinic Name */}
-                <div className="md:col-span-2">
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <Building className="h-4 w-4" />
-                    Clinic Name
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.clinic_name}
-                      onChange={(e) => setEditForm({ ...editForm, clinic_name: e.target.value })}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="mt-1 font-medium text-lg">{profile.clinic_name}</p>
-                  )}
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Clinic Name</Label>
+                  <Input
+                    value={formData.full_name || ""}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* Address */}
-                <div className="md:col-span-2">
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Clinic Address
-                  </Label>
-                  {isEditing ? (
-                    <Textarea
-                      value={editForm.clinic_address}
-                      onChange={(e) => setEditForm({ ...editForm, clinic_address: e.target.value })}
-                      className="mt-1"
-                      rows={3}
-                    />
-                  ) : (
-                    <p className="mt-1">{profile.clinic_address}</p>
-                  )}
+                <div className="space-y-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Email Address</Label>
+                  <Input
+                    value={clinicProfile?.email || ""}
+                    disabled
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 opacity-70"
+                  />
                 </div>
-
-                {/* Phone */}
-                <div>
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <Phone className="h-4 w-4" />
-                    Phone Number
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.clinic_phone}
-                      onChange={(e) => setEditForm({ ...editForm, clinic_phone: e.target.value })}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="mt-1">{profile.clinic_phone}</p>
-                  )}
+                <div className="space-y-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Phone Number</Label>
+                  <Input
+                    value={formData.phone_number || ""}
+                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* Emergency Contact */}
-                <div>
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    Emergency Contact
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.emergency_contact || ""}
-                      onChange={(e) => setEditForm({ ...editForm, emergency_contact: e.target.value })}
-                      className="mt-1"
-                      placeholder="Emergency phone number"
-                    />
-                  ) : (
-                    <p className="mt-1">{profile.emergency_contact || "Not provided"}</p>
-                  )}
+                <div className="space-y-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">License Number</Label>
+                  <Input
+                    value={formData.license_number || ""}
+                    onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* Email */}
-                <div>
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <Mail className="h-4 w-4" />
-                    Email Address
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.clinic_email}
-                      onChange={(e) => setEditForm({ ...editForm, clinic_email: e.target.value })}
-                      className="mt-1"
-                      type="email"
-                    />
-                  ) : (
-                    <p className="mt-1">{profile.clinic_email}</p>
-                  )}
+                <div className="space-y-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">TIN Number</Label>
+                  <Input
+                    value={formData.tin_number || ""}
+                    onChange={(e) => setFormData({ ...formData, tin_number: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* Website */}
-                <div>
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    Website
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.clinic_website || ""}
-                      onChange={(e) => setEditForm({ ...editForm, clinic_website: e.target.value })}
-                      className="mt-1"
-                      placeholder="www.example.com"
-                    />
-                  ) : (
-                    <p className="mt-1">{profile.clinic_website || "Not provided"}</p>
-                  )}
+                <div className="space-y-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Established Year</Label>
+                  <Input
+                    value={formData.established_year || ""}
+                    onChange={(e) => setFormData({ ...formData, established_year: e.target.value })}
+                    disabled={!isEditing}
+                    placeholder="e.g. 2010"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* License Number */}
-                <div>
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    License Number
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">
+                    <MapPin className="inline h-3 w-3 mr-1" />
+                    Location
                   </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.clinic_license_number}
-                      onChange={(e) => setEditForm({ ...editForm, clinic_license_number: e.target.value })}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="mt-1 font-mono">{profile.clinic_license_number}</p>
-                  )}
+                  <Input
+                    value={formData.location || ""}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* TIN Number */}
-                <div>
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    TIN Number
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.clinic_tin_number}
-                      onChange={(e) => setEditForm({ ...editForm, clinic_tin_number: e.target.value })}
-                      className="mt-1"
-                    />
-                  ) : (
-                    <p className="mt-1 font-mono">{profile.clinic_tin_number}</p>
-                  )}
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Address</Label>
+                  <Input
+                    value={formData.address || ""}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    disabled={!isEditing}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* Established Year */}
-                <div>
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Established Year
-                  </Label>
-                  {isEditing ? (
-                    <Input
-                      value={editForm.established_year || ""}
-                      onChange={(e) => setEditForm({ ...editForm, established_year: e.target.value })}
-                      className="mt-1"
-                      placeholder="YYYY"
-                    />
-                  ) : (
-                    <p className="mt-1">{profile.established_year || "Not provided"}</p>
-                  )}
-                </div>
-
-                {/* Operating Hours */}
-                <div className="md:col-span-2">
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">
+                    <Clock className="inline h-3 w-3 mr-1" />
                     Operating Hours
                   </Label>
-                  {isEditing ? (
-                    <Textarea
-                      value={editForm.operating_hours}
-                      onChange={(e) => setEditForm({ ...editForm, operating_hours: e.target.value })}
-                      className="mt-1"
-                      rows={4}
-                      placeholder="Monday - Friday: 9:00 AM - 6:00 PM&#10;Saturday: 10:00 AM - 4:00 PM&#10;Sunday: Closed"
-                    />
-                  ) : (
-                    <p className="mt-1 whitespace-pre-line">{profile.operating_hours}</p>
-                  )}
+                  <Input
+                    value={formData.operating_hours || ""}
+                    onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
+                    disabled={!isEditing}
+                    placeholder="e.g. Mon–Fri: 8am–6pm"
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
-
-                {/* Description */}
-                <div className="md:col-span-2">
-                  <Label className="text-muted-foreground flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Clinic Description
-                  </Label>
-                  {isEditing ? (
-                    <Textarea
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="mt-1"
-                      rows={6}
-                    />
-                  ) : (
-                    <p className="mt-1 leading-relaxed">{profile.description}</p>
-                  )}
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Description</Label>
+                  <Textarea
+                    value={formData.description || ""}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    disabled={!isEditing}
+                    rows={3}
+                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
+                  />
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Documents Tab */}
-        <TabsContent value="documents">
-          <Card>
-            <CardHeader>
-              <CardTitle>Legal Documents</CardTitle>
-              <CardDescription>Upload and manage clinic registration documents</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
-                <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600">Registration Certificate</p>
-                <p className="text-sm text-gray-400 mt-1">PDF, JPG or PNG (Max 5MB)</p>
-                <Button variant="outline" className="mt-4">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload Document
+              <div className="flex justify-end mt-6">
+                <Button
+                  onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
+                  className="bg-[#006767] text-white px-8 py-3 rounded-xl hover:shadow-lg transition-all"
+                >
+                  {isEditing ? (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  ) : (
+                    "Edit Profile"
+                  )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-3">
-                <h3 className="font-medium">Uploaded Documents</h3>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium">Clinic License Certificate</p>
-                      <p className="text-xs text-gray-500">Uploaded on Oct 12, 2023</p>
-                    </div>
-                  </div>
-                  <Badge className="bg-green-100 text-green-700">Verified</Badge>
+          {/* Documents */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Upload className="h-5 w-5 text-[#006767]" />
+                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Documents</CardTitle>
+              </div>
+              <CardDescription>Upload your registration documents for verification</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between p-4 bg-[#F1F5F9] rounded-xl">
+                <div>
+                  <p className="text-sm font-medium text-[#0b1c30]">Registration Document</p>
+                  <p className="text-xs text-[#3d4949]">
+                    {clinicProfile?.registration_document_url ? "Uploaded" : "Not uploaded"}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-medium">TIN Certificate</p>
-                      <p className="text-xs text-gray-500">Uploaded on Oct 12, 2023</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadLoading}
+                  onClick={() => registrationInputRef.current?.click()}
+                  className="border-[#006767] text-[#006767]"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </Button>
+                <input
+                  ref={registrationInputRef}
+                  type="file"
+                  accept=".pdf,.jpg,.png"
+                  className="hidden"
+                  onChange={handleRegistrationUpload}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Account Security */}
+          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Shield className="h-5 w-5 text-[#006767]" />
+                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Account Security</CardTitle>
+              </div>
+              <CardDescription>Manage your password and security settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-[#eff4ff] rounded-xl p-6 mb-8 border border-[#bcc9c8]/30">
+                <div className="flex items-start gap-4">
+                  <div className="p-2 bg-[#008282] text-white rounded-lg">
+                    <Shield className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#0b1c30] mb-1">Update Password</h4>
+                    <p className="text-[#3d4949] text-sm">
+                      Ensure your account is using a long, random password to stay secure.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-[#3d4949] text-sm font-medium ml-1">Current Password</Label>
+                    <div className="relative">
+                      <Input
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={passwordData.current_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                        className="bg-[#F1F5F9] border-none rounded-xl pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
-                  <Badge className="bg-green-100 text-green-700">Verified</Badge>
+                  <div />
+                  <div className="space-y-2">
+                    <Label className="text-[#3d4949] text-sm font-medium ml-1">New Password</Label>
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={passwordData.new_password}
+                        onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                        className="bg-[#F1F5F9] border-none rounded-xl pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[#3d4949] text-sm font-medium ml-1">Confirm New Password</Label>
+                    <div className="relative">
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        value={passwordData.confirm_password}
+                        onChange={(e) =>
+                          setPasswordData({ ...passwordData, confirm_password: e.target.value })
+                        }
+                        className="bg-[#F1F5F9] border-none rounded-xl pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handlePasswordChange}
+                    disabled={passwordLoading}
+                    variant="outline"
+                    className="border-2 border-[#006767] text-[#006767] px-8 py-3 rounded-xl hover:bg-[#006767]/5"
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Update Security
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+
+          {/* Danger Zone */}
+          <Card className="bg-red-50/20 border border-red-200 rounded-xl">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-red-600 mb-1">Delete Account</h3>
+                  <p className="text-[#3d4949] text-sm">
+                    Once you delete your account, there is no going back. Please be certain.
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={deleteLoading} className="bg-red-600 hover:bg-red-700">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Account
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account and remove all
+                        your data from our servers.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteAccount} className="bg-red-600">
+                        Delete Account
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
-  )
+  );
 }

@@ -1,12 +1,35 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
+import {
+  Star,
+  StarOff,
+  ThumbsUp,
+  Calendar,
+  MessageSquare,
+  ChevronRight,
+  Edit2,
+  Trash2,
+  FileText,
+  RefreshCw,
+  Filter,
+  X
+} from 'lucide-react';
+import { useReview } from '@/hooks/useReview';
+import { PageHeader } from '@/components/common/PageHeader';
+import { EmptyState } from '@/components/common/EmptyState';
+import { LoadingState } from '@/components/common/LoadingState';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,434 +37,601 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { 
-  Star, 
-  Edit2, 
-  Trash2,
-  MapPin,
-  Calendar,
-  MessageSquare,
-  Stethoscope,
-  Building2,
-  FlaskConical
-} from "lucide-react"
+  DialogTrigger
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { getRatingLabel, getRatingColor } from '@/types/entities/review.types';
 
-interface Review {
-  id: string
-  provider: string
-  providerType: "doctor" | "clinic" | "diagnostic"
-  specialty: string
-  location: string
-  date: string
-  rating: number
-  comment: string
-}
+// Get current patient ID
+const getCurrentPatientId = (): number => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('currentPatientId');
+    if (stored) {
+      const parsed = parseInt(stored, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return 201; // Default patient ID
+};
 
-interface PendingReview {
-  id: string
-  provider: string
-  providerType: "doctor" | "clinic" | "diagnostic"
-  specialty: string
-  location: string
-  visitDate: string
-  service: string
-}
+// Star Rating Component
+const StarRating = ({ rating, onRatingChange, readonly = false, size = 'md' }: {
+  rating: number;
+  onRatingChange?: (rating: number) => void;
+  readonly?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+}) => {
+  const sizeClasses = {
+    sm: 'h-4 w-4',
+    md: 'h-5 w-5',
+    lg: 'h-6 w-6'
+  };
 
-const myReviews: Review[] = [
-  {
-    id: "1",
-    provider: "Dr. Sara Tesfaye",
-    providerType: "doctor",
-    specialty: "Cardiologist",
-    location: "Black Lion Hospital",
-    date: "May 5, 2026",
-    rating: 5,
-    comment: "Excellent doctor! Very thorough examination and took time to explain my condition clearly. Highly recommend for cardiac care.",
-  },
-  {
-    id: "2",
-    provider: "Addis Diagnostic Center",
-    providerType: "diagnostic",
-    specialty: "Laboratory",
-    location: "Megenagna",
-    date: "April 28, 2026",
-    rating: 4,
-    comment: "Quick and professional service. Results were ready on time. The facility was clean and staff were helpful.",
-  },
-  {
-    id: "3",
-    provider: "Bethel Clinic",
-    providerType: "clinic",
-    specialty: "General Practice",
-    location: "Bole",
-    date: "April 15, 2026",
-    rating: 4,
-    comment: "Good overall experience. Wait time was a bit long but the care provided was excellent.",
-  },
-]
+  const handleClick = (value: number) => {
+    if (!readonly && onRatingChange) {
+      onRatingChange(value);
+    }
+  };
 
-const pendingReviews: PendingReview[] = [
-  {
-    id: "1",
-    provider: "Dr. Yonas Bekele",
-    providerType: "doctor",
-    specialty: "Dermatologist",
-    location: "Kazanchis",
-    visitDate: "May 8, 2026",
-    service: "Skin Consultation",
-  },
-  {
-    id: "2",
-    provider: "St. Gabriel Hospital",
-    providerType: "clinic",
-    specialty: "Multi-specialty",
-    location: "Arat Kilo",
-    visitDate: "May 3, 2026",
-    service: "General Checkup",
-  },
-]
-
-const providerTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  doctor: Stethoscope,
-  clinic: Building2,
-  diagnostic: FlaskConical,
-}
-
-const providerTypeLabels: Record<string, string> = {
-  doctor: "Doctor",
-  clinic: "Clinic",
-  diagnostic: "Diagnostic Center",
-}
-
-function StarRating({ 
-  rating, 
-  onRatingChange, 
-  interactive = false,
-  size = "default"
-}: { 
-  rating: number
-  onRatingChange?: (rating: number) => void
-  interactive?: boolean
-  size?: "default" | "large"
-}) {
-  const [hoverRating, setHoverRating] = useState(0)
-  
   return (
     <div className="flex gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
           type="button"
-          disabled={!interactive}
-          className={interactive ? "cursor-pointer" : "cursor-default"}
-          onMouseEnter={() => interactive && setHoverRating(star)}
-          onMouseLeave={() => interactive && setHoverRating(0)}
-          onClick={() => interactive && onRatingChange?.(star)}
+          onClick={() => handleClick(star)}
+          className={cn(
+            'transition-all',
+            !readonly && 'cursor-pointer hover:scale-110',
+            readonly && 'cursor-default'
+          )}
+          disabled={readonly}
         >
-          <Star 
-            className={`${size === "large" ? "h-8 w-8" : "h-5 w-5"} ${
-              star <= (hoverRating || rating) 
-                ? "fill-yellow-400 text-yellow-400" 
-                : "text-muted-foreground/30 fill-muted-foreground/30"
-            }`} 
+          <Star
+            className={cn(
+              sizeClasses[size],
+              star <= rating
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'fill-gray-200 text-gray-300',
+              !readonly && 'hover:text-yellow-400'
+            )}
           />
         </button>
       ))}
     </div>
-  )
-}
+  );
+};
 
-function WriteReviewDialog({ 
-  provider, 
-  onClose,
-  onSuccess 
-}: { 
-  provider: PendingReview
-  onClose: () => void
-  onSuccess: () => void
-}) {
-  const [rating, setRating] = useState(0)
-  const [comment, setComment] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+// Review Card Component
+const ReviewCard = ({
+  review,
+  onEdit,
+  onDelete
+}: {
+  review: any;
+  onEdit: (review: any) => void;
+  onDelete: (review: any) => void;
+}) => {
+  const formattedDate = new Date(review.created_at).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const providerTypeLabels: Record<string, string> = {
+    doctor: 'Doctor',
+    clinic: 'Clinic',
+    diagnostic_center: 'Diagnostic Center'
+  };
+
+  return (
+    <Card className="overflow-hidden border-gray-200 shadow-sm hover:shadow-md transition-all">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            {/* Provider Avatar */}
+            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#006767] to-[#008282] flex items-center justify-center text-white font-bold text-lg">
+              {review.provider?.name?.charAt(0) || 'P'}
+            </div>
+
+            <div>
+              <CardTitle className="text-lg">
+                {review.provider?.name || 'Provider'}
+              </CardTitle>
+              <CardDescription className="flex items-center gap-2 mt-1">
+                <Badge variant="outline" className="text-xs">
+                  {providerTypeLabels[review.provider?.provider_type] || 'Provider'}
+                </Badge>
+                <span className="text-xs text-gray-400">•</span>
+                <span className="text-xs text-gray-500">{formattedDate}</span>
+              </CardDescription>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onEdit(review)}
+              className="h-8 w-8 p-0"
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDelete(review)}
+              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-3">
+          <StarRating rating={review.rating} readonly size="md" />
+          <span className="text-sm font-medium text-gray-700">
+            {getRatingLabel(review.rating)}
+          </span>
+        </div>
+
+        {review.comment && (
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-gray-700 text-sm leading-relaxed">{review.comment}</p>
+          </div>
+        )}
+      </CardContent>
+
+      <CardFooter className="border-t border-gray-100 pt-3 text-xs text-gray-500">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-3 w-3" />
+          <span>Reviewed: {formattedDate}</span>
+        </div>
+      </CardFooter>
+    </Card>
+  );
+};
+
+// Review Form Dialog
+const ReviewFormDialog = ({
+  open,
+  onOpenChange,
+  onSubmit,
+  initialData,
+  isEditing
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (rating: number, comment: string) => Promise<void>;
+  initialData?: { rating: number; comment: string };
+  isEditing: boolean;
+}) => {
+  const [rating, setRating] = useState(initialData?.rating || 0);
+  const [comment, setComment] = useState(initialData?.comment || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    setIsSubmitting(true)
-    // Simulate API call to submit review
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setIsSubmitting(false)
-    onSuccess()
-    onClose()
-  }
+    if (rating === 0) {
+      toast.error('Please select a rating');
+      return;
+    }
 
-  const ProviderIcon = providerTypeIcons[provider.providerType]
+    setIsSubmitting(true);
+    await onSubmit(rating, comment);
+    setIsSubmitting(false);
+    onOpenChange(false);
+    setRating(0);
+    setComment('');
+  };
 
   return (
-    <DialogContent className="max-w-md">
-      <DialogHeader>
-        <DialogTitle>Write a Review</DialogTitle>
-        <DialogDescription>
-          Share your experience with {provider.provider}
-        </DialogDescription>
-      </DialogHeader>
-      
-      <div className="space-y-6 py-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-14 w-14">
-            <AvatarFallback className="bg-primary/10 text-primary font-medium">
-              <ProviderIcon className="h-6 w-6" />
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="font-medium">{provider.provider}</p>
-            <p className="text-sm text-muted-foreground">{provider.service}</p>
-            <p className="text-xs text-muted-foreground">{provider.visitDate}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Edit Your Review' : 'Write a Review'}</DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? 'Update your rating and feedback for this provider'
+              : 'Share your experience with this healthcare provider'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Rating</Label>
+            <div className="flex items-center gap-4">
+              <StarRating rating={rating} onRatingChange={setRating} size="lg" />
+              {rating > 0 && (
+                <span className="text-sm font-medium text-gray-700">
+                  {getRatingLabel(rating)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="comment">Your Review (Optional)</Label>
+            <Textarea
+              id="comment"
+              placeholder="Share details about your experience with this provider..."
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={4}
+            />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Your Rating</label>
-          <div className="flex justify-center py-2">
-            <StarRating rating={rating} onRatingChange={setRating} interactive size="large" />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || rating === 0}
+            className="bg-[#006767] hover:bg-[#008282]"
+          >
+            {isSubmitting
+              ? isEditing ? 'Updating...' : 'Submitting...'
+              : isEditing ? 'Update Review' : 'Submit Review'
+            }
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// Delete Confirmation Dialog
+const DeleteConfirmDialog = ({
+  open,
+  onOpenChange,
+  onConfirm,
+  review
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => Promise<void>;
+  review: any;
+}) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    await onConfirm();
+    setIsDeleting(false);
+    onOpenChange(false);
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Review</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete your review for {review?.provider?.name}?
+            This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleConfirm}
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
+// Main Page Component
+export default function PatientReviewsPage() {
+  const [patientId, setPatientId] = useState<number>(201);
+  const [editingReview, setEditingReview] = useState<any>(null);
+  const [deletingReview, setDeletingReview] = useState<any>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [tempRatingFilter, setTempRatingFilter] = useState<number | null>(null);
+
+  const {
+    reviews,
+    patientStats,
+    isLoading,
+    fetchReviewsByPatient,
+    updateReview,
+    deleteReview,
+  } = useReview();
+
+  // Load patient ID and fetch reviews
+  useMemo(() => {
+    const id = getCurrentPatientId();
+    setPatientId(id);
+  }, []);
+
+  // Fetch reviews when patientId changes
+  const loadReviews = useCallback(async () => {
+    if (patientId) {
+      await fetchReviewsByPatient(patientId);
+    }
+  }, [patientId, fetchReviewsByPatient]);
+
+  // Filter reviews by rating
+  const filteredReviews = useMemo(() => {
+    if (!tempRatingFilter) return reviews;
+    return reviews.filter(r => r.rating === tempRatingFilter);
+  }, [reviews, tempRatingFilter]);
+
+  const handleEdit = (review: any) => {
+    setEditingReview(review);
+    setIsFormOpen(true);
+  };
+
+  const handleUpdateReview = async (rating: number, comment: string) => {
+    if (!editingReview) return;
+
+    const success = await updateReview(editingReview.review_id, { rating, comment });
+    if (success) {
+      toast.success('Review updated successfully');
+      await loadReviews();
+    } else {
+      toast.error('Failed to update review');
+    }
+    setEditingReview(null);
+  };
+
+  const handleDeleteReview = async () => {
+    if (!deletingReview) return;
+
+    const success = await deleteReview(deletingReview.review_id);
+    if (success) {
+      toast.success('Review deleted successfully');
+      await loadReviews();
+    } else {
+      toast.error('Failed to delete review');
+    }
+    setDeletingReview(null);
+  };
+
+  const handleRefresh = async () => {
+    await loadReviews();
+    toast.success('Reviews refreshed');
+  };
+
+  const ratingStats = useMemo(() => {
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach(review => {
+      distribution[review.rating as keyof typeof distribution]++;
+    });
+    return distribution;
+  }, [reviews]);
+
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return 0;
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return (sum / reviews.length).toFixed(1);
+  }, [reviews]);
+
+  if (isLoading && reviews.length === 0) {
+    return <LoadingState message="Loading your reviews..." />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="max-w-4xl mx-auto px-4 md:px-8 py-8">
+        <PageHeader
+          title="My Reviews"
+          subtitle="Manage your reviews for healthcare providers"
+          actions={
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              className="rounded-xl"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          }
+        />
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-gray-900">{reviews.length}</p>
+                <p className="text-sm text-gray-500">Total Reviews</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                  <p className="text-3xl font-bold text-gray-900">{averageRating}</p>
+                </div>
+                <p className="text-sm text-gray-500">Average Rating</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <p className="text-3xl font-bold text-gray-900">
+                  {patientStats?.average_rating_given?.toFixed(1) || '0.0'}
+                </p>
+                <p className="text-sm text-gray-500">Your Avg Rating Given</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Rating Distribution */}
+        {reviews.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-base">Rating Distribution</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {[5, 4, 3, 2, 1].map(star => {
+                const count = ratingStats[star as keyof typeof ratingStats];
+                const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+                return (
+                  <div key={star} className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 w-16">
+                      <span className="text-sm font-medium">{star}</span>
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    </div>
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full rounded-full', getRatingColor(star))}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <div className="w-12 text-sm text-gray-500">{count}</div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Filter Bar */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="rounded-lg"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filter
+            </Button>
+            {tempRatingFilter && (
+              <Badge className="bg-[#006767] text-white">
+                Rating: {tempRatingFilter}★
+                <button
+                  onClick={() => setTempRatingFilter(null)}
+                  className="ml-2 hover:text-gray-200"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
           </div>
-          {rating > 0 && (
-            <p className="text-center text-sm text-muted-foreground">
-              {rating === 5 ? "Excellent!" : 
-               rating === 4 ? "Very Good" : 
-               rating === 3 ? "Good" : 
-               rating === 2 ? "Fair" : "Poor"}
-            </p>
+          <p className="text-sm text-gray-500">
+            Showing {filteredReviews.length} of {reviews.length} reviews
+          </p>
+        </div>
+
+        {/* Rating Filter Dialog */}
+        {showFilters && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-sm">Filter by Rating</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 flex-wrap">
+                {[5, 4, 3, 2, 1].map(star => (
+                  <Button
+                    key={star}
+                    variant={tempRatingFilter === star ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTempRatingFilter(tempRatingFilter === star ? null : star)}
+                    className={tempRatingFilter === star ? 'bg-[#006767]' : ''}
+                  >
+                    {star} ★
+                  </Button>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTempRatingFilter(null)}
+                >
+                  Clear
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Reviews List */}
+        <div className="space-y-4">
+          {filteredReviews.length > 0 ? (
+            filteredReviews.map((review) => (
+              <ReviewCard
+                key={review.review_id}
+                review={review}
+                onEdit={handleEdit}
+                onDelete={(review) => {
+                  setDeletingReview(review);
+                  setIsDeleteOpen(true);
+                }}
+              />
+            ))
+          ) : (
+            <EmptyState
+              variant="review"
+              message={tempRatingFilter ? `No ${tempRatingFilter}-star reviews` : "No reviews yet"}
+              submessage={
+                tempRatingFilter
+                  ? `You haven't written any ${tempRatingFilter}-star reviews`
+                  : "You haven't written any reviews yet"
+              }
+              actionLabel="View Providers"
+              actionHref="/patient/providers"
+            />
           )}
         </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Your Review</label>
-          <Textarea
-            placeholder="Tell others about your experience..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={4}
-          />
-        </div>
       </div>
 
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={rating === 0 || isSubmitting}>
-          {isSubmitting ? "Submitting..." : "Submit Review"}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  )
-}
+      {/* Edit Review Dialog */}
+      <ReviewFormDialog
+        open={isFormOpen && !!editingReview}
+        onOpenChange={(open) => {
+          setIsFormOpen(open);
+          if (!open) setEditingReview(null);
+        }}
+        onSubmit={handleUpdateReview}
+        initialData={
+          editingReview
+            ? { rating: editingReview.rating, comment: editingReview.comment }
+            : undefined
+        }
+        isEditing={true}
+      />
 
-export default function ReviewsPage() {
-  const [reviews, setReviews] = useState(myReviews)
-  const [pending, setPending] = useState(pendingReviews)
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
-  const [selectedProvider, setSelectedProvider] = useState<PendingReview | null>(null)
-
-  const handleReviewSubmitted = () => {
-    // Remove the pending review after submission
-    if (selectedProvider) {
-      setPending(pending.filter(p => p.id !== selectedProvider.id))
-    }
-  }
-
-  const handleDeleteReview = (reviewId: string) => {
-    setReviews(reviews.filter(r => r.id !== reviewId))
-  }
-
-  const handleEditReview = (reviewId: string) => {
-    // In a real app, this would open an edit dialog
-    console.log("Edit review:", reviewId)
-  }
-
-  return (
-
-      
-      <div className="p-4 lg:p-8 space-y-6">
-        <Tabs defaultValue="my-reviews">
-          <TabsList>
-            <TabsTrigger value="my-reviews">My Reviews</TabsTrigger>
-            <TabsTrigger value="pending" className="gap-2">
-              Pending
-              {pending.length > 0 && (
-                <Badge variant="secondary" className="h-5 px-1.5 bg-primary/10 text-primary">
-                  {pending.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="my-reviews" className="mt-6 space-y-4">
-            {reviews.map((review) => {
-              const ProviderIcon = providerTypeIcons[review.providerType]
-              return (
-                <Card key={review.id}>
-                  <CardContent className="p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                      <Avatar className="h-14 w-14">
-                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                          <ProviderIcon className="h-6 w-6" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:justify-between">
-                          <div>
-                            <h3 className="font-semibold">{review.provider}</h3>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Badge variant="outline">{providerTypeLabels[review.providerType]}</Badge>
-                              <span>{review.specialty}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              onClick={() => handleEditReview(review.id)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-destructive"
-                              onClick={() => handleDeleteReview(review.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-3">
-                          <StarRating rating={review.rating} />
-                        </div>
-                        
-                        <p className="mt-3 text-sm text-foreground">{review.comment}</p>
-                        
-                        <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {review.location}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {review.date}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-
-            {reviews.length === 0 && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="font-semibold text-lg">No reviews yet</h3>
-                  <p className="text-muted-foreground mt-1">
-                    Your reviews will appear here after you rate providers
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="pending" className="mt-6 space-y-4">
-            <Card className="bg-primary/5 border-primary/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Help others find great healthcare</CardTitle>
-                <CardDescription>
-                  Share your experience with providers you have recently visited. Your reviews help other patients make informed decisions.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-
-            {pending.map((item) => {
-              const ProviderIcon = providerTypeIcons[item.providerType]
-              return (
-                <Card key={item.id}>
-                  <CardContent className="p-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <Avatar className="h-14 w-14">
-                        <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                          <ProviderIcon className="h-6 w-6" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{item.provider}</h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Badge variant="outline">{providerTypeLabels[item.providerType]}</Badge>
-                          <span>{item.specialty}</span>
-                          <span>•</span>
-                          <span>{item.service}</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Visited on {item.visitDate} at {item.location}
-                        </p>
-                      </div>
-                      <Dialog open={reviewDialogOpen && selectedProvider?.id === item.id} onOpenChange={(open) => {
-                        setReviewDialogOpen(open)
-                        if (!open) setSelectedProvider(null)
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button onClick={() => setSelectedProvider(item)}>
-                            Write Review
-                          </Button>
-                        </DialogTrigger>
-                        {selectedProvider && (
-                          <WriteReviewDialog 
-                            provider={selectedProvider} 
-                            onClose={() => {
-                              setReviewDialogOpen(false)
-                              setSelectedProvider(null)
-                            }}
-                            onSuccess={handleReviewSubmitted}
-                          />
-                        )}
-                      </Dialog>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-
-            {pending.length === 0 && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Star className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="font-semibold text-lg">All caught up!</h3>
-                  <p className="text-muted-foreground mt-1">
-                    You have reviewed all your recent visits
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
-
-        {/* Info Card about Reviews */}
-        <Card className="bg-muted/30">
-          <CardHeader>
-            <CardTitle className="text-base">About Reviews</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>
-              Your reviews help other patients make informed decisions about their healthcare providers.
-            </p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Reviews can be edited or deleted at any time</li>
-              <li>All reviews are moderated for quality and authenticity</li>
-              <li>You can only review providers you have actually visited</li>
-              <li>Ratings range from 1 (Poor) to 5 (Excellent)</li>
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
-   
-  )
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onConfirm={handleDeleteReview}
+        review={deletingReview}
+      />
+    </div>
+  );
 }

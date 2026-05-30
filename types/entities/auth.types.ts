@@ -29,12 +29,12 @@ export interface AuthUser {
   phone_number: string;
   role: UserRole;
   
-  // For individuals (patients, doctors, staff)
+  // For Users (patients) and Staff
   first_name?: string;
   last_name?: string;
   
-  // For organizations (clinics, diagnostic centers)
-  name?: string;
+  // For Providers (doctors, clinics, diagnostic centers)
+  full_name?: string;
   
   // Staff specific
   staff_sub_role?: StaffSubRole;
@@ -73,7 +73,8 @@ export interface LoginResponse {
 // REGISTRATION
 // ===============================
 
-export interface PatientRegisterData {
+// USER (PATIENT) REGISTRATION
+export interface UserRegisterData {
   email: string;
   password: string;
   first_name: string;
@@ -84,11 +85,11 @@ export interface PatientRegisterData {
   role: 'patient';
 }
 
+// PROVIDER REGISTRATION TYPES
 export interface DoctorRegisterData {
   email: string;
   password: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   phone_number: string;
   role: 'doctor';
   
@@ -109,19 +110,17 @@ export interface DoctorRegisterData {
 export interface ClinicRegisterData {
   email: string;
   password: string;
-  name: string;  // Changed from clinic_name
+  full_name: string;
   role: 'clinic';
   
   // Clinic details
-  address: string;  // Changed from clinic_address
-  phone: string;    // Changed from clinic_phone
-  license_number: string;  // Changed from clinic_license_number
-  tin_number: string;      // Changed from clinic_tin_number
+  address: string;
+  phone: string;
+  license_number: string;
+  tin_number: string;
   operating_hours: string;
   description?: string;
   established_year?: string;
-  emergency_contact?: string;
-  website?: string;  // Changed from clinic_website
   
   // Documents
   registration_document?: File;
@@ -130,39 +129,41 @@ export interface ClinicRegisterData {
 export interface DiagnosticCenterRegisterData {
   email: string;
   password: string;
-  name: string;  // Changed from center_name
+  full_name: string;
   role: 'diagnostic_center';
   
   // Center details
-  address: string;  // Changed from center_address
-  phone: string;    // Changed from center_phone
-  license_number: string;  // Changed from center_license_number
-  tin_number: string;      // Changed from center_tin_number
-  accreditation: string;   // Changed from center_accreditation
+  address: string;
+  phone: string;
+  license_number: string;
+  tin_number: string;
+  accreditation: string;
   services_description: string;
   operating_hours: string;
   established_year?: string;
-  emergency_contact?: string;
-  website?: string;  // Changed from center_website
   
   // Documents
   registration_document?: File;
 }
 
+// STAFF REGISTRATION
 export interface StaffRegisterData {
   employer_id: number;
   employer_type: ProviderType;
   email: string;
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
   role: StaffSubRole;
 }
 
+// Union type for all registration data
 export type RegisterData = 
-  | PatientRegisterData 
+  | UserRegisterData 
   | DoctorRegisterData 
   | ClinicRegisterData 
-  | DiagnosticCenterRegisterData;
+  | DiagnosticCenterRegisterData
+  | StaffRegisterData;
 
 // ===============================
 // EMAIL VERIFICATION

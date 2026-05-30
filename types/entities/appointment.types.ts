@@ -3,6 +3,7 @@ import { TimeSlot } from './schedule.types';
 import { PatientProfile } from './profile.types';
 import { Service, ServiceType } from './service.types';
 import { Card, CardStatus } from './card.types';
+import { PaymentStatus } from './payment.types';
 
 export type AppointmentStatus = 
   | 'Scheduled' 
@@ -13,12 +14,11 @@ export type AppointmentStatus =
   | 'Cancelled' 
   | 'No-show';
 
-export type PaymentStatus = 'Paid' | 'Pending' | 'Failed' | 'Refunded';
-
 export interface Appointment {
   id: number;
   patientId: number;
   serviceId: number;
+  providerId:number;
   slotId: number;
   scheduledDateTime: string;
   status: AppointmentStatus;
@@ -55,6 +55,7 @@ export interface BookAppointmentResponse {
   appointment?: Appointment;
   card?: Card;
   paymentId?: number;
+  paymentStatus?: PaymentStatus;
   message?: string;
 }
 
@@ -97,16 +98,18 @@ export interface CheckedInPatient {
   checkInTime: string;
   scheduledTime: string;
   status: 'waiting' | 'in-progress' | 'completed';
-  queueNumber: number;
   estimatedWaitMinutes: number;
   cardId?: number;
   appointmentId?: number;
 }
 
 export interface EnrichedAppointment extends Appointment {
+  serviceDescription: string | undefined;
+  serviceDuration: number | undefined;
   paymentStatus: PaymentStatus;
   fee: number;
   patientName: string;
+  patientImage?: string;
   patientEmail?: string;
   patientPhone?: string;
   serviceName?: string;
@@ -117,6 +120,8 @@ export interface EnrichedAppointment extends Appointment {
   providerName?: string;
   providerType?: 'doctor' | 'clinic' | 'diagnostic_center';
   providerImage?: string;
+  providerEmail:string;
+  providerPhone?: string;
   location?: string;
   locationDetail?: string;
 }
@@ -126,3 +131,5 @@ export interface AppointmentWithDetails extends EnrichedAppointment {
   service?: Service;
   card?: Card;
 }
+
+export type { PaymentStatus };

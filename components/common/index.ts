@@ -7,7 +7,7 @@ export { StatusBadge } from './StatusBadge';
 export { DangerZone, SimpleDangerZone } from './DangerZone';
 export { EditableField } from './EditableField';
 export { ProfileImageUpload } from './ProfileImageUpload';
-export { PasswordChangeDialog } from './PasswordChangeDialog';
+export { PasswordChangeDialog } from './PasswordChangeForm';
 export { StatsCard } from './StatsCard';
 export { CommonSidebar } from './sidebar';
 export { CommonTopHeader } from './top-header';

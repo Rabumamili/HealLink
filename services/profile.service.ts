@@ -1,4 +1,5 @@
 // services/profile.service.ts
+
 import { ApiService, API_BASE_URL } from './api.service';
 import {
   PatientProfile,
@@ -19,7 +20,7 @@ import {
   ClinicStatistics,
   DiagnosticCenterStatistics
 } from '@/types/entities/profile.types';
-import { UserRole, AuthUser } from '@/types/entities/auth.types';
+import { UserRole } from '@/types/entities/auth.types';
 
 // Define response types for delete operations
 interface DeleteResponse {
@@ -242,7 +243,7 @@ class ProfileService extends ApiService {
     return response.data;
   }
 
-  // Delete Account - Fixed to return proper type
+  // Delete Account
   async deleteAccount(): Promise<DeleteResponse> {
     const response = await this.delete<DeleteResponse>(`${this.baseUrl}/account`, this.getAuthHeaders());
     return response;
@@ -261,81 +262,30 @@ class ProfileService extends ApiService {
     return response.blob();
   }
 
-  // Medical history items for patients - Fixed to return proper type
-  async addAllergy(allergy: string): Promise<PatientProfile> {
-    const response = await this.post<{ data: PatientProfile }>(
-      `${this.baseUrl}/patient/allergies`,
-      { allergy },
-      this.getAuthHeaders()
-    );
-    return response.data;
-  }
-
-  async removeAllergy(allergy: string): Promise<PatientProfile> {
-    const response = await this.delete<{ data: PatientProfile }>(
-      `${this.baseUrl}/patient/allergies/${encodeURIComponent(allergy)}`,
-      this.getAuthHeaders()
-    );
-    return response.data;
-  }
-
-  async addChronicCondition(condition: string): Promise<PatientProfile> {
-    const response = await this.post<{ data: PatientProfile }>(
-      `${this.baseUrl}/patient/chronic-conditions`,
-      { condition },
-      this.getAuthHeaders()
-    );
-    return response.data;
-  }
-
-  async removeChronicCondition(condition: string): Promise<PatientProfile> {
-    const response = await this.delete<{ data: PatientProfile }>(
-      `${this.baseUrl}/patient/chronic-conditions/${encodeURIComponent(condition)}`,
-      this.getAuthHeaders()
-    );
-    return response.data;
-  }
-
-  async addMedication(medication: string): Promise<PatientProfile> {
-    const response = await this.post<{ data: PatientProfile }>(
-      `${this.baseUrl}/patient/medications`,
-      { medication },
-      this.getAuthHeaders()
-    );
-    return response.data;
-  }
-
-  async removeMedication(medication: string): Promise<PatientProfile> {
-    const response = await this.delete<{ data: PatientProfile }>(
-      `${this.baseUrl}/patient/medications/${encodeURIComponent(medication)}`,
-      this.getAuthHeaders()
-    );
-    return response.data;
-  }
-
   // Helper method to get full name from profile
-  getProfileDisplayName(profile: PatientProfile | DoctorProfile | ClinicProfile | DiagnosticCenterProfile): string {
+  getProfileDisplayName(profile: PatientProfile | DoctorProfile | ClinicProfile | DiagnosticCenterProfile | StaffProfile): string {
     if ('first_name' in profile && profile.first_name) {
       const lastName = 'last_name' in profile ? (profile as any).last_name : '';
       return `${profile.first_name} ${lastName || ''}`.trim();
     }
-    if ('name' in profile && profile.name) {
-      return profile.name;
+    if ('full_name' in profile && profile.full_name) {
+      return profile.full_name;
     }
-    if ('full_name' in profile && (profile as any).full_name) {
-      return (profile as any).full_name;
+    if ('name' in profile && (profile as any).name) {
+      return (profile as any).name;
     }
     return 'User';
   }
 
   // Helper to check if profile is an individual (has first_name)
-  isIndividualProfile(profile: any): profile is PatientProfile | DoctorProfile {
+  isIndividualProfile(profile: any): profile is PatientProfile | DoctorProfile | StaffProfile {
     return profile && 'first_name' in profile && profile.first_name !== undefined;
   }
 
-  // Helper to check if profile is an organization (has name)
+  // Helper to check if profile is an organization (has full_name or name)
   isOrganizationProfile(profile: any): profile is ClinicProfile | DiagnosticCenterProfile {
-    return profile && 'name' in profile && profile.name !== undefined;
+    return profile && ('full_name' in profile || 'name' in profile) && 
+           !('first_name' in profile);
   }
 }
 

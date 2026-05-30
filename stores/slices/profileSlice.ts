@@ -1,6 +1,10 @@
-// store/slices/profileSlice.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+// stores/slices/profile.slice.ts
+
+import { create } from 'zustand';
+import { toast } from 'sonner';
+
 import { profileService } from '@/services/profile.service';
+
 import {
   PatientProfile,
   PatientProfileUpdate,
@@ -13,612 +17,692 @@ import {
   StaffProfile,
   StaffProfileUpdate,
   ChangePasswordData,
-  ChangePasswordResponse,
-  ProfileUploadResponse,
   PatientStatistics,
   DoctorStatistics,
   ClinicStatistics,
-  DiagnosticCenterStatistics
+  DiagnosticCenterStatistics,
 } from '@/types/entities/profile.types';
+
 import { UserRole } from '@/types/entities/auth.types';
 
+type Profile =
+  | PatientProfile
+  | DoctorProfile
+  | ClinicProfile
+  | DiagnosticCenterProfile
+  | StaffProfile;
+
+type Statistics =
+  | PatientStatistics
+  | DoctorStatistics
+  | ClinicStatistics
+  | DiagnosticCenterStatistics;
+
 interface ProfileState {
-  // Current profile based on role
-  profile: PatientProfile | DoctorProfile | ClinicProfile | DiagnosticCenterProfile | StaffProfile | null;
-  role: UserRole | null;
-  isLoading: boolean;
+  profile: Profile | null;
+  statistics: Statistics | null;
+
+  loading: boolean;
+  statisticsLoading: boolean;
+  uploadLoading: boolean;
+  passwordLoading: boolean;
+  deleteLoading: boolean;
+
   error: string | null;
-  updateSuccess: boolean;
-  
+
+  // Profile
+  fetchProfile: (role: UserRole) => Promise<void>;
+
+  fetchPatientProfile: () => Promise<void>;
+  fetchDoctorProfile: () => Promise<void>;
+  fetchClinicProfile: () => Promise<void>;
+  fetchDiagnosticCenterProfile: () => Promise<void>;
+  fetchStaffProfile: () => Promise<void>;
+
+  updatePatientProfile: (
+    data: PatientProfileUpdate
+  ) => Promise<PatientProfile | null>;
+
+  updateDoctorProfile: (
+    data: DoctorProfileUpdate
+  ) => Promise<DoctorProfile | null>;
+
+  updateClinicProfile: (
+    data: ClinicProfileUpdate
+  ) => Promise<ClinicProfile | null>;
+
+  updateDiagnosticCenterProfile: (
+    data: DiagnosticCenterProfileUpdate
+  ) => Promise<DiagnosticCenterProfile | null>;
+
+  updateStaffProfile: (
+    data: StaffProfileUpdate
+  ) => Promise<StaffProfile | null>;
+
+  // Uploads
+  uploadProfilePicture: (file: File) => Promise<string | null>;
+  uploadCoverImage: (file: File) => Promise<string | null>;
+  uploadLicenseDocument: (file: File) => Promise<string | null>;
+  uploadRegistrationDocument: (file: File) => Promise<string | null>;
+
+  // Password
+  changePassword: (
+    data: ChangePasswordData
+  ) => Promise<boolean>;
+
   // Statistics
-  patientStats: PatientStatistics | null;
-  doctorStats: DoctorStatistics | null;
-  clinicStats: ClinicStatistics | null;
-  diagnosticCenterStats: DiagnosticCenterStatistics | null;
-  
-  // Upload states
-  isUploading: boolean;
-  uploadProgress: number;
-  
-  // Password change
-  isChangingPassword: boolean;
-  passwordChangeSuccess: boolean;
+  fetchPatientStatistics: () => Promise<void>;
+  fetchDoctorStatistics: () => Promise<void>;
+  fetchClinicStatistics: () => Promise<void>;
+  fetchDiagnosticCenterStatistics: () => Promise<void>;
+
+  // Account
+  deleteAccount: () => Promise<boolean>;
+
+  // Export
+  exportHealthData: () => Promise<void>;
+
+  // Utils
+  clearProfile: () => void;
+  clearError: () => void;
 }
 
-const initialState: ProfileState = {
+export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: null,
-  role: null,
-  isLoading: false,
+  statistics: null,
+
+  loading: false,
+  statisticsLoading: false,
+  uploadLoading: false,
+  passwordLoading: false,
+  deleteLoading: false,
+
   error: null,
-  updateSuccess: false,
-  patientStats: null,
-  doctorStats: null,
-  clinicStats: null,
-  diagnosticCenterStats: null,
-  isUploading: false,
-  uploadProgress: 0,
-  isChangingPassword: false,
-  passwordChangeSuccess: false,
-};
 
-// Async Thunks for Profile Fetching
-export const fetchProfile = createAsyncThunk(
-  'profile/fetchProfile',
-  async (role: UserRole, { rejectWithValue }) => {
+  clearError: () => set({ error: null }),
+
+  clearProfile: () =>
+    set({
+      profile: null,
+      statistics: null,
+      error: null,
+    }),
+
+  // ==========================================================
+  // FETCH PROFILE BY ROLE
+  // ==========================================================
+  fetchProfile: async (role) => {
     try {
-      const profile = await profileService.getProfileByRole(role);
-      return { profile, role };
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch profile');
-    }
-  }
-);
-
-export const fetchPatientProfile = createAsyncThunk(
-  'profile/fetchPatientProfile',
-  async (_, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.getPatientProfile();
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch patient profile');
-    }
-  }
-);
-
-export const fetchDoctorProfile = createAsyncThunk(
-  'profile/fetchDoctorProfile',
-  async (_, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.getDoctorProfile();
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch doctor profile');
-    }
-  }
-);
-
-export const fetchClinicProfile = createAsyncThunk(
-  'profile/fetchClinicProfile',
-  async (_, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.getClinicProfile();
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch clinic profile');
-    }
-  }
-);
-
-export const fetchDiagnosticCenterProfile = createAsyncThunk(
-  'profile/fetchDiagnosticCenterProfile',
-  async (_, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.getDiagnosticCenterProfile();
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch diagnostic center profile');
-    }
-  }
-);
-
-// Update Thunks
-export const updatePatientProfile = createAsyncThunk(
-  'profile/updatePatientProfile',
-  async (data: PatientProfileUpdate, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.updatePatientProfile(data);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
-    }
-  }
-);
-
-export const updateDoctorProfile = createAsyncThunk(
-  'profile/updateDoctorProfile',
-  async (data: DoctorProfileUpdate, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.updateDoctorProfile(data);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
-    }
-  }
-);
-
-export const updateClinicProfile = createAsyncThunk(
-  'profile/updateClinicProfile',
-  async (data: ClinicProfileUpdate, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.updateClinicProfile(data);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
-    }
-  }
-);
-
-export const updateDiagnosticCenterProfile = createAsyncThunk(
-  'profile/updateDiagnosticCenterProfile',
-  async (data: DiagnosticCenterProfileUpdate, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.updateDiagnosticCenterProfile(data);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update profile');
-    }
-  }
-);
-
-// Statistics Thunks
-export const fetchPatientStatistics = createAsyncThunk(
-  'profile/fetchPatientStatistics',
-  async (_, { rejectWithValue }) => {
-    try {
-      const stats = await profileService.getPatientStatistics();
-      return stats;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch statistics');
-    }
-  }
-);
-
-export const fetchDoctorStatistics = createAsyncThunk(
-  'profile/fetchDoctorStatistics',
-  async (_, { rejectWithValue }) => {
-    try {
-      const stats = await profileService.getDoctorStatistics();
-      return stats;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch statistics');
-    }
-  }
-);
-
-export const fetchClinicStatistics = createAsyncThunk(
-  'profile/fetchClinicStatistics',
-  async (_, { rejectWithValue }) => {
-    try {
-      const stats = await profileService.getClinicStatistics();
-      return stats;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch statistics');
-    }
-  }
-);
-
-export const fetchDiagnosticCenterStatistics = createAsyncThunk(
-  'profile/fetchDiagnosticCenterStatistics',
-  async (_, { rejectWithValue }) => {
-    try {
-      const stats = await profileService.getDiagnosticCenterStatistics();
-      return stats;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch statistics');
-    }
-  }
-);
-
-// Medical History Thunks (Patient specific)
-export const addAllergy = createAsyncThunk(
-  'profile/addAllergy',
-  async (allergy: string, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.addAllergy(allergy);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to add allergy');
-    }
-  }
-);
-
-export const removeAllergy = createAsyncThunk(
-  'profile/removeAllergy',
-  async (allergy: string, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.removeAllergy(allergy);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to remove allergy');
-    }
-  }
-);
-
-export const addChronicCondition = createAsyncThunk(
-  'profile/addChronicCondition',
-  async (condition: string, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.addChronicCondition(condition);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to add condition');
-    }
-  }
-);
-
-export const removeChronicCondition = createAsyncThunk(
-  'profile/removeChronicCondition',
-  async (condition: string, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.removeChronicCondition(condition);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to remove condition');
-    }
-  }
-);
-
-export const addMedication = createAsyncThunk(
-  'profile/addMedication',
-  async (medication: string, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.addMedication(medication);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to add medication');
-    }
-  }
-);
-
-export const removeMedication = createAsyncThunk(
-  'profile/removeMedication',
-  async (medication: string, { rejectWithValue }) => {
-    try {
-      const profile = await profileService.removeMedication(medication);
-      return profile;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to remove medication');
-    }
-  }
-);
-
-// Upload Thunks
-export const uploadProfilePicture = createAsyncThunk(
-  'profile/uploadProfilePicture',
-  async (file: File, { rejectWithValue }) => {
-    try {
-      const response = await profileService.uploadProfilePicture(file);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to upload profile picture');
-    }
-  }
-);
-
-export const uploadCoverImage = createAsyncThunk(
-  'profile/uploadCoverImage',
-  async (file: File, { rejectWithValue }) => {
-    try {
-      const response = await profileService.uploadCoverImage(file);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to upload cover image');
-    }
-  }
-);
-
-export const uploadLicenseDocument = createAsyncThunk(
-  'profile/uploadLicenseDocument',
-  async (file: File, { rejectWithValue }) => {
-    try {
-      const response = await profileService.uploadLicenseDocument(file);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to upload license document');
-    }
-  }
-);
-
-export const uploadRegistrationDocument = createAsyncThunk(
-  'profile/uploadRegistrationDocument',
-  async (file: File, { rejectWithValue }) => {
-    try {
-      const response = await profileService.uploadRegistrationDocument(file);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to upload registration document');
-    }
-  }
-);
-
-// Password Change Thunk
-export const changePassword = createAsyncThunk(
-  'profile/changePassword',
-  async (data: ChangePasswordData, { rejectWithValue }) => {
-    try {
-      const response = await profileService.changePassword(data);
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to change password');
-    }
-  }
-);
-
-// Delete Account Thunk
-export const deleteAccount = createAsyncThunk(
-  'profile/deleteAccount',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await profileService.deleteAccount();
-      return response;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to delete account');
-    }
-  }
-);
-
-const profileSlice = createSlice({
-  name: 'profile',
-  initialState,
-  reducers: {
-    clearProfileError: (state) => {
-      state.error = null;
-    },
-    clearUpdateSuccess: (state) => {
-      state.updateSuccess = false;
-    },
-    clearPasswordChangeSuccess: (state) => {
-      state.passwordChangeSuccess = false;
-    },
-    setUploadProgress: (state, action: PayloadAction<number>) => {
-      state.uploadProgress = action.payload;
-    },
-    resetProfileState: (state) => {
-      state.profile = null;
-      state.role = null;
-      state.error = null;
-      state.updateSuccess = false;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      // Fetch Patient Profile
-      .addCase(fetchPatientProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchPatientProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.role = 'patient';
-        state.error = null;
-      })
-      .addCase(fetchPatientProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Fetch Doctor Profile
-      .addCase(fetchDoctorProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchDoctorProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.role = 'doctor';
-        state.error = null;
-      })
-      .addCase(fetchDoctorProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Fetch Clinic Profile
-      .addCase(fetchClinicProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchClinicProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.role = 'clinic';
-        state.error = null;
-      })
-      .addCase(fetchClinicProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Fetch Diagnostic Center Profile
-      .addCase(fetchDiagnosticCenterProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchDiagnosticCenterProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.role = 'diagnostic_center';
-        state.error = null;
-      })
-      .addCase(fetchDiagnosticCenterProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Update Patient Profile
-      .addCase(updatePatientProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-        state.updateSuccess = false;
-      })
-      .addCase(updatePatientProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.updateSuccess = true;
-        state.error = null;
-      })
-      .addCase(updatePatientProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.updateSuccess = false;
-        state.error = action.payload as string;
-      })
-      // Update Doctor Profile
-      .addCase(updateDoctorProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-        state.updateSuccess = false;
-      })
-      .addCase(updateDoctorProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.updateSuccess = true;
-        state.error = null;
-      })
-      .addCase(updateDoctorProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.updateSuccess = false;
-        state.error = action.payload as string;
-      })
-      // Update Clinic Profile
-      .addCase(updateClinicProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-        state.updateSuccess = false;
-      })
-      .addCase(updateClinicProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.updateSuccess = true;
-        state.error = null;
-      })
-      .addCase(updateClinicProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.updateSuccess = false;
-        state.error = action.payload as string;
-      })
-      // Update Diagnostic Center Profile
-      .addCase(updateDiagnosticCenterProfile.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-        state.updateSuccess = false;
-      })
-      .addCase(updateDiagnosticCenterProfile.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.profile = action.payload;
-        state.updateSuccess = true;
-        state.error = null;
-      })
-      .addCase(updateDiagnosticCenterProfile.rejected, (state, action) => {
-        state.isLoading = false;
-        state.updateSuccess = false;
-        state.error = action.payload as string;
-      })
-      // Add Allergy
-      .addCase(addAllergy.fulfilled, (state, action) => {
-        state.profile = action.payload;
-      })
-      // Remove Allergy
-      .addCase(removeAllergy.fulfilled, (state, action) => {
-        state.profile = action.payload;
-      })
-      // Add Chronic Condition
-      .addCase(addChronicCondition.fulfilled, (state, action) => {
-        state.profile = action.payload;
-      })
-      // Remove Chronic Condition
-      .addCase(removeChronicCondition.fulfilled, (state, action) => {
-        state.profile = action.payload;
-      })
-      // Add Medication
-      .addCase(addMedication.fulfilled, (state, action) => {
-        state.profile = action.payload;
-      })
-      // Remove Medication
-      .addCase(removeMedication.fulfilled, (state, action) => {
-        state.profile = action.payload;
-      })
-      // Statistics
-      .addCase(fetchPatientStatistics.fulfilled, (state, action) => {
-        state.patientStats = action.payload;
-      })
-      .addCase(fetchDoctorStatistics.fulfilled, (state, action) => {
-        state.doctorStats = action.payload;
-      })
-      .addCase(fetchClinicStatistics.fulfilled, (state, action) => {
-        state.clinicStats = action.payload;
-      })
-      .addCase(fetchDiagnosticCenterStatistics.fulfilled, (state, action) => {
-        state.diagnosticCenterStats = action.payload;
-      })
-      // Upload Profile Picture
-      .addCase(uploadProfilePicture.pending, (state) => {
-        state.isUploading = true;
-        state.error = null;
-      })
-      .addCase(uploadProfilePicture.fulfilled, (state, action) => {
-        state.isUploading = false;
-        if (state.profile) {
-          state.profile.profile_photo = action.payload.url;
-        }
-        state.error = null;
-      })
-      .addCase(uploadProfilePicture.rejected, (state, action) => {
-        state.isUploading = false;
-        state.error = action.payload as string;
-      })
-      // Upload Cover Image
-      .addCase(uploadCoverImage.pending, (state) => {
-        state.isUploading = true;
-        state.error = null;
-      })
-      .addCase(uploadCoverImage.fulfilled, (state, action) => {
-        state.isUploading = false;
-        if (state.profile && 'cover_image_url' in state.profile) {
-          (state.profile as any).cover_image_url = action.payload.url;
-        }
-        state.error = null;
-      })
-      .addCase(uploadCoverImage.rejected, (state, action) => {
-        state.isUploading = false;
-        state.error = action.payload as string;
-      })
-      // Change Password
-      .addCase(changePassword.pending, (state) => {
-        state.isChangingPassword = true;
-        state.error = null;
-        state.passwordChangeSuccess = false;
-      })
-      .addCase(changePassword.fulfilled, (state) => {
-        state.isChangingPassword = false;
-        state.passwordChangeSuccess = true;
-        state.error = null;
-      })
-      .addCase(changePassword.rejected, (state, action) => {
-        state.isChangingPassword = false;
-        state.passwordChangeSuccess = false;
-        state.error = action.payload as string;
-      })
-      // Delete Account
-      .addCase(deleteAccount.fulfilled, (state) => {
-        state.profile = null;
-        state.role = null;
+      set({
+        loading: true,
+        error: null,
       });
-  },
-});
 
-export const {
-  clearProfileError,
-  clearUpdateSuccess,
-  clearPasswordChangeSuccess,
-  setUploadProgress,
-  resetProfileState,
-} = profileSlice.actions;
-export default profileSlice.reducer;
+      const profile = await profileService.getProfileByRole(role);
+
+      set({
+        profile,
+        loading: false,
+      });
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to load profile';
+
+      set({
+        error: message,
+        loading: false,
+      });
+
+      toast.error(message);
+    }
+  },
+
+  // ==========================================================
+  // PATIENT
+  // ==========================================================
+  fetchPatientProfile: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const profile =
+        await profileService.getPatientProfile();
+
+      set({
+        profile,
+        loading: false,
+      });
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to load profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+    }
+  },
+
+  updatePatientProfile: async (data) => {
+    try {
+      set({ loading: true });
+
+      const updated =
+        await profileService.updatePatientProfile(data);
+
+      set({
+        profile: updated,
+        loading: false,
+      });
+
+      toast.success('Profile updated successfully');
+
+      return updated;
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to update profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+
+      return null;
+    }
+  },
+
+  // ==========================================================
+  // DOCTOR
+  // ==========================================================
+  fetchDoctorProfile: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const profile =
+        await profileService.getDoctorProfile();
+
+      set({
+        profile,
+        loading: false,
+      });
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to load profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+    }
+  },
+
+  updateDoctorProfile: async (data) => {
+    try {
+      set({ loading: true });
+
+      const updated =
+        await profileService.updateDoctorProfile(data);
+
+      set({
+        profile: updated,
+        loading: false,
+      });
+
+      toast.success('Profile updated successfully');
+
+      return updated;
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to update profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+
+      return null;
+    }
+  },
+
+  // ==========================================================
+  // CLINIC
+  // ==========================================================
+  fetchClinicProfile: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const profile =
+        await profileService.getClinicProfile();
+
+      set({
+        profile,
+        loading: false,
+      });
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to load profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+    }
+  },
+
+  updateClinicProfile: async (data) => {
+    try {
+      set({ loading: true });
+
+      const updated =
+        await profileService.updateClinicProfile(data);
+
+      set({
+        profile: updated,
+        loading: false,
+      });
+
+      toast.success('Profile updated successfully');
+
+      return updated;
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to update profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+
+      return null;
+    }
+  },
+
+  // ==========================================================
+  // DIAGNOSTIC CENTER
+  // ==========================================================
+  fetchDiagnosticCenterProfile: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const profile =
+        await profileService.getDiagnosticCenterProfile();
+
+      set({
+        profile,
+        loading: false,
+      });
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to load profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+    }
+  },
+
+  updateDiagnosticCenterProfile: async (data) => {
+    try {
+      set({ loading: true });
+
+      const updated =
+        await profileService.updateDiagnosticCenterProfile(data);
+
+      set({
+        profile: updated,
+        loading: false,
+      });
+
+      toast.success('Profile updated successfully');
+
+      return updated;
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to update profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+
+      return null;
+    }
+  },
+
+  // ==========================================================
+  // STAFF
+  // ==========================================================
+  fetchStaffProfile: async () => {
+    try {
+      set({ loading: true, error: null });
+
+      const profile =
+        await profileService.getStaffProfile();
+
+      set({
+        profile,
+        loading: false,
+      });
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to load profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+    }
+  },
+
+  updateStaffProfile: async (data) => {
+    try {
+      set({ loading: true });
+
+      const updated =
+        await profileService.updateStaffProfile(data);
+
+      set({
+        profile: updated,
+        loading: false,
+      });
+
+      toast.success('Profile updated successfully');
+
+      return updated;
+    } catch (error: any) {
+      const message =
+        error?.message || 'Failed to update profile';
+
+      set({
+        loading: false,
+        error: message,
+      });
+
+      toast.error(message);
+
+      return null;
+    }
+  },
+
+  // ==========================================================
+  // FILE UPLOADS
+  // ==========================================================
+  uploadProfilePicture: async (file) => {
+    try {
+      set({ uploadLoading: true });
+
+      const result =
+        await profileService.uploadProfilePicture(file);
+
+      set({ uploadLoading: false });
+
+      toast.success('Profile picture uploaded');
+
+      return result.url ?? null;
+    } catch (error: any) {
+      set({ uploadLoading: false });
+
+      toast.error(
+        error?.message || 'Upload failed'
+      );
+
+      return null;
+    }
+  },
+
+  uploadCoverImage: async (file) => {
+    try {
+      set({ uploadLoading: true });
+
+      const result =
+        await profileService.uploadCoverImage(file);
+
+      set({ uploadLoading: false });
+
+      toast.success('Cover image uploaded');
+
+      return result.url ?? null;
+    } catch (error: any) {
+      set({ uploadLoading: false });
+
+      toast.error(
+        error?.message || 'Upload failed'
+      );
+
+      return null;
+    }
+  },
+
+  uploadLicenseDocument: async (file) => {
+    try {
+      set({ uploadLoading: true });
+
+      const result =
+        await profileService.uploadLicenseDocument(file);
+
+      set({ uploadLoading: false });
+
+      toast.success('License uploaded');
+
+      return result.url ?? null;
+    } catch (error: any) {
+      set({ uploadLoading: false });
+
+      toast.error(
+        error?.message || 'Upload failed'
+      );
+
+      return null;
+    }
+  },
+
+  uploadRegistrationDocument: async (file) => {
+    try {
+      set({ uploadLoading: true });
+
+      const result =
+        await profileService.uploadRegistrationDocument(file);
+
+      set({ uploadLoading: false });
+
+      toast.success('Registration uploaded');
+
+      return result.url ?? null;
+    } catch (error: any) {
+      set({ uploadLoading: false });
+
+      toast.error(
+        error?.message || 'Upload failed'
+      );
+
+      return null;
+    }
+  },
+
+  // ==========================================================
+  // PASSWORD
+  // ==========================================================
+  changePassword: async (data) => {
+    try {
+      set({ passwordLoading: true });
+
+      await profileService.changePassword(data);
+
+      set({ passwordLoading: false });
+
+      toast.success('Password changed successfully');
+
+      return true;
+    } catch (error: any) {
+      set({ passwordLoading: false });
+
+      toast.error(
+        error?.message || 'Failed to change password'
+      );
+
+      return false;
+    }
+  },
+
+  // ==========================================================
+  // STATISTICS
+  // ==========================================================
+  fetchPatientStatistics: async () => {
+    try {
+      set({ statisticsLoading: true });
+
+      const statistics =
+        await profileService.getPatientStatistics();
+
+      set({
+        statistics,
+        statisticsLoading: false,
+      });
+    } catch (error: any) {
+      set({ statisticsLoading: false });
+
+      toast.error(
+        error?.message || 'Failed to load statistics'
+      );
+    }
+  },
+
+  fetchDoctorStatistics: async () => {
+    try {
+      set({ statisticsLoading: true });
+
+      const statistics =
+        await profileService.getDoctorStatistics();
+
+      set({
+        statistics,
+        statisticsLoading: false,
+      });
+    } catch (error: any) {
+      set({ statisticsLoading: false });
+
+      toast.error(
+        error?.message || 'Failed to load statistics'
+      );
+    }
+  },
+
+  fetchClinicStatistics: async () => {
+    try {
+      set({ statisticsLoading: true });
+
+      const statistics =
+        await profileService.getClinicStatistics();
+
+      set({
+        statistics,
+        statisticsLoading: false,
+      });
+    } catch (error: any) {
+      set({ statisticsLoading: false });
+
+      toast.error(
+        error?.message || 'Failed to load statistics'
+      );
+    }
+  },
+
+  fetchDiagnosticCenterStatistics: async () => {
+    try {
+      set({ statisticsLoading: true });
+
+      const statistics =
+        await profileService.getDiagnosticCenterStatistics();
+
+      set({
+        statistics,
+        statisticsLoading: false,
+      });
+    } catch (error: any) {
+      set({ statisticsLoading: false });
+
+      toast.error(
+        error?.message || 'Failed to load statistics'
+      );
+    }
+  },
+
+  // ==========================================================
+  // DELETE ACCOUNT
+  // ==========================================================
+  deleteAccount: async () => {
+    try {
+      set({ deleteLoading: true });
+
+      await profileService.deleteAccount();
+
+      set({
+        deleteLoading: false,
+        profile: null,
+        statistics: null,
+      });
+
+      toast.success('Account deleted');
+
+      return true;
+    } catch (error: any) {
+      set({ deleteLoading: false });
+
+      toast.error(
+        error?.message || 'Failed to delete account'
+      );
+
+      return false;
+    }
+  },
+
+  // ==========================================================
+  // EXPORT
+  // ==========================================================
+  exportHealthData: async () => {
+    try {
+      const blob =
+        await profileService.exportHealthData();
+
+      const url =
+        window.URL.createObjectURL(blob);
+
+      const link =
+        document.createElement('a');
+
+      link.href = url;
+      link.download = 'health-data.zip';
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Export started');
+    } catch (error: any) {
+      toast.error(
+        error?.message || 'Export failed'
+      );
+    }
+  },
+}));

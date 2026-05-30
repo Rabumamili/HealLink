@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/services/auth.service';
 import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import {
   RegisterFormShell,
   SectionHeader,
@@ -34,8 +34,8 @@ interface FormData {
 export const DiagnosticRegisterForm = () => {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { registerProvider, isRegistering } = useAuth();
   const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -90,7 +90,6 @@ export const DiagnosticRegisterForm = () => {
       return;
     }
 
-    setIsLoading(true);
     setError(null);
 
     try {
@@ -101,17 +100,13 @@ export const DiagnosticRegisterForm = () => {
       submitFormData.append('role', 'diagnostic_admin');
       submitFormData.append('registration_document', registrationFile);
 
-      await authService.registerProfessional(submitFormData);
+      await registerProvider(submitFormData, 'diagnostic_center');
+      
       toast.success('Verification code sent to your email');
       setStep(2);
     } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setError(message || 'Registration failed');
-    } finally {
-      setIsLoading(false);
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      setError(message);
     }
   };
 
@@ -121,36 +116,29 @@ export const DiagnosticRegisterForm = () => {
       return;
     }
 
-    setIsLoading(true);
     setError(null);
 
     try {
-      await authService.verifyEmail({ email: formData.email, code: verificationCode });
+      const { verifyEmail } = useAuth();
+      await verifyEmail({ email: formData.email, code: verificationCode });
       toast.success('Email verified successfully! Please login.');
-      router.push('/login');
+      router.push('/login?verified=true');
     } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setError(message || 'Verification failed');
-    } finally {
-      setIsLoading(false);
+      const message = err instanceof Error ? err.message : 'Verification failed';
+      setError(message);
     }
   };
 
   const handleResendCode = async () => {
     if (resendTimer > 0) return;
     try {
-      await authService.resendVerificationCode({ email: formData.email });
+      const { resendVerificationCode } = useAuth();
+      await resendVerificationCode(formData.email);
       toast.success('Verification code resent');
       setResendTimer(60);
     } catch (err: unknown) {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined;
-      setError(message || 'Failed to resend code');
+      const message = err instanceof Error ? err.message : 'Failed to resend code';
+      setError(message);
     }
   };
 
@@ -176,14 +164,16 @@ export const DiagnosticRegisterForm = () => {
       stepBadge={step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}
     >
       {step === 1 ? (
-        <div className="space-y-6">
+        <div className="space-y-5 sm:space-y-6 md:space-y-7">
           {error && <ErrorBanner message={error} />}
 
-          <div className="space-y-4">
+          {/* Center Information Section */}
+          <div className="space-y-3 sm:space-y-4 md:space-y-5">
             <SectionHeader icon="biotech" title="Center Information" />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1 md:col-span-2">
+            <div className="space-y-3 sm:space-y-4">
+              {/* Center Name - Full width */}
+              <div className="space-y-1.5">
                 <label className={labelClass}>Diagnostic Center Name *</label>
                 <div className="relative group">
                   <input
@@ -193,14 +183,15 @@ export const DiagnosticRegisterForm = () => {
                     value={formData.center_name}
                     onChange={(e) => update('center_name', e.target.value)}
                   />
-                  <InputFieldIcon name="science" />
+                  <InputFieldIcon name="domain" />
                 </div>
               </div>
 
-              <div className="space-y-1 md:col-span-2">
+              {/* Center Address - Full width */}
+              <div className="space-y-1.5">
                 <label className={labelClass}>Center Address *</label>
                 <textarea
-                  className={`${inputClass} resize-none`}
+                  className={`${inputClass} resize-none min-h-[72px] sm:min-h-[76px] md:min-h-[80px]`}
                   placeholder="123 Diagnostic Street, Healthcare District"
                   rows={2}
                   value={formData.center_address}
@@ -208,88 +199,110 @@ export const DiagnosticRegisterForm = () => {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className={labelClass}>Center Phone *</label>
-                <div className="relative group">
-                  <input
-                    className={inputClass}
-                    placeholder="+251 ..."
-                    type="tel"
-                    value={formData.center_phone}
-                    onChange={(e) => update('center_phone', e.target.value)}
-                  />
-                  <InputFieldIcon name="call" />
+              {/* Phone and Accreditation - Responsive grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Center Phone *</label>
+                  <div className="relative group">
+                    <input
+                      className={inputClass}
+                      placeholder="+251 123 456 789"
+                      type="tel"
+                      value={formData.center_phone}
+                      onChange={(e) => update('center_phone', e.target.value)}
+                    />
+                    <InputFieldIcon name="call" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Accreditation</label>
+                  <div className="relative group">
+                    <input
+                      className={inputClass}
+                      placeholder="ISO 15189, CLIA, etc."
+                      type="text"
+                      value={formData.center_accreditation}
+                      onChange={(e) => update('center_accreditation', e.target.value)}
+                    />
+                    <InputFieldIcon name="verified" />
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Optional: Include relevant accreditations
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className={labelClass}>Accreditation</label>
-                <div className="relative group">
-                  <input
-                    className={inputClass}
-                    placeholder="ISO 15189, CLIA, etc."
-                    type="text"
-                    value={formData.center_accreditation}
-                    onChange={(e) => update('center_accreditation', e.target.value)}
-                  />
-                  <InputFieldIcon name="verified" />
-                </div>
-              </div>
-
-              <div className="space-y-1 md:col-span-2">
+              {/* Services Description - Full width */}
+              <div className="space-y-1.5">
                 <label className={labelClass}>Services Description</label>
                 <textarea
-                  className={`${inputClass} resize-none`}
+                  className={`${inputClass} resize-none min-h-[72px] sm:min-h-[80px]`}
                   placeholder="X-ray, MRI, Blood Tests, Ultrasound, CT Scan, etc."
                   rows={2}
                   value={formData.services_description}
                   onChange={(e) => update('services_description', e.target.value)}
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  List the main diagnostic services you provide
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="space-y-4">
+          {/* Legal & Registration Section */}
+          <div className="space-y-3 sm:space-y-4 md:space-y-5">
             <SectionHeader icon="verified_user" title="Legal & Registration" />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className={labelClass}>Center License Number *</label>
-                <input
-                  className={inputClass}
-                  placeholder="DCL-2024-00123"
-                  type="text"
-                  value={formData.center_license_number}
-                  onChange={(e) => update('center_license_number', e.target.value)}
-                />
+            <div className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>License Number *</label>
+                  <input
+                    className={inputClass}
+                    placeholder="DCL-2024-00123"
+                    type="text"
+                    value={formData.center_license_number}
+                    onChange={(e) => update('center_license_number', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className={labelClass}>TIN Number *</label>
+                  <input
+                    className={inputClass}
+                    placeholder="123456789"
+                    type="text"
+                    value={formData.center_tin_number}
+                    onChange={(e) => update('center_tin_number', e.target.value)}
+                  />
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className={labelClass}>TIN Number *</label>
-                <input
-                  className={inputClass}
-                  placeholder="123456789"
-                  type="text"
-                  value={formData.center_tin_number}
-                  onChange={(e) => update('center_tin_number', e.target.value)}
+              {/* File Upload */}
+              <div className="space-y-1.5">
+                <label className={labelClass}>Registration Document *</label>
+                <FileUploadZone
+                  fileName={registrationFile?.name ?? null}
+                  emptyLabel="Upload Registration Certificate (PDF, JPG, PNG) *"
+                  onClick={() => fileInputRef.current?.click()}
+                  inputRef={fileInputRef}
+                  onChange={(e) => setRegistrationFile(e.target.files?.[0] || null)}
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  Accepted formats: PDF, JPG, PNG (Max 5MB)
+                </p>
               </div>
             </div>
-
-            <FileUploadZone
-              fileName={registrationFile?.name ?? null}
-              emptyLabel="Upload Registration Certificate (PDF/JPG)"
-              onClick={() => fileInputRef.current?.click()}
-              inputRef={fileInputRef}
-              onChange={(e) => setRegistrationFile(e.target.files?.[0] || null)}
-            />
           </div>
 
-          <div className="space-y-4">
+          {/* Account Credentials Section */}
+          <div className="space-y-3 sm:space-y-4 md:space-y-5">
             <SectionHeader icon="lock" title="Account Credentials" />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
+            <div className="space-y-3 sm:space-y-4">
+              {/* Email - Full width */}
+              <div className="space-y-1.5">
                 <label className={labelClass}>Email Address *</label>
                 <div className="relative group">
                   <input
@@ -303,54 +316,61 @@ export const DiagnosticRegisterForm = () => {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className={labelClass}>Password *</label>
-                <div className="relative group">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className={`${inputClass} pr-10`}
-                    placeholder="••••••"
-                    value={formData.password}
-                    onChange={(e) => update('password', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant hover:text-primary transition-colors"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+              {/* Password Fields - Responsive grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Password *</label>
+                  <div className="relative group">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className={`${inputClass} pr-10`}
+                      placeholder="••••••••"
+                      value={formData.password}
+                      onChange={(e) => update('password', e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Minimum 6 characters
+                  </p>
                 </div>
-              </div>
 
-              <div className="space-y-1 md:col-span-2">
-                <label className={labelClass}>Confirm Password *</label>
-                <div className="relative group">
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    className={`${inputClass} pr-10`}
-                    placeholder="••••••"
-                    value={formData.confirmPassword}
-                    onChange={(e) => update('confirmPassword', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant hover:text-primary transition-colors"
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Confirm Password *</label>
+                  <div className="relative group">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      className={`${inputClass} pr-10`}
+                      placeholder="••••••••"
+                      value={formData.confirmPassword}
+                      onChange={(e) => update('confirmPassword', e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="pt-2 flex flex-col items-center gap-3">
+          {/* Submit Button */}
+          <div className="pt-3 sm:pt-4 md:pt-5 flex flex-col items-center gap-3 sm:gap-4">
             <SubmitButton
               type="button"
               label="Register Diagnostic Center"
               loadingLabel="Submitting..."
-              isLoading={isLoading}
+              isLoading={isRegistering}
               onClick={handleNext}
             />
             <LoginLink />
@@ -368,7 +388,7 @@ export const DiagnosticRegisterForm = () => {
             setError(null);
           }}
           onVerify={handleVerify}
-          isLoading={isLoading}
+          isLoading={isRegistering}
           error={error}
         />
       )}

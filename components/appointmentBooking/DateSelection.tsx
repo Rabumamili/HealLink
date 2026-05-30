@@ -1,10 +1,10 @@
 // components/booking/DateSelection.tsx
 "use client"
 
-import { Calendar } from "lucide-react"
+import { HealLinkIcon } from "@/components/icons/healink-icon"
 import { cn } from "@/lib/utils"
 
-interface DateOption {
+export interface DateOption {
   day: string
   date: number
   month: number
@@ -18,38 +18,73 @@ interface DateSelectionProps {
   dates: DateOption[]
   selectedDate: DateOption
   onDateSelect: (date: DateOption) => void
+  title?: string
+  variant?: 'default' | 'compact' | 'minimal'
 }
 
-export function DateSelection({ dates, selectedDate, onDateSelect }: DateSelectionProps) {
+export function DateSelection({ 
+  dates, 
+  selectedDate, 
+  onDateSelect, 
+  title = "Select Date",
+  variant = 'default'
+}: DateSelectionProps) {
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="font-bold text-2xl text-[#0b1c30]">Select Date</h3>
-        <div className="flex items-center gap-2 bg-[#eff4ff] px-4 py-2 rounded-xl border border-[#bcc9c8]/20">
-          <Calendar className="h-4 w-4 text-[#006767]" />
-          <span className="text-sm font-bold">
-            {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-2">
+    <div className={cn(
+      "bg-white rounded-2xl border border-gray-200 shadow-sm",
+      variant === 'default' && "p-6",
+      variant === 'compact' && "p-4",
+      variant === 'minimal' && "p-0 border-0 shadow-none"
+    )}>
+      <h3 className={cn(
+        "font-bold text-[#0b1c30] mb-4 flex items-center gap-2",
+        variant === 'default' && "text-lg",
+        variant === 'compact' && "text-base",
+        variant === 'minimal' && "text-sm"
+      )}>
+        <HealLinkIcon name="calendar" size={variant === 'default' ? 20 : 16} className="text-[#006767]" />
+        {title}
+      </h3>
+      
+      <div className={cn(
+        "grid gap-3",
+        variant === 'default' && "grid-cols-3 sm:grid-cols-4 md:grid-cols-7",
+        variant === 'compact' && "grid-cols-4 sm:grid-cols-7",
+        variant === 'minimal' && "grid-cols-3 sm:grid-cols-5 md:grid-cols-7"
+      )}>
         {dates.map((date, idx) => (
           <button
             key={idx}
+            onClick={() => date.available && onDateSelect(date)}
             disabled={!date.available}
-            onClick={() => onDateSelect(date)}
             className={cn(
-              "py-3 rounded-xl text-sm font-bold transition-all text-center space-y-1",
-              selectedDate?.date === date.date && selectedDate?.month === date.month
-                ? "bg-[#006767] text-white shadow-lg shadow-[#006767]/20"
-                : date.available
-                ? "hover:bg-[#e5eeff] text-[#0b1c30] border border-transparent"
-                : "opacity-40 cursor-not-allowed text-[#6d7979]"
+              "rounded-xl text-center transition-all",
+              variant === 'default' && "py-3",
+              variant === 'compact' && "py-2",
+              variant === 'minimal' && "py-2",
+              selectedDate.fullDate === date.fullDate 
+                ? "bg-[#006767] text-white shadow-md" 
+                : "bg-gray-50 text-[#0b1c30] hover:bg-[#006767]/10 border border-gray-100",
+              !date.available && "opacity-50 cursor-not-allowed"
             )}
           >
-            <div className="text-xs font-bold">{date.day}</div>
-            <div className="text-base">{date.date}</div>
+            <div className={cn(
+              "font-medium",
+              variant === 'default' && "text-xs",
+              variant === 'compact' && "text-[10px]",
+              variant === 'minimal' && "text-[10px]"
+            )}>{date.day}</div>
+            <div className={cn(
+              "font-bold",
+              variant === 'default' && "text-xl",
+              variant === 'compact' && "text-base",
+              variant === 'minimal' && "text-sm"
+            )}>{date.date}</div>
+            <div className={cn(
+              variant === 'default' && "text-[10px]",
+              variant === 'compact' && "text-[8px]",
+              variant === 'minimal' && "text-[8px]"
+            )}>{date.month}/{date.year}</div>
           </button>
         ))}
       </div>

@@ -1,10 +1,11 @@
+// app/doctor/dashboard/page.tsx
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
 import { 
   Calendar,
@@ -13,30 +14,22 @@ import {
   DollarSign,
   UserCheck,
   UserX,
-  Activity,
   Stethoscope,
   Verified,
   ArrowRight,
   TrendingUp,
   TrendingDown,
-  MoreVertical,
-  Phone,
-  Mail,
-  MapPin,
-  CheckCircle,
-  Clock as ClockIcon,
   Sparkles,
+  Activity,
   Heart,
-  Brain,
-  Thermometer,
+  Phone,
   Clipboard,
-  Plus,
-  Filter,
-  Download,
-  CalendarDays
+  CalendarDays,
+  Search
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
+// Ordered appointment data - NO card numbers or patient IDs
 const todayAppointments = [
   {
     id: "1",
@@ -46,10 +39,10 @@ const todayAppointments = [
     status: "checked-in",
     queueNumber: 1,
     avatar: "AK",
-    cardNumber: "4512-7893-1023-6745",
     age: 45,
     condition: "Hypertension",
-    lastVisit: "Oct 15, 2024"
+    lastVisit: "Oct 15, 2024",
+    phone: "+251 911 223 344"
   },
   {
     id: "2",
@@ -59,10 +52,10 @@ const todayAppointments = [
     status: "scheduled",
     queueNumber: 2,
     avatar: "TH",
-    cardNumber: "8923-4567-1234-9876",
     age: 32,
     condition: "Diabetes Type 2",
-    lastVisit: "Oct 10, 2024"
+    lastVisit: "Oct 10, 2024",
+    phone: "+251 922 556 677"
   },
   {
     id: "3",
@@ -72,10 +65,10 @@ const todayAppointments = [
     status: "scheduled",
     queueNumber: 3,
     avatar: "MA",
-    cardNumber: "3456-7890-2345-6789",
     age: 28,
     condition: "Respiratory Issue",
-    lastVisit: "Oct 5, 2024"
+    lastVisit: "Oct 5, 2024",
+    phone: "+251 933 889 900"
   },
   {
     id: "4",
@@ -85,10 +78,23 @@ const todayAppointments = [
     status: "scheduled",
     queueNumber: 4,
     avatar: "YD",
-    cardNumber: "9012-3456-7890-1234",
     age: 52,
     condition: "Arthritis",
-    lastVisit: "Sep 28, 2024"
+    lastVisit: "Sep 28, 2024",
+    phone: "+251 944 112 233"
+  },
+  {
+    id: "5",
+    patientName: "Helen Tsegaye",
+    time: "11:00 AM",
+    type: "Consultation",
+    status: "scheduled",
+    queueNumber: 5,
+    avatar: "HT",
+    age: 38,
+    condition: "Migraine",
+    lastVisit: "Oct 12, 2024",
+    phone: "+251 955 667 788"
   }
 ]
 
@@ -99,8 +105,7 @@ const stats = [
     change: "+12.4%",
     trend: "up",
     icon: Users,
-    color: "bg-teal-50 text-teal-600",
-    borderColor: "border-teal-100"
+    color: "bg-teal-50 text-teal-600"
   },
   {
     title: "Total Revenue",
@@ -108,8 +113,7 @@ const stats = [
     change: "+18.2%",
     trend: "up",
     icon: DollarSign,
-    color: "bg-teal-50 text-teal-600",
-    borderColor: "border-teal-100"
+    color: "bg-teal-50 text-teal-600"
   },
   {
     title: "Consultations",
@@ -117,8 +121,7 @@ const stats = [
     change: "+8.2%",
     trend: "up",
     icon: Stethoscope,
-    color: "bg-teal-50 text-teal-600",
-    borderColor: "border-teal-100"
+    color: "bg-teal-50 text-teal-600"
   },
   {
     title: "No-Show Rate",
@@ -126,18 +129,22 @@ const stats = [
     change: "-2.1%",
     trend: "down",
     icon: UserX,
-    color: "bg-teal-50 text-teal-600",
-    borderColor: "border-teal-100"
+    color: "bg-teal-50 text-teal-600"
   }
 ]
 
 export default function DoctorDashboard() {
-  const [cardNumber, setCardNumber] = useState("")
+  const [searchQuery, setSearchQuery] = useState("")
   const checkedInCount = todayAppointments.filter(a => a.status === "checked-in").length
+  
+  const filteredAppointments = todayAppointments.filter(apt =>
+    apt.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.condition.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
     <div className="space-y-6">
-      {/* Welcome Section - Enhanced with gradient */}
+      {/* Welcome Section */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 p-6 md:p-8 shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl -ml-24 -mb-24"></div>
@@ -165,7 +172,7 @@ export default function DoctorDashboard() {
         </div>
       </div>
 
-      {/* Stats Cards - Maintained teal theme */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
           <Card key={stat.title} className="border shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1">
@@ -197,40 +204,32 @@ export default function DoctorDashboard() {
         ))}
       </div>
 
-      {/* Quick Check-in Card - Enhanced teal theme */}
+      {/* Quick Check-in Card */}
       <Card className="border shadow-sm overflow-hidden relative">
         <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full blur-2xl -mr-16 -mt-16"></div>
-        <CardHeader className="border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-              <UserCheck className="h-5 w-5 text-teal-600" />
-            </div>
-            <div>
-              <CardTitle className="text-teal-600">Quick Patient Check-in</CardTitle>
-              <CardDescription>Enter patient's card number to check them in quickly</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6 relative z-10">
+        <CardContent className="pt-6 pb-6 relative z-10">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
-              <input 
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all text-base"
-                placeholder="Enter 16-digit card number (e.g., 4512-7893-1023-6745)"
-                type="text"
-                value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
-              />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input 
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all text-base"
+                  placeholder="Search patient by name..."
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
             <Button className="bg-teal-600 hover:bg-teal-700 rounded-xl px-8 py-2.5 shadow-sm hover:shadow transition-all">
-              <Verified className="mr-2 h-4 w-4" />
-              Verify & Check-in
+              <UserCheck className="mr-2 h-4 w-4" />
+              Check-in Patient
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Today's Appointments Section - Enhanced */}
+      {/* Today's Appointments Section */}
       <Card className="border shadow-sm overflow-hidden">
         <div className="bg-gray-50/50 px-6 py-4 border-b">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -255,13 +254,18 @@ export default function DoctorDashboard() {
         
         <CardContent className="p-6">
           <div className="space-y-4">
-            {todayAppointments.map((apt) => (
+            {filteredAppointments.map((apt, index) => (
               <div
                 key={apt.id}
                 className="group bg-white rounded-xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition-all duration-300 overflow-hidden"
               >
                 <div className="p-5">
                   <div className="flex flex-col lg:flex-row lg:items-center gap-5">
+                    {/* Queue Number */}
+                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-teal-50 text-teal-600 font-bold text-lg">
+                      #{apt.queueNumber}
+                    </div>
+                    
                     {/* Patient Avatar & Info */}
                     <div className="flex items-center gap-4 flex-1">
                       <div className="relative">
@@ -302,12 +306,12 @@ export default function DoctorDashboard() {
                             {apt.time}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5 text-teal-600" />
-                            Queue #{apt.queueNumber}
-                          </span>
-                          <span className="flex items-center gap-1">
                             <Heart className="h-3.5 w-3.5 text-teal-600" />
                             {apt.condition}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3.5 w-3.5 text-teal-600" />
+                            Age: {apt.age}
                           </span>
                         </div>
                       </div>
@@ -339,20 +343,16 @@ export default function DoctorDashboard() {
                     <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
                         <Clipboard className="h-3 w-3 text-teal-600" />
-                        Card: {apt.cardNumber}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <CalendarDays className="h-3 w-3 text-teal-600" />
                         Last Visit: {apt.lastVisit}
                       </span>
                       <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3 text-teal-600" />
-                        Age: {apt.age} years
+                        <Phone className="h-3 w-3 text-teal-600" />
+                        {apt.phone}
                       </span>
-                      <button className="text-teal-600 hover:text-teal-700 flex items-center gap-1 ml-auto">
-                        <Phone className="h-3 w-3" />
-                        Contact
-                      </button>
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="h-3 w-3 text-teal-600" />
+                        Follow-up in 2 weeks
+                      </span>
                     </div>
                   </div>
                 </div>

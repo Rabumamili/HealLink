@@ -3,10 +3,11 @@ import { ApiService } from './api.service';
 import { 
   LoginCredentials, 
   LoginResponse, 
-  PatientRegisterData,
+  UserRegisterData,
   DoctorRegisterData,
   ClinicRegisterData,
   DiagnosticCenterRegisterData,
+  StaffRegisterData,
   VerifyEmailData,
   ResendVerificationData,
   ForgotPasswordData,
@@ -30,35 +31,42 @@ class AuthService extends ApiService {
     return response;
   }
 
-  async registerPatient(data: PatientRegisterData): Promise<{ data: { userId: number } }> {
+  // ===============================
+  // USER (PATIENT) REGISTRATION
+  // ===============================
+  async registerUser(data: UserRegisterData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     return this.post(`${this.baseUrl}/register/patient`, data);
   }
 
-  async registerDoctor(data: DoctorRegisterData): Promise<{ data: { userId: number } }> {
+  // ===============================
+  // PROVIDER REGISTRATION
+  // ===============================
+  async registerDoctor(data: DoctorRegisterData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     return this.post(`${this.baseUrl}/register/doctor`, data);
   }
 
-  async registerDoctorWithFiles(formData: FormData): Promise<{ data: { userId: number } }> {
+  async registerDoctorWithFiles(formData: FormData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     return this.postFormData(`${this.baseUrl}/register/doctor`, formData);
   }
 
-  async registerClinic(data: ClinicRegisterData): Promise<{ data: { userId: number } }> {
+  async registerClinic(data: ClinicRegisterData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     return this.post(`${this.baseUrl}/register/clinic`, data);
   }
 
-  async registerClinicWithFiles(formData: FormData): Promise<{ data: { userId: number } }> {
+  async registerClinicWithFiles(formData: FormData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     return this.postFormData(`${this.baseUrl}/register/clinic`, formData);
   }
 
-  async registerDiagnosticCenter(data: DiagnosticCenterRegisterData): Promise<{ data: { userId: number } }> {
+  async registerDiagnosticCenter(data: DiagnosticCenterRegisterData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     return this.post(`${this.baseUrl}/register/diagnostic-center`, data);
   }
 
-  async registerDiagnosticCenterWithFiles(formData: FormData): Promise<{ data: { userId: number } }> {
+  async registerDiagnosticCenterWithFiles(formData: FormData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     return this.postFormData(`${this.baseUrl}/register/diagnostic-center`, formData);
   }
 
-  async registerProfessional(formData: FormData): Promise<{ data: { userId: number } }> {
+  // Generic professional registration (handles all provider types)
+  async registerProfessional(formData: FormData): Promise<{ data: { userId: number; tempUserId?: string } }> {
     const role = formData.get('role');
     let endpoint = '';
     
@@ -79,7 +87,39 @@ class AuthService extends ApiService {
     return this.postFormData(endpoint, formData);
   }
 
-  async verifyEmail(data: VerifyEmailData): Promise<{ message: string }> {
+  // ===============================
+  // STAFF REGISTRATION (By Provider)
+  // ===============================
+  async registerStaff(data: StaffRegisterData): Promise<{ data: { userId: number; staffId: number } }> {
+    // Only providers can create staff accounts
+    return this.post(`${this.baseUrl}/register/staff`, data);
+  }
+
+  async getStaffList(employerId: number, employerType: string): Promise<{ data: AuthUser[] }> {
+    return this.get(`${this.baseUrl}/staff/${employerType}/${employerId}`);
+  }
+
+  async updateStaffRole(staffId: number, role: string): Promise<{ data: AuthUser }> {
+    return this.put(`${this.baseUrl}/staff/${staffId}/role`, { role });
+  }
+
+  async deactivateStaff(staffId: number): Promise<{ message: string }> {
+    return this.put(`${this.baseUrl}/staff/${staffId}/deactivate`, {});
+  }
+
+  async activateStaff(staffId: number): Promise<{ message: string }> {
+    return this.put(`${this.baseUrl}/staff/${staffId}/activate`, {});
+  }
+
+  // ===============================
+  // EMAIL VERIFICATION
+  // ===============================
+  async verifyEmail(data: VerifyEmailData): Promise<{
+    user: any;
+    token: any;
+    refreshToken: any;
+    data: any; message: string 
+}> {
     return this.post(`${this.baseUrl}/verify-email`, data);
   }
 
@@ -87,6 +127,9 @@ class AuthService extends ApiService {
     return this.post(`${this.baseUrl}/resend-verification`, data);
   }
 
+  // ===============================
+  // PASSWORD RESET
+  // ===============================
   async forgotPassword(data: ForgotPasswordData): Promise<{ message: string }> {
     return this.post(`${this.baseUrl}/forgot-password`, data);
   }
@@ -95,6 +138,9 @@ class AuthService extends ApiService {
     return this.post(`${this.baseUrl}/reset-password`, data);
   }
 
+  // ===============================
+  // TOKEN MANAGEMENT
+  // ===============================
   async refreshToken(): Promise<RefreshTokenResponse> {
     const refreshToken = localStorage.getItem('refreshToken');
     const response = await this.post<RefreshTokenResponse>(`${this.baseUrl}/refresh-token`, {
@@ -119,6 +165,9 @@ class AuthService extends ApiService {
     }
   }
 
+  // ===============================
+  // USER INFO & UTILITIES
+  // ===============================
   getCurrentUser(): AuthUser | null {
     const userStr = localStorage.getItem('user');
     if (userStr) {
@@ -144,18 +193,99 @@ class AuthService extends ApiService {
     return response.data;
   }
 
-  // Helper to get user's display name based on role
+  // ===============================
+  // PROFESSIONAL VERIFICATION STATUS
+  // ===============================
+  async getProfessionalVerificationStatus(): Promise<{ 
+    status: string; 
+    submittedAt?: string; 
+    approvedAt?: string;
+    rejectionReason?: string;
+  }> {
+    const response = await this.get<{ data: any }>(`${this.baseUrl}/professional-verification/status`);
+    return response.data;
+  }
+
+  async submitProfessionalVerification(formData: FormData): Promise<{ message: string }> {
+    return this.postFormData(`${this.baseUrl}/professional-verification/submit`, formData);
+  }
+
+  // Check if provider can access dashboard (professional verification approved)
+  async canAccessDashboard(): Promise<boolean> {
+    const user = this.getCurrentUser();
+    if (!user) return false;
+    
+    // Patients and staff can always access their dashboard
+    if (user.role === 'patient' || user.role === 'staff') {
+      return true;
+    }
+    
+    // Providers need professional verification
+    const status = user.professional_verification_status;
+    return status === 'approved';
+  }
+
+  // ===============================
+  // HELPER METHODS
+  // ===============================
+  
+  // Get user's display name based on role
   getUserDisplayName(user: AuthUser): string {
-    if (user.role === 'patient' || user.role === 'doctor') {
+    // For Users (patients) and Staff - have first_name & last_name
+    if (user.role === 'patient' || user.role === 'staff') {
       return `${user.first_name || ''} ${user.last_name || ''}`.trim();
     }
-    if (user.role === 'clinic' || user.role === 'diagnostic_center') {
-      return user.name || '';
+    
+    // For Providers (doctors, clinics, diagnostic centers) - have full_name
+    if (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center') {
+      return user.full_name || '';
     }
-    if (user.role === 'staff') {
-      return user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '';
-    }
+    
+    // Fallback
     return user.email;
+  }
+
+  // Get user initials for avatar
+  getUserInitials(user: AuthUser): string {
+    const name = this.getUserDisplayName(user);
+    if (!name) return '?';
+    
+    // For names with spaces
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return (parts[0][0] || '?').toUpperCase();
+  }
+
+  // Check if user is a provider (doctor, clinic, diagnostic center)
+  isProvider(user: AuthUser): boolean {
+    return ['doctor', 'clinic', 'diagnostic_center'].includes(user.role);
+  }
+
+  // Check if user is a patient
+  isPatient(user: AuthUser): boolean {
+    return user.role === 'patient';
+  }
+
+  // Check if user is staff
+  isStaff(user: AuthUser): boolean {
+    return user.role === 'staff';
+  }
+
+  // Check if professional verification is required
+  requiresProfessionalVerification(user: AuthUser): boolean {
+    return this.isProvider(user);
+  }
+
+  // Check if professional verification is pending
+  isProfessionalVerificationPending(user: AuthUser): boolean {
+    return this.isProvider(user) && user.professional_verification_status === 'pending';
+  }
+
+  // Check if professional verification is approved
+  isProfessionalVerificationApproved(user: AuthUser): boolean {
+    return this.isProvider(user) && user.professional_verification_status === 'approved';
   }
 }
 

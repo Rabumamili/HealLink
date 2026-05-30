@@ -1,16 +1,16 @@
 // app/(auth)/register/page.tsx
 'use client';
 
-import { AuthLayout, RegisterForm } from '@/components/auth/';
+import { AuthLayout, ResetPasswordForm } from '@/components/auth/';
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   return (
     <AuthLayout 
-      title="Create Account" 
+      title="Reset Password" 
       description="Join HealLink to manage your healthcare"
       showLoginLink={true}
     >
-      <RegisterForm />
+      <ResetPasswordForm />
     </AuthLayout>
   );
 }

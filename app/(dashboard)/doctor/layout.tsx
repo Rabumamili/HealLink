@@ -1,4 +1,4 @@
-// app/doctor/layout.tsx
+
 import { LayoutWrapper } from "@/components/common/layout-wrapper"
 
 export default function DoctorLayout({
