@@ -1,6 +1,11 @@
-// components/notifications/NotificationCard.tsx
+'use client';
+
 import React from 'react';
-import { Notification, NotificationTypeLabels, NotificationPriorityConfig } from '../../types/entities/notification.types';
+import {
+  Notification,
+  NotificationTypeLabels,
+  NotificationPriorityConfig,
+} from '@/types/entities/notification.types';
 import { Bell, CheckCircle, XCircle, Calendar, DollarSign, FileText, Star, AlertCircle, ChevronRight } from 'lucide-react';
 
 interface NotificationCardProps {

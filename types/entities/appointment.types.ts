@@ -5,20 +5,25 @@ import { Service, ServiceType } from './service.types';
 import { Card, CardStatus } from './card.types';
 import { PaymentStatus } from './payment.types';
 
-export type AppointmentStatus = 
-  | 'Scheduled' 
-  | 'Confirmed' 
-  | 'Checked-in'   
-  | 'In Progress' 
-  | 'Completed' 
-  | 'Cancelled' 
-  | 'No-show';
+// Use const assertion for better type safety
+export const APPOINTMENT_STATUS = {
+  SCHEDULED: 'Scheduled',
+  CONFIRMED: 'Confirmed',
+  CHECKED_IN: 'Checked-in',
+  IN_PROGRESS: 'In Progress',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  NO_SHOW: 'No-show'
+} as const;
 
+export type AppointmentStatus = typeof APPOINTMENT_STATUS[keyof typeof APPOINTMENT_STATUS];
+
+// Consistent camelCase naming (converted from DB snake_case at API layer)
 export interface Appointment {
   id: number;
   patientId: number;
   serviceId: number;
-  providerId:number;
+  providerId: number;
   slotId: number;
   scheduledDateTime: string;
   status: AppointmentStatus;
@@ -33,11 +38,11 @@ export interface Appointment {
   cardId: number | null;
 }
 
+// DTOs use the same consistent naming
 export interface CreateAppointmentDTO {
   patientId: number;
   serviceId: number;
   slotId: number;
-  scheduledDateTime: string;
   notes?: string | null;
 }
 
@@ -45,7 +50,6 @@ export interface BookAppointmentRequest {
   patientId: number;
   serviceId: number;
   slotId: number;
-  scheduledDateTime: string;
   paymentConfirmed: boolean;
   notes?: string | null;
 }
@@ -59,15 +63,16 @@ export interface BookAppointmentResponse {
   message?: string;
 }
 
+// Fixed: Use undefined instead of 'all' literal
 export interface AppointmentFilters {
   searchTerm?: string;
-  status?: AppointmentStatus | 'all';
+  status?: AppointmentStatus;
   startDate?: string;
   endDate?: string;
   patientId?: number;
   serviceId?: number;
   slotId?: number;
-  type?: ServiceType | 'all';
+  type?: ServiceType;
   hasCard?: boolean;
   cardStatus?: CardStatus;
   providerId?: number;
@@ -103,9 +108,10 @@ export interface CheckedInPatient {
   appointmentId?: number;
 }
 
-export interface EnrichedAppointment extends Appointment {
-  serviceDescription: string | undefined;
-  serviceDuration: number | undefined;
+// Improved: Use composition instead of extension
+export interface AppointmentEnrichment {
+  serviceDescription?: string;
+  serviceDuration?: number;
   paymentStatus: PaymentStatus;
   fee: number;
   patientName: string;
@@ -118,13 +124,18 @@ export interface EnrichedAppointment extends Appointment {
   cardNumber?: string;
   cardStatus?: CardStatus;
   providerName?: string;
-  providerType?: 'doctor' | 'clinic' | 'diagnostic_center';
+  providerType?: ProviderType;
   providerImage?: string;
-  providerEmail:string;
+  providerEmail: string;
   providerPhone?: string;
   location?: string;
   locationDetail?: string;
 }
+
+export type EnrichedAppointment = Appointment & AppointmentEnrichment;
+
+// Added missing ProviderType
+export type ProviderType = 'doctor' | 'clinic' | 'diagnostic_center';
 
 export interface AppointmentWithDetails extends EnrichedAppointment {
   patient?: PatientProfile;
@@ -133,3 +144,24 @@ export interface AppointmentWithDetails extends EnrichedAppointment {
 }
 
 export type { PaymentStatus };
+
+// Helper functions remain the same but with better types
+export const canConfirmAppointment = (paymentStatus: PaymentStatus): boolean => {
+  return paymentStatus === 'SUCCESS';
+};
+
+export const getAppointmentStatusFromPayment = (
+  paymentStatus: PaymentStatus,
+  defaultStatus: Extract<AppointmentStatus, 'Scheduled' | 'Confirmed' | 'Cancelled'> = 'Scheduled'
+): Extract<AppointmentStatus, 'Scheduled' | 'Confirmed' | 'Cancelled'> => {
+  switch (paymentStatus) {
+    case 'SUCCESS':
+      return 'Confirmed';
+    case 'FAILED':
+      return 'Cancelled';
+    case 'PENDING':
+      return defaultStatus;
+    default:
+      return defaultStatus;
+  }
+};

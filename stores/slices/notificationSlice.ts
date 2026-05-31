@@ -1,23 +1,22 @@
-// store/notificationStore.ts (Complete fixed version)
+// stores/slices/notificationSlice.ts
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import {
   Notification,
-  NotificationFilters,
+  NotificationQueryFilters,
   NotificationStats,
   NotificationPreferences,
-  NotificationBadge,
   NotificationSummary,
   CreateNotificationDTO,
   UpdateNotificationDTO,
+  NotificationRecipientType,
+  NotificationRecipientContext,
 } from '@/types/entities/notification.types';
 import { notificationService } from '@/services/notification.service';
 
-// State interface
 interface NotificationState {
-  // Data
   notifications: Notification[];
   currentNotification: Notification | null;
   unreadCount: number;
@@ -25,38 +24,56 @@ interface NotificationState {
   stats: NotificationStats | null;
   preferences: NotificationPreferences | null;
   summary: NotificationSummary | null;
-  
-  // UI State
+  recipient: NotificationRecipientContext | null;
+
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
-  
-  // Pagination
+
   total: number;
   currentPage: number;
   pageSize: number;
-  
-  // Filters
-  filters: NotificationFilters;
-  
-  // Actions
-  fetchNotifications: (filters?: NotificationFilters) => Promise<void>;
+  filters: NotificationQueryFilters;
+
+  setRecipient: (recipient: NotificationRecipientContext | null) => void;
+  fetchNotifications: (filters?: NotificationQueryFilters) => Promise<void>;
   fetchNotificationById: (id: number) => Promise<void>;
-  fetchRecipientNotifications: (recipientId: number, recipientType: string, limit?: number, offset?: number) => Promise<void>;
+  fetchRecipientNotifications: (
+    recipientId: number,
+    recipientType: NotificationRecipientType,
+    limit?: number,
+    offset?: number
+  ) => Promise<void>;
   createNotification: (data: CreateNotificationDTO) => Promise<Notification>;
-  updateNotification: (id: number, data: UpdateNotificationDTO) => Promise<Notification>;
+  updateNotification: (
+    id: number,
+    data: UpdateNotificationDTO
+  ) => Promise<Notification>;
   deleteNotification: (id: number) => Promise<void>;
   deleteNotifications: (ids: number[]) => Promise<void>;
   markAsRead: (id: number) => Promise<void>;
   markAsUnread: (id: number) => Promise<void>;
-  markAllAsRead: (recipientId: number) => Promise<void>;
+  markAllAsRead: (
+    recipientId: number,
+    recipientType?: NotificationRecipientType
+  ) => Promise<void>;
   markManyAsRead: (ids: number[]) => Promise<void>;
   fetchStats: (recipientId?: number) => Promise<void>;
   fetchBadge: (recipientId: number) => Promise<void>;
-  fetchSummary: (recipientId: number) => Promise<void>;
-  fetchPreferences: (recipientId: number, recipientType: string) => Promise<void>;
-  updatePreferences: (recipientId: number, recipientType: string, preferences: Partial<NotificationPreferences>) => Promise<void>;
-  setFilters: (filters: NotificationFilters) => void;
+  fetchSummary: (
+    recipientId: number,
+    recipientType?: NotificationRecipientType
+  ) => Promise<void>;
+  fetchPreferences: (
+    recipientId: number,
+    recipientType: NotificationRecipientType
+  ) => Promise<void>;
+  updatePreferences: (
+    recipientId: number,
+    recipientType: NotificationRecipientType,
+    preferences: Partial<NotificationPreferences>
+  ) => Promise<void>;
+  setFilters: (filters: Partial<NotificationQueryFilters>) => void;
   resetFilters: () => void;
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
@@ -67,22 +84,22 @@ interface NotificationState {
   optimisticMarkAsUnread: (id: number) => void;
 }
 
-// Initial state
 const initialState = {
-  notifications: [],
-  currentNotification: null,
+  notifications: [] as Notification[],
+  currentNotification: null as Notification | null,
   unreadCount: 0,
   urgentCount: 0,
-  stats: null,
-  preferences: null,
-  summary: null,
+  stats: null as NotificationStats | null,
+  preferences: null as NotificationPreferences | null,
+  summary: null as NotificationSummary | null,
+  recipient: null as NotificationRecipientContext | null,
   isLoading: false,
   isSubmitting: false,
-  error: null,
+  error: null as string | null,
   total: 0,
   currentPage: 1,
   pageSize: 20,
-  filters: {},
+  filters: {} as NotificationQueryFilters,
 };
 
 export const useNotificationStore = create<NotificationState>()(
@@ -90,18 +107,26 @@ export const useNotificationStore = create<NotificationState>()(
     immer((set, get) => ({
       ...initialState,
 
+      setRecipient: (recipient) => {
+        set({ recipient });
+      },
+
       fetchNotifications: async (filters) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await notificationService.getNotifications(filters || get().filters);
+          const merged = { ...get().filters, ...filters };
+          const response = await notificationService.getNotifications(merged);
           set({
             notifications: response.data,
             unreadCount: response.unreadCount,
             total: response.total,
+            filters: merged,
             isLoading: false,
           });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load notifications';
+          set({ error: message, isLoading: false });
         }
       },
 
@@ -110,28 +135,40 @@ export const useNotificationStore = create<NotificationState>()(
         try {
           const notification = await notificationService.getNotificationById(id);
           set({ currentNotification: notification, isLoading: false });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load notification';
+          set({ error: message, isLoading: false });
         }
       },
 
       fetchRecipientNotifications: async (recipientId, recipientType, limit, offset) => {
         set({ isLoading: true, error: null });
         try {
+          const mergedFilters: NotificationQueryFilters = {
+            ...get().filters,
+            recipientId,
+            recipientType,
+          };
           const response = await notificationService.getRecipientNotifications(
             recipientId,
             recipientType,
             limit,
-            offset
+            offset,
+            mergedFilters
           );
           set({
             notifications: response.data,
             unreadCount: response.unreadCount,
             total: response.total,
+            filters: mergedFilters,
+            recipient: { recipientId, recipientType },
             isLoading: false,
           });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load notifications';
+          set({ error: message, isLoading: false });
         }
       },
 
@@ -148,8 +185,10 @@ export const useNotificationStore = create<NotificationState>()(
             state.isSubmitting = false;
           });
           return notification;
-        } catch (error: any) {
-          set({ error: error.message, isSubmitting: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to create notification';
+          set({ error: message, isSubmitting: false });
           throw error;
         }
       },
@@ -159,7 +198,7 @@ export const useNotificationStore = create<NotificationState>()(
         try {
           const notification = await notificationService.updateNotification(id, data);
           set((state) => {
-            const index = state.notifications.findIndex(n => n.id === id);
+            const index = state.notifications.findIndex((n) => n.id === id);
             if (index !== -1) {
               state.notifications[index] = notification;
             }
@@ -169,8 +208,10 @@ export const useNotificationStore = create<NotificationState>()(
             state.isSubmitting = false;
           });
           return notification;
-        } catch (error: any) {
-          set({ error: error.message, isSubmitting: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to update notification';
+          set({ error: message, isSubmitting: false });
           throw error;
         }
       },
@@ -180,16 +221,18 @@ export const useNotificationStore = create<NotificationState>()(
         try {
           await notificationService.deleteNotification(id);
           set((state) => {
-            const deletedNotification = state.notifications.find(n => n.id === id);
+            const deletedNotification = state.notifications.find((n) => n.id === id);
             if (deletedNotification && !deletedNotification.isRead) {
               state.unreadCount = Math.max(0, state.unreadCount - 1);
             }
-            state.notifications = state.notifications.filter(n => n.id !== id);
-            state.total -= 1;
+            state.notifications = state.notifications.filter((n) => n.id !== id);
+            state.total = Math.max(0, state.total - 1);
             state.isSubmitting = false;
           });
-        } catch (error: any) {
-          set({ error: error.message, isSubmitting: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to delete notification';
+          set({ error: message, isSubmitting: false });
           throw error;
         }
       },
@@ -200,15 +243,17 @@ export const useNotificationStore = create<NotificationState>()(
           await notificationService.deleteNotifications(ids);
           set((state) => {
             const deletedUnreadCount = state.notifications.filter(
-              n => ids.includes(n.id) && !n.isRead
+              (n) => ids.includes(n.id) && !n.isRead
             ).length;
             state.unreadCount = Math.max(0, state.unreadCount - deletedUnreadCount);
-            state.notifications = state.notifications.filter(n => !ids.includes(n.id));
-            state.total -= ids.length;
+            state.notifications = state.notifications.filter((n) => !ids.includes(n.id));
+            state.total = Math.max(0, state.total - ids.length);
             state.isSubmitting = false;
           });
-        } catch (error: any) {
-          set({ error: error.message, isSubmitting: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to delete notifications';
+          set({ error: message, isSubmitting: false });
           throw error;
         }
       },
@@ -217,7 +262,7 @@ export const useNotificationStore = create<NotificationState>()(
         try {
           const notification = await notificationService.markAsRead(id);
           set((state) => {
-            const index = state.notifications.findIndex(n => n.id === id);
+            const index = state.notifications.findIndex((n) => n.id === id);
             if (index !== -1) {
               const wasUnread = !state.notifications[index].isRead;
               state.notifications[index] = notification;
@@ -229,8 +274,10 @@ export const useNotificationStore = create<NotificationState>()(
               state.currentNotification = notification;
             }
           });
-        } catch (error: any) {
-          set({ error: error.message });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to mark as read';
+          set({ error: message });
           throw error;
         }
       },
@@ -239,7 +286,7 @@ export const useNotificationStore = create<NotificationState>()(
         try {
           const notification = await notificationService.markAsUnread(id);
           set((state) => {
-            const index = state.notifications.findIndex(n => n.id === id);
+            const index = state.notifications.findIndex((n) => n.id === id);
             if (index !== -1) {
               const wasRead = state.notifications[index].isRead;
               state.notifications[index] = notification;
@@ -251,25 +298,29 @@ export const useNotificationStore = create<NotificationState>()(
               state.currentNotification = notification;
             }
           });
-        } catch (error: any) {
-          set({ error: error.message });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to mark as unread';
+          set({ error: message });
           throw error;
         }
       },
 
-      markAllAsRead: async (recipientId) => {
+      markAllAsRead: async (recipientId, recipientType) => {
         try {
-          await notificationService.markAllAsRead(recipientId);
+          await notificationService.markAllAsRead(recipientId, recipientType);
           set((state) => {
-            state.notifications = state.notifications.map(n => ({
+            state.notifications = state.notifications.map((n) => ({
               ...n,
               isRead: true,
               readAt: new Date().toISOString(),
             }));
             state.unreadCount = 0;
           });
-        } catch (error: any) {
-          set({ error: error.message });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to mark all as read';
+          set({ error: message });
           throw error;
         }
       },
@@ -279,7 +330,7 @@ export const useNotificationStore = create<NotificationState>()(
           await notificationService.markManyAsRead(ids);
           set((state) => {
             let updatedCount = 0;
-            state.notifications = state.notifications.map(n => {
+            state.notifications = state.notifications.map((n) => {
               if (ids.includes(n.id) && !n.isRead) {
                 updatedCount++;
                 return { ...n, isRead: true, readAt: new Date().toISOString() };
@@ -288,8 +339,12 @@ export const useNotificationStore = create<NotificationState>()(
             });
             state.unreadCount = Math.max(0, state.unreadCount - updatedCount);
           });
-        } catch (error: any) {
-          set({ error: error.message });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Failed to mark notifications as read';
+          set({ error: message });
           throw error;
         }
       },
@@ -299,8 +354,10 @@ export const useNotificationStore = create<NotificationState>()(
         try {
           const stats = await notificationService.getNotificationStats(recipientId);
           set({ stats, isLoading: false });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load stats';
+          set({ error: message, isLoading: false });
         }
       },
 
@@ -311,56 +368,83 @@ export const useNotificationStore = create<NotificationState>()(
             unreadCount: badge.unreadCount,
             urgentCount: badge.urgentCount,
           });
-        } catch (error: any) {
-          set({ error: error.message });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load badge';
+          set({ error: message });
         }
       },
 
-      fetchSummary: async (recipientId) => {
+      fetchSummary: async (recipientId, recipientType) => {
         set({ isLoading: true, error: null });
         try {
-          const summary = await notificationService.getNotificationSummary(recipientId);
+          const summary = await notificationService.getNotificationSummary(
+            recipientId,
+            recipientType
+          );
           set({
             summary,
             unreadCount: summary.unreadNotifications,
             isLoading: false,
           });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load summary';
+          set({ error: message, isLoading: false });
         }
       },
 
       fetchPreferences: async (recipientId, recipientType) => {
         set({ isLoading: true, error: null });
         try {
-          const preferences = await notificationService.getNotificationPreferences(recipientId, recipientType);
+          const preferences = await notificationService.getNotificationPreferences(
+            recipientId,
+            recipientType
+          );
           set({ preferences, isLoading: false });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to load preferences';
+          set({ error: message, isLoading: false });
         }
       },
 
       updatePreferences: async (recipientId, recipientType, preferences) => {
         set({ isSubmitting: true, error: null });
         try {
-          const updatedPreferences = await notificationService.updateNotificationPreferences(
-            recipientId,
-            recipientType,
-            preferences
-          );
+          const updatedPreferences =
+            await notificationService.updateNotificationPreferences(
+              recipientId,
+              recipientType,
+              preferences
+            );
           set({ preferences: updatedPreferences, isSubmitting: false });
-        } catch (error: any) {
-          set({ error: error.message, isSubmitting: false });
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : 'Failed to update preferences';
+          set({ error: message, isSubmitting: false });
           throw error;
         }
       },
 
       setFilters: (filters) => {
-        set({ filters: { ...get().filters, ...filters }, currentPage: 1 });
+        set((state) => {
+          state.filters = { ...state.filters, ...filters };
+          state.currentPage = 1;
+        });
       },
 
       resetFilters: () => {
-        set({ filters: {}, currentPage: 1 });
+        const recipient = get().recipient;
+        set({
+          filters: recipient
+            ? {
+                recipientId: recipient.recipientId,
+                recipientType: recipient.recipientType,
+              }
+            : {},
+          currentPage: 1,
+        });
       },
 
       setCurrentPage: (page) => {
@@ -385,7 +469,7 @@ export const useNotificationStore = create<NotificationState>()(
 
       optimisticMarkAsRead: (id) => {
         set((state) => {
-          const notification = state.notifications.find(n => n.id === id);
+          const notification = state.notifications.find((n) => n.id === id);
           if (notification && !notification.isRead) {
             notification.isRead = true;
             notification.readAt = new Date().toISOString();
@@ -396,7 +480,7 @@ export const useNotificationStore = create<NotificationState>()(
 
       optimisticMarkAsUnread: (id) => {
         set((state) => {
-          const notification = state.notifications.find(n => n.id === id);
+          const notification = state.notifications.find((n) => n.id === id);
           if (notification && notification.isRead) {
             notification.isRead = false;
             notification.readAt = null;

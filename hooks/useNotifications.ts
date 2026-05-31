@@ -1,17 +1,40 @@
-// hooks/useNotifications.ts (Complete fixed version)
+// hooks/useNotifications.ts
+
+'use client';
 
 import { useEffect, useCallback, useMemo } from 'react';
 import { useNotificationStore } from '@/stores/slices/notificationSlice';
+import { useAuthStore } from '@/stores/slices/authSlice';
 import {
-  NotificationFilters,
+  NotificationQueryFilters,
   CreateNotificationDTO,
   UpdateNotificationDTO,
   NotificationPreferences,
-} from '../types/entities/notification.types';
+  NotificationRecipientType,
+  NotificationRecipientContext,
+  PortalLayoutRole,
+  getNotificationRecipientFromAuthUser,
+  getNotificationRecipientForLayoutRole,
+} from '@/types/entities/notification.types';
+
+export const useNotificationRecipient = (
+  layoutRole?: PortalLayoutRole
+): NotificationRecipientContext | null => {
+  const user = useAuthStore((s) => s.user);
+
+  return useMemo(() => {
+    if (!user) return null;
+    if (layoutRole) {
+      return getNotificationRecipientForLayoutRole(user, layoutRole);
+    }
+    return getNotificationRecipientFromAuthUser(user);
+  }, [user, layoutRole]);
+};
 
 export const useNotifications = () => {
+  const store = useNotificationStore();
+
   const {
-    // Data
     notifications,
     currentNotification,
     unreadCount,
@@ -19,17 +42,14 @@ export const useNotifications = () => {
     stats,
     preferences,
     summary,
+    recipient,
     total,
     currentPage,
     pageSize,
     filters,
-    
-    // UI State
     isLoading,
     isSubmitting,
     error,
-    
-    // Actions
     fetchNotifications,
     fetchNotificationById,
     fetchRecipientNotifications,
@@ -55,176 +75,193 @@ export const useNotifications = () => {
     clearNotifications,
     optimisticMarkAsRead,
     optimisticMarkAsUnread,
-  } = useNotificationStore();
+    setRecipient,
+  } = store;
 
-  // Load notifications with current filters
-  const loadNotifications = useCallback((customFilters?: NotificationFilters) => {
-    const finalFilters = customFilters || filters;
-    fetchNotifications(finalFilters);
-  }, [fetchNotifications, filters]);
+  const loadNotifications = useCallback(
+    (customFilters?: NotificationQueryFilters) => {
+      return fetchNotifications(customFilters);
+    },
+    [fetchNotifications]
+  );
 
-  // Load notifications for a specific recipient
-  const loadRecipientNotifications = useCallback((
-    recipientId: number,
-    recipientType: string,
-    limit?: number,
-    offset?: number
-  ) => {
-    fetchRecipientNotifications(recipientId, recipientType, limit, offset);
-  }, [fetchRecipientNotifications]);
+  const loadRecipientNotifications = useCallback(
+    (
+      recipientId: number,
+      recipientType: NotificationRecipientType,
+      limit?: number,
+      offset?: number
+    ) => {
+      setRecipient({ recipientId, recipientType });
+      return fetchRecipientNotifications(recipientId, recipientType, limit, offset);
+    },
+    [fetchRecipientNotifications, setRecipient]
+  );
 
-  // Load single notification
-  const loadNotificationById = useCallback((id: number) => {
-    fetchNotificationById(id);
-  }, [fetchNotificationById]);
+  const loadNotificationById = useCallback(
+    (id: number) => fetchNotificationById(id),
+    [fetchNotificationById]
+  );
 
-  // Add new notification
-  const addNotification = useCallback((data: CreateNotificationDTO) => {
-    return createNotification(data);
-  }, [createNotification]);
+  const addNotification = useCallback(
+    (data: CreateNotificationDTO) => createNotification(data),
+    [createNotification]
+  );
 
-  // Edit notification
-  const editNotification = useCallback((id: number, data: UpdateNotificationDTO) => {
-    return updateNotification(id, data);
-  }, [updateNotification]);
+  const editNotification = useCallback(
+    (id: number, data: UpdateNotificationDTO) => updateNotification(id, data),
+    [updateNotification]
+  );
 
-  // Remove notification
-  const removeNotification = useCallback((id: number) => {
-    return deleteNotification(id);
-  }, [deleteNotification]);
+  const removeNotification = useCallback(
+    (id: number) => deleteNotification(id),
+    [deleteNotification]
+  );
 
-  // Remove multiple notifications
-  const removeNotifications = useCallback((ids: number[]) => {
-    return deleteNotifications(ids);
-  }, [deleteNotifications]);
+  const removeNotifications = useCallback(
+    (ids: number[]) => deleteNotifications(ids),
+    [deleteNotifications]
+  );
 
-  // Mark as read with optimistic update
-  const markRead = useCallback((id: number) => {
-    optimisticMarkAsRead(id);
-    return markAsRead(id).catch((error) => {
-      // Revert optimistic update on error
-      optimisticMarkAsUnread(id);
-      throw error;
-    });
-  }, [markAsRead, optimisticMarkAsRead, optimisticMarkAsUnread]);
-
-  // Mark as unread with optimistic update
-  const markUnread = useCallback((id: number) => {
-    optimisticMarkAsUnread(id);
-    return markAsUnread(id).catch((error) => {
-      // Revert optimistic update on error
+  const markRead = useCallback(
+    (id: number) => {
       optimisticMarkAsRead(id);
-      throw error;
-    });
-  }, [markAsUnread, optimisticMarkAsUnread, optimisticMarkAsRead]);
+      return markAsRead(id).catch((err) => {
+        optimisticMarkAsUnread(id);
+        throw err;
+      });
+    },
+    [markAsRead, optimisticMarkAsRead, optimisticMarkAsUnread]
+  );
 
-  // Mark all as read
-  const markAllRead = useCallback((recipientId: number) => {
-    return markAllAsRead(recipientId);
-  }, [markAllAsRead]);
+  const markUnread = useCallback(
+    (id: number) => {
+      optimisticMarkAsUnread(id);
+      return markAsUnread(id).catch((err) => {
+        optimisticMarkAsRead(id);
+        throw err;
+      });
+    },
+    [markAsUnread, optimisticMarkAsUnread, optimisticMarkAsRead]
+  );
 
-  // Mark many as read
-  const markManyRead = useCallback((ids: number[]) => {
-    return markManyAsRead(ids);
-  }, [markManyAsRead]);
+  const markAllRead = useCallback(
+    (recipientId: number, recipientType?: NotificationRecipientType) =>
+      markAllAsRead(recipientId, recipientType),
+    [markAllAsRead]
+  );
 
-  // Load statistics
-  const loadStats = useCallback((recipientId?: number) => {
-    fetchStats(recipientId);
-  }, [fetchStats]);
+  const markManyRead = useCallback(
+    (ids: number[]) => markManyAsRead(ids),
+    [markManyAsRead]
+  );
 
-  // Load badge
-  const loadBadge = useCallback((recipientId: number) => {
-    fetchBadge(recipientId);
-  }, [fetchBadge]);
+  const loadStats = useCallback(
+    (recipientId?: number) => fetchStats(recipientId),
+    [fetchStats]
+  );
 
-  // Load summary
-  const loadSummary = useCallback((recipientId: number) => {
-    fetchSummary(recipientId);
-  }, [fetchSummary]);
+  const loadBadge = useCallback(
+    (recipientId: number) => fetchBadge(recipientId),
+    [fetchBadge]
+  );
 
-  // Load preferences
-  const loadPreferences = useCallback((recipientId: number, recipientType: string) => {
-    fetchPreferences(recipientId, recipientType);
-  }, [fetchPreferences]);
+  const loadSummary = useCallback(
+    (recipientId: number, recipientType?: NotificationRecipientType) =>
+      fetchSummary(recipientId, recipientType),
+    [fetchSummary]
+  );
 
-  // Edit preferences
-  const editPreferences = useCallback((
-    recipientId: number,
-    recipientType: string,
-    preferences: Partial<NotificationPreferences>
-  ) => {
-    return updatePreferences(recipientId, recipientType, preferences);
-  }, [updatePreferences]);
+  const loadPreferences = useCallback(
+    (recipientId: number, recipientType: NotificationRecipientType) =>
+      fetchPreferences(recipientId, recipientType),
+    [fetchPreferences]
+  );
 
-  // Filter management
-  const updateFilters = useCallback((newFilters: NotificationFilters) => {
-    setFilters(newFilters);
-  }, [setFilters]);
+  const editPreferences = useCallback(
+    (
+      recipientId: number,
+      recipientType: NotificationRecipientType,
+      prefs: Partial<NotificationPreferences>
+    ) => updatePreferences(recipientId, recipientType, prefs),
+    [updatePreferences]
+  );
 
-  const clearFilters = useCallback(() => {
-    resetFilters();
-  }, [resetFilters]);
+  const updateFilters = useCallback(
+    (newFilters: Partial<NotificationQueryFilters>) => {
+      setFilters(newFilters);
+    },
+    [setFilters]
+  );
 
-  // Pagination
-  const goToPage = useCallback((page: number) => {
-    setCurrentPage(page);
-  }, [setCurrentPage]);
+  const clearFilters = useCallback(() => resetFilters(), [resetFilters]);
 
-  const changePageSize = useCallback((size: number) => {
-    setPageSize(size);
-  }, [setPageSize]);
+  const goToPage = useCallback((page: number) => setCurrentPage(page), [setCurrentPage]);
 
-  // Clear operations
-  const clearNotificationError = useCallback(() => {
-    clearError();
-  }, [clearError]);
+  const changePageSize = useCallback(
+    (size: number) => setPageSize(size),
+    [setPageSize]
+  );
 
-  const clearCurrent = useCallback(() => {
-    clearCurrentNotification();
-  }, [clearCurrentNotification]);
+  const clearNotificationError = useCallback(() => clearError(), [clearError]);
 
-  const clearAllNotifications = useCallback(() => {
-    clearNotifications();
-  }, [clearNotifications]);
+  const clearCurrent = useCallback(
+    () => clearCurrentNotification(),
+    [clearCurrentNotification]
+  );
 
-  // Memoized values
+  const clearAllNotifications = useCallback(
+    () => clearNotifications(),
+    [clearNotifications]
+  );
+
   const hasUnread = useMemo(() => unreadCount > 0, [unreadCount]);
   const hasUrgent = useMemo(() => urgentCount > 0, [urgentCount]);
-  const unreadNotifications = useMemo(() => 
-    notifications.filter(n => !n.isRead), 
+  const unreadNotifications = useMemo(
+    () => notifications.filter((n) => !n.isRead),
     [notifications]
   );
-  const urgentNotifications = useMemo(() => 
-    notifications.filter(n => n.priority === 'URGENT'), 
+  const urgentNotifications = useMemo(
+    () => notifications.filter((n) => n.priority === 'URGENT'),
     [notifications]
   );
   const todayNotifications = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    return notifications.filter(n => n.createdAt.split('T')[0] === today);
+    return notifications.filter((n) => n.createdAt.split('T')[0] === today);
   }, [notifications]);
 
-  // Initialize badge
-  const initializeBadge = useCallback((recipientId: number) => {
-    loadBadge(recipientId);
-  }, [loadBadge]);
+  const initializeBadge = useCallback(
+    (recipientId: number) => loadBadge(recipientId),
+    [loadBadge]
+  );
 
-  // Initialize summary
-  const initializeSummary = useCallback((recipientId: number) => {
-    loadSummary(recipientId);
-  }, [loadSummary]);
+  const initializeSummary = useCallback(
+    (recipientId: number, recipientType?: NotificationRecipientType) =>
+      loadSummary(recipientId, recipientType),
+    [loadSummary]
+  );
 
-  // Auto-refresh badge every 30 seconds when initialized
-  const startBadgeAutoRefresh = useCallback((recipientId: number, intervalMs: number = 30000) => {
-    loadBadge(recipientId);
-    const interval = setInterval(() => {
+  const startBadgeAutoRefresh = useCallback(
+    (recipientId: number, intervalMs = 30000) => {
       loadBadge(recipientId);
-    }, intervalMs);
-    return () => clearInterval(interval);
-  }, [loadBadge]);
+      const interval = setInterval(() => loadBadge(recipientId), intervalMs);
+      return () => clearInterval(interval);
+    },
+    [loadBadge]
+  );
+
+  const reloadInbox = useCallback(() => {
+    if (!recipient) return Promise.resolve();
+    const offset = (currentPage - 1) * pageSize;
+    return fetchRecipientNotifications(
+      recipient.recipientId,
+      recipient.recipientType,
+      pageSize,
+      offset
+    );
+  }, [recipient, currentPage, pageSize, fetchRecipientNotifications]);
 
   return {
-    // Data
     notifications,
     currentNotification,
     unreadCount,
@@ -232,121 +269,153 @@ export const useNotifications = () => {
     stats,
     preferences,
     summary,
+    recipient,
     total,
     currentPage,
     pageSize,
     filters,
-    
-    // UI State
     isLoading,
     isSubmitting,
     error,
-    
-    // Computed values
     hasUnread,
     hasUrgent,
     unreadNotifications,
     urgentNotifications,
     todayNotifications,
-    
-    // Actions - Fetch operations
     loadNotifications,
     loadRecipientNotifications,
     loadNotificationById,
-    
-    // Actions - CRUD operations
     addNotification,
     editNotification,
     deleteNotification: removeNotification,
     deleteNotifications: removeNotifications,
-    
-    // Actions - Read/Unread operations
     markRead,
     markUnread,
     markAllRead,
     markManyRead,
-    
-    // Actions - Statistics
     loadStats,
     loadBadge,
     loadSummary,
-    
-    // Actions - Preferences
     loadPreferences,
     editPreferences,
-    
-    // Actions - UI
     updateFilters,
-    resetFilters,  // Now explicitly exported
-    clearFilters,  // Alias for resetFilters
+    resetFilters,
+    clearFilters,
     goToPage,
     changePageSize,
     clearNotificationError,
     clearCurrent,
     clearAllNotifications,
-    
-    // Actions - Initialization
     initializeBadge,
     initializeSummary,
     startBadgeAutoRefresh,
+    reloadInbox,
   };
 };
 
-// hooks/useNotifications.ts - Fix the updatePreference function
+export interface NotificationInboxOptions {
+  loadStats?: boolean;
+  loadSummary?: boolean;
+}
 
-export const useNotificationPreferences = (recipientId: number, recipientType: string) => {
-  const { preferences, loadPreferences, editPreferences, isLoading } = useNotifications();
+/** Loads inbox + badge for the current portal role; refetches when filters/page change. */
+export const useNotificationInbox = (
+  layoutRole: PortalLayoutRole,
+  options: NotificationInboxOptions = {}
+) => {
+  const recipient = useNotificationRecipient(layoutRole);
+  const inbox = useNotifications();
+  const filtersKey = JSON.stringify(inbox.filters);
+
+  useEffect(() => {
+    if (!recipient) return;
+    const offset = (inbox.currentPage - 1) * inbox.pageSize;
+    void inbox.loadRecipientNotifications(
+      recipient.recipientId,
+      recipient.recipientType,
+      inbox.pageSize,
+      offset
+    );
+    void inbox.loadBadge(recipient.recipientId);
+    if (options.loadStats) {
+      void inbox.loadStats(recipient.recipientId);
+    }
+    if (options.loadSummary) {
+      void inbox.loadSummary(recipient.recipientId, recipient.recipientType);
+    }
+  }, [
+    recipient?.recipientId,
+    recipient?.recipientType,
+    inbox.currentPage,
+    inbox.pageSize,
+    filtersKey,
+    options.loadStats,
+    options.loadSummary,
+    inbox.loadRecipientNotifications,
+    inbox.loadBadge,
+    inbox.loadStats,
+    inbox.loadSummary,
+  ]);
+
+  return { ...inbox, recipient };
+};
+
+export const useNotificationPreferences = (
+  recipientId: number,
+  recipientType: NotificationRecipientType
+) => {
+  const { preferences, loadPreferences, editPreferences, isLoading } =
+    useNotifications();
 
   useEffect(() => {
     if (recipientId && recipientType) {
-      loadPreferences(recipientId, recipientType);
+      void loadPreferences(recipientId, recipientType);
     }
   }, [recipientId, recipientType, loadPreferences]);
 
-  // Fix: Change this to accept a partial preferences object
-  const updatePreference = useCallback((
-    preferencesUpdate: Partial<NotificationPreferences>
-  ) => {
-    if (preferences) {
-      editPreferences(recipientId, recipientType, preferencesUpdate);
-    }
-  }, [preferences, recipientId, recipientType, editPreferences]);
+  const updatePreference = useCallback(
+    (preferencesUpdate: Partial<NotificationPreferences>) => {
+      return editPreferences(recipientId, recipientType, preferencesUpdate);
+    },
+    [recipientId, recipientType, editPreferences]
+  );
 
-  // Keep the individual key-value update as a separate helper
-  const togglePreference = useCallback((
-    key: keyof NotificationPreferences,
-    value: boolean
-  ) => {
-    if (preferences) {
-      editPreferences(recipientId, recipientType, { [key]: value });
-    }
-  }, [preferences, recipientId, recipientType, editPreferences]);
+  const togglePreference = useCallback(
+    (key: keyof NotificationPreferences, value: boolean) => {
+      return editPreferences(recipientId, recipientType, { [key]: value });
+    },
+    [recipientId, recipientType, editPreferences]
+  );
 
   const enableAll = useCallback(() => {
-    if (preferences) {
-      const allEnabled = Object.keys(preferences).reduce((acc, key) => {
+    if (!preferences) return;
+    const allEnabled = Object.keys(preferences).reduce(
+      (acc, key) => {
         acc[key as keyof NotificationPreferences] = true;
         return acc;
-      }, {} as NotificationPreferences);
-      editPreferences(recipientId, recipientType, allEnabled);
-    }
+      },
+      {} as NotificationPreferences
+    );
+    return editPreferences(recipientId, recipientType, allEnabled);
   }, [preferences, recipientId, recipientType, editPreferences]);
 
   const disableAll = useCallback(() => {
-    if (preferences) {
-      const allDisabled = Object.keys(preferences).reduce((acc, key) => {
+    if (!preferences) return;
+    const allDisabled = Object.keys(preferences).reduce(
+      (acc, key) => {
         acc[key as keyof NotificationPreferences] = false;
         return acc;
-      }, {} as NotificationPreferences);
-      editPreferences(recipientId, recipientType, allDisabled);
-    }
+      },
+      {} as NotificationPreferences
+    );
+    return editPreferences(recipientId, recipientType, allDisabled);
   }, [preferences, recipientId, recipientType, editPreferences]);
 
   return {
     preferences,
     isLoading,
-    updatePreference,  // Now accepts Partial<NotificationPreferences>
-    togglePreference,  // Helper for individual toggles
+    updatePreference,
+    togglePreference,
     enableAll,
     disableAll,
   };

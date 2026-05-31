@@ -9,6 +9,8 @@ import { usePathname } from "next/navigation"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { NotificationBellBadge } from "@/components/notifications/NotificationBellBadge"
+import { useNotificationStore } from "@/stores/slices/notificationSlice"
 
 interface LayoutWrapperProps {
   children: React.ReactNode
@@ -33,6 +35,7 @@ const getPageTitle = (pathname: string, role: string): string => {
       "/doctor/staff": "Staff",
       "/doctor/analytics": "Analytics",
       "/doctor/reviews": "Reviews",
+      "/doctor/notifications": "Notifications",
     },
     clinic: {
       "/clinic/dashboard": "Dashboard",
@@ -43,6 +46,7 @@ const getPageTitle = (pathname: string, role: string): string => {
       "/clinic/staff": "Staff",
       "/clinic/analytics": "Analytics",
       "/clinic/reviews": "Reviews",
+      "/clinic/notifications": "Notifications",
     },
     diagnosticCenter: {
       "/diagnosticCenter/dashboard": "Dashboard",
@@ -53,6 +57,7 @@ const getPageTitle = (pathname: string, role: string): string => {
       "/diagnosticCenter/staff": "Staff",
       "/diagnosticCenter/analytics": "Analytics",
       "/diagnosticCenter/reviews": "Reviews",
+      "/diagnosticCenter/notifications": "Notifications",
     },
     patient: {
       "/patient/dashboard": "Dashboard",
@@ -62,12 +67,14 @@ const getPageTitle = (pathname: string, role: string): string => {
       "/patient/results": "Results",
       "/patient/payments": "Payments",
       "/patient/reviews": "Reviews",
+      "/patient/notifications": "Notifications",
     },
     staff: {
       "/staff/dashboard": "Dashboard",
       "/staff/checkin": "Patient Check-in",
       "/staff/results": "Diagnostic Results",
       "/staff/profile": "Profile",
+      "/staff/notifications": "Notifications",
     },
   }
 
@@ -91,6 +98,7 @@ export function LayoutWrapper({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const pathname = usePathname()
+  const unreadCount = useNotificationStore((state) => state.unreadCount)
 
   useEffect(() => {
     const handleResize = () => {
@@ -137,6 +145,7 @@ export function LayoutWrapper({
 
   return (
     <TooltipProvider>
+      <NotificationBellBadge layoutRole={role} />
       <div className="min-h-screen bg-gray-50">
         {/* Mobile/Tablet Menu Button - Fixed on top left when sidebar is hidden */}
         {(isResponsive && !isMobileMenuOpen) && (
@@ -193,6 +202,7 @@ export function LayoutWrapper({
           role={role}
           profileLink={`/${role}/profile`}
           notificationsLink={`/${role}/notifications`}
+          unreadCount={unreadCount}
           isMobileMenuOpen={isMobileMenuOpen}
         />
 

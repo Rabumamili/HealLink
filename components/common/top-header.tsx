@@ -42,6 +42,7 @@ interface TopHeaderProps {
   role?: "doctor" | "clinic" | "diagnosticCenter" | "patient" | "staff"
   profileLink?: string
   notificationsLink?: string
+  unreadCount?: number
   isMobileMenuOpen?: boolean
 }
 
@@ -60,6 +61,7 @@ export function CommonTopHeader({
   role = "patient",
   profileLink = "/profile",
   notificationsLink = "/notifications",
+  unreadCount = 0,
   isMobileMenuOpen = false,
 }: TopHeaderProps) {
   const router = useRouter()
@@ -161,7 +163,11 @@ export function CommonTopHeader({
           onClick={handleNotificationClick}
         >
           <Bell className="h-5 w-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold bg-red-500 text-white rounded-full">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </Button>
 
         <Button variant="ghost" size="icon" className="hidden sm:flex">

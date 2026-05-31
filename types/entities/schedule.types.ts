@@ -1,6 +1,7 @@
 // types/entities/schedule.types.ts
 
-export interface ScheduleSlot {
+// Keep snake_case for DB entities, but provide conversion utilities
+export interface ScheduleSlotDB {
   id: number;
   service_id: number;
   provider_id: number;
@@ -14,7 +15,7 @@ export interface ScheduleSlot {
   updated_at: string;
 }
 
-// Frontend friendly camelCase version
+// Frontend-friendly camelCase version - this is what components should use
 export interface TimeSlot {
   id: number;
   serviceId: number;
@@ -27,7 +28,11 @@ export interface TimeSlot {
   isAvailable: boolean;
   createdAt: string;
   updatedAt: string;
-  availableSlots?: number;
+}
+
+// Computed property helper
+export interface TimeSlotWithAvailability extends TimeSlot {
+  availableSlots: number;
 }
 
 // For schedule configuration (templates)
@@ -35,24 +40,24 @@ export interface TimeSlotTemplate {
   id: string;
   startTime: string;
   endTime: string;
-  shift: string;
+  shift: 'morning' | 'afternoon' | 'evening';
   maxCapacity: number;
 }
 
 export interface DaySchedule {
-  day: string;
+  day: WeekDay;
   isActive: boolean;
   slots: TimeSlotTemplate[];
   note?: string;
 }
 
 export interface ScheduleSettings {
-  slotDuration: number;
-  bufferTime: number;
+  slotDuration: number; // in minutes
+  bufferTime: number; // between appointments in minutes
   maxAppointmentsPerDay: number;
   defaultMaxCapacity: number;
   breakDuration?: number;
-  resultTurnaroundTime?: number;
+  resultTurnaroundTime?: number; // for diagnostic centers
   walkInAllowed?: boolean;
   requireAppointment?: boolean;
 }
@@ -97,8 +102,8 @@ export interface BulkSlotCreateDTO {
   timeSlots: Omit<CreateSlotDTO, 'serviceId' | 'providerId' | 'date'>[];
 }
 
-// Helper function to convert ScheduleSlot to TimeSlot
-export function toTimeSlot(slot: ScheduleSlot): TimeSlot {
+// Fixed conversion helpers with proper typing
+export function toTimeSlot(slot: ScheduleSlotDB): TimeSlotWithAvailability {
   return {
     id: slot.id,
     serviceId: slot.service_id,
@@ -115,8 +120,7 @@ export function toTimeSlot(slot: ScheduleSlot): TimeSlot {
   };
 }
 
-// Helper to convert TimeSlot to ScheduleSlot
-export function toScheduleSlot(slot: TimeSlot): Omit<ScheduleSlot, 'id' | 'created_at' | 'updated_at'> {
+export function toScheduleSlotDB(slot: TimeSlot): Omit<ScheduleSlotDB, 'id' | 'created_at' | 'updated_at'> {
   return {
     service_id: slot.serviceId,
     provider_id: slot.providerId,
@@ -127,4 +131,14 @@ export function toScheduleSlot(slot: TimeSlot): Omit<ScheduleSlot, 'id' | 'creat
     booked_count: slot.bookedCount,
     is_available: slot.isAvailable,
   };
+}
+
+// Helper to check if a slot is bookable
+export function isSlotBookable(slot: TimeSlotWithAvailability): boolean {
+  return slot.isAvailable && slot.availableSlots > 0;
+}
+
+// Helper to get slot display time
+export function getSlotDisplayTime(slot: TimeSlot): string {
+  return `${slot.startTime} - ${slot.endTime}`;
 }

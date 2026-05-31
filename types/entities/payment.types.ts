@@ -1,6 +1,12 @@
 // types/entities/payment.types.ts
 
-export type PaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+export const PAYMENT_STATUS = {
+  PENDING: 'PENDING',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED'
+} as const;
+
+export type PaymentStatus = typeof PAYMENT_STATUS[keyof typeof PAYMENT_STATUS];
 
 export interface Payment {
   id: number;
@@ -21,7 +27,7 @@ export interface CreatePaymentDTO {
   patientId: number;
   appointmentId: number;
   amount: number;
-  currency?: string;
+  currency?: string; // Default to 'ETB'
 }
 
 export interface InitiatePaymentRequest {
@@ -49,6 +55,7 @@ export interface VerifyPaymentResponse {
   message?: string;
 }
 
+// Chapa webhook payload - keep snake_case as it comes from external API
 export interface ChapaWebhookPayload {
   tx_ref: string;
   reference: string;
@@ -101,10 +108,11 @@ export interface PaymentWithDetails extends Payment {
   serviceName?: string;
 }
 
+// Fixed: Use undefined instead of 'all'
 export interface PaymentFilters {
   patientId?: number;
   appointmentId?: number;
-  status?: PaymentStatus | 'all';
+  status?: PaymentStatus;
   startDate?: string;
   endDate?: string;
   searchTerm?: string;
@@ -117,37 +125,15 @@ export interface PaymentStats {
   failed: number;
   totalAmount: number;
   successAmount: number;
-  successRate: number;
+  successRate: number; // percentage
 }
 
-// Helper functions
-export const canConfirmAppointment = (paymentStatus: PaymentStatus): boolean => {
-  return paymentStatus === 'SUCCESS';
-};
-
-export const getAppointmentStatusFromPayment = (
-  paymentStatus: PaymentStatus,
-  defaultStatus: 'Scheduled' | 'Confirmed' | 'Cancelled' = 'Scheduled'
-): 'Scheduled' | 'Confirmed' | 'Cancelled' => {
-  switch (paymentStatus) {
-    case 'SUCCESS':
-      return 'Confirmed';
-    case 'FAILED':
-      return 'Cancelled';
-    case 'PENDING':
-      return defaultStatus;
-    default:
-      return defaultStatus;
-  }
-};
-
+// Helper with proper typing
 export const getPaymentStatusConfig = (status: PaymentStatus) => {
-  switch (status) {
-    case 'PENDING':
-      return { label: 'Pending', color: 'warning', icon: 'clock' };
-    case 'SUCCESS':
-      return { label: 'Success', color: 'success', icon: 'check-circle' };
-    case 'FAILED':
-      return { label: 'Failed', color: 'error', icon: 'x-circle' };
-  }
+  const configs: Record<PaymentStatus, { label: string; color: 'warning' | 'success' | 'error'; icon: string }> = {
+    PENDING: { label: 'Pending', color: 'warning', icon: 'clock' },
+    SUCCESS: { label: 'Success', color: 'success', icon: 'check-circle' },
+    FAILED: { label: 'Failed', color: 'error', icon: 'x-circle' },
+  };
+  return configs[status];
 };

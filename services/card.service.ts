@@ -10,7 +10,8 @@ import {
   CardGenerationRequest,
   CardGenerationResult,
   CardWithAppointment,
-  CardStatus
+  CardStatus,
+  CARD_STATUS
 } from '@/types/entities/card.types';
 import { CardRepository } from './mock/card.repository';
 
@@ -201,7 +202,7 @@ class CardService extends ApiService {
         const today: string = new Date().toDateString();
         const cards: CardWithAppointment[] = this.repository.getAllCardsWithAppointments();
         const used: number = cards.filter((card: CardWithAppointment) => 
-          card.status === 'Used' && card.usedAt && new Date(card.usedAt).toDateString() === today
+          card.status === CARD_STATUS.USED && card.usedAt && new Date(card.usedAt).toDateString() === today
         ).length;
         const active: number = this.repository.findActiveCards().length;
         const expired: number = this.repository.findExpiredCards().length;

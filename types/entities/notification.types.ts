@@ -346,3 +346,101 @@ export const getUrgentNotifications = (
     (n) => n.priority === 'URGENT'
   );
 };
+
+// ======================================================
+// DEFAULTS & LIST HELPERS
+// ======================================================
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  appointmentBooked: true,
+  appointmentReminder: true,
+  appointmentCancelled: true,
+  appointmentRescheduled: true,
+  checkInConfirmed: true,
+  queueUpdates: true,
+  paymentSuccess: true,
+  paymentFailed: true,
+  refundProcessed: true,
+  preparationInstruction: true,
+  resultReady: true,
+  newReview: true,
+  systemAlerts: true,
+};
+
+export const toNotificationListResponse = (
+  notifications: Notification[]
+): NotificationListResponse => ({
+  success: true,
+  data: notifications,
+  unreadCount: getUnreadCount(notifications),
+  total: notifications.length,
+});
+
+export type PortalLayoutRole =
+  | 'doctor'
+  | 'clinic'
+  | 'diagnosticCenter'
+  | 'patient'
+  | 'staff';
+
+export const layoutRoleToRecipientType = (
+  role: PortalLayoutRole | string
+): NotificationRecipientType => {
+  if (role === 'diagnosticCenter') return 'diagnostic_center';
+  if (
+    role === 'patient' ||
+    role === 'doctor' ||
+    role === 'clinic' ||
+    role === 'diagnostic_center' ||
+    role === 'staff'
+  ) {
+    return role;
+  }
+  return 'patient';
+};
+
+export const userRoleToRecipientType = (
+  role: UserRole
+): NotificationRecipientType => {
+  if (role === 'diagnostic_center') return 'diagnostic_center';
+  return role;
+};
+
+export interface NotificationRecipientContext {
+  recipientId: number;
+  recipientType: NotificationRecipientType;
+}
+
+export const getNotificationRecipientFromAuthUser = (
+  user: AuthUser
+): NotificationRecipientContext => {
+  switch (user.role) {
+    case 'patient':
+      return { recipientId: user.id, recipientType: 'patient' };
+    case 'doctor':
+    case 'clinic':
+    case 'diagnostic_center':
+      return {
+        recipientId: user.provider_id ?? user.id,
+        recipientType: userRoleToRecipientType(user.role),
+      };
+    case 'staff':
+      if (user.employer_id != null && user.employer_type) {
+        return {
+          recipientId: user.employer_id,
+          recipientType: userRoleToRecipientType(user.employer_type),
+        };
+      }
+      return { recipientId: user.id, recipientType: 'staff' };
+    default:
+      return { recipientId: user.id, recipientType: 'patient' };
+  }
+};
+
+export const getNotificationRecipientForLayoutRole = (
+  user: AuthUser,
+  layoutRole: PortalLayoutRole
+): NotificationRecipientContext => ({
+  recipientId: user.provider_id ?? user.employer_id ?? user.id,
+  recipientType: layoutRoleToRecipientType(layoutRole),
+});

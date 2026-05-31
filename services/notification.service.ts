@@ -5,7 +5,7 @@ import {
   Notification,
   CreateNotificationDTO,
   UpdateNotificationDTO,
-  NotificationFilters,
+  NotificationQueryFilters,
   NotificationResponse,
   NotificationListResponse,
   NotificationStats,
@@ -14,7 +14,46 @@ import {
   NotificationSummary,
   MarkNotificationReadDTO,
   MarkAllNotificationsReadDTO,
-} from '../types/entities/notification.types';
+  NotificationRecipientType,
+} from '@/types/entities/notification.types';
+
+export interface RecipientNotificationOptions {
+  limit?: number;
+  offset?: number;
+  filters?: NotificationQueryFilters;
+}
+
+function appendNotificationFilters(
+  queryParams: URLSearchParams,
+  filters?: NotificationQueryFilters
+): void {
+  if (!filters) return;
+
+  if (filters.recipientId !== undefined) {
+    queryParams.append('recipientId', filters.recipientId.toString());
+  }
+  if (filters.recipientType) {
+    queryParams.append('recipientType', filters.recipientType);
+  }
+  if (filters.type && filters.type !== 'all') {
+    queryParams.append('type', filters.type);
+  }
+  if (filters.isRead !== undefined) {
+    queryParams.append('isRead', filters.isRead.toString());
+  }
+  if (filters.priority && filters.priority !== 'all') {
+    queryParams.append('priority', filters.priority);
+  }
+  if (filters.startDate) {
+    queryParams.append('startDate', filters.startDate);
+  }
+  if (filters.endDate) {
+    queryParams.append('endDate', filters.endDate);
+  }
+  if (filters.searchTerm) {
+    queryParams.append('searchTerm', filters.searchTerm);
+  }
+}
 
 class NotificationService extends ApiService {
   private readonly basePath = '/notifications';
@@ -35,44 +74,46 @@ class NotificationService extends ApiService {
     return response.data;
   }
 
-  async getNotifications(filters?: NotificationFilters): Promise<NotificationListResponse> {
+  async getNotifications(
+    filters?: NotificationQueryFilters
+  ): Promise<NotificationListResponse> {
     const queryParams = new URLSearchParams();
-    
-    if (filters) {
-      if (filters.recipientId) queryParams.append('recipientId', filters.recipientId.toString());
-      if (filters.recipientType) queryParams.append('recipientType', filters.recipientType);
-      if (filters.type && filters.type !== 'all') queryParams.append('type', filters.type);
-      if (filters.isRead !== undefined) queryParams.append('isRead', filters.isRead.toString());
-      if (filters.priority && filters.priority !== 'all') queryParams.append('priority', filters.priority);
-      if (filters.startDate) queryParams.append('startDate', filters.startDate);
-      if (filters.endDate) queryParams.append('endDate', filters.endDate);
-      if (filters.searchTerm) queryParams.append('searchTerm', filters.searchTerm);
-    }
+    appendNotificationFilters(queryParams, filters);
 
-    const endpoint = queryParams.toString() 
+    const endpoint = queryParams.toString()
       ? `${this.basePath}?${queryParams.toString()}`
       : this.basePath;
-    
+
     return this.get<NotificationListResponse>(endpoint);
   }
 
   async getRecipientNotifications(
     recipientId: number,
-    recipientType: string,
+    recipientType: NotificationRecipientType,
     limit?: number,
-    offset?: number
+    offset?: number,
+    filters?: NotificationQueryFilters
   ): Promise<NotificationListResponse> {
     const queryParams = new URLSearchParams();
     queryParams.append('recipientId', recipientId.toString());
     queryParams.append('recipientType', recipientType);
-    if (limit) queryParams.append('limit', limit.toString());
-    if (offset) queryParams.append('offset', offset.toString());
-    
-    return this.get<NotificationListResponse>(`${this.basePath}/recipient?${queryParams.toString()}`);
+    if (limit !== undefined) queryParams.append('limit', limit.toString());
+    if (offset !== undefined) queryParams.append('offset', offset.toString());
+    appendNotificationFilters(queryParams, filters);
+
+    return this.get<NotificationListResponse>(
+      `${this.basePath}/recipient?${queryParams.toString()}`
+    );
   }
 
-  async updateNotification(id: number, data: UpdateNotificationDTO): Promise<Notification> {
-    const response = await this.patch<NotificationResponse>(`${this.basePath}/${id}`, data);
+  async updateNotification(
+    id: number,
+    data: UpdateNotificationDTO
+  ): Promise<Notification> {
+    const response = await this.patch<NotificationResponse>(
+      `${this.basePath}/${id}`,
+      data
+    );
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Failed to update notification');
     }
@@ -80,17 +121,20 @@ class NotificationService extends ApiService {
   }
 
   async deleteNotification(id: number): Promise<void> {
-    const response = await this.delete<NotificationResponse>(`${this.basePath}/${id}`);
+    const response = await this.delete<NotificationResponse>(
+      `${this.basePath}/${id}`
+    );
     if (!response.success) {
       throw new Error(response.message || 'Failed to delete notification');
     }
   }
 
   async deleteNotifications(ids: number[]): Promise<number> {
-    const response = await this.post<{ success: boolean; deletedCount: number; message?: string }>(
-      `${this.basePath}/bulk-delete`,
-      { ids }
-    );
+    const response = await this.post<{
+      success: boolean;
+      deletedCount: number;
+      message?: string;
+    }>(`${this.basePath}/bulk-delete`, { ids });
     if (!response.success) {
       throw new Error(response.message || 'Failed to delete notifications');
     }
@@ -99,7 +143,10 @@ class NotificationService extends ApiService {
 
   async markAsRead(notificationId: number): Promise<Notification> {
     const data: MarkNotificationReadDTO = { notificationId };
-    const response = await this.post<NotificationResponse>(`${this.basePath}/${notificationId}/read`, data);
+    const response = await this.post<NotificationResponse>(
+      `${this.basePath}/${notificationId}/read`,
+      data
+    );
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Failed to mark as read');
     }
@@ -107,19 +154,27 @@ class NotificationService extends ApiService {
   }
 
   async markAsUnread(notificationId: number): Promise<Notification> {
-    const response = await this.post<NotificationResponse>(`${this.basePath}/${notificationId}/unread`, {});
+    const response = await this.post<NotificationResponse>(
+      `${this.basePath}/${notificationId}/unread`,
+      {}
+    );
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Failed to mark as unread');
     }
     return response.data;
   }
 
-  async markAllAsRead(recipientId: number): Promise<number> {
+  async markAllAsRead(
+    recipientId: number,
+    recipientType?: NotificationRecipientType
+  ): Promise<number> {
     const data: MarkAllNotificationsReadDTO = { recipientId };
-    const response = await this.post<{ success: boolean; updatedCount: number; message?: string }>(
-      `${this.basePath}/mark-all-read`,
-      data
-    );
+    const query = recipientType ? `?recipientType=${recipientType}` : '';
+    const response = await this.post<{
+      success: boolean;
+      updatedCount: number;
+      message?: string;
+    }>(`${this.basePath}/mark-all-read${query}`, data);
     if (!response.success) {
       throw new Error(response.message || 'Failed to mark all as read');
     }
@@ -127,21 +182,26 @@ class NotificationService extends ApiService {
   }
 
   async markManyAsRead(ids: number[]): Promise<number> {
-    const response = await this.post<{ success: boolean; updatedCount: number; message?: string }>(
-      `${this.basePath}/mark-many-read`,
-      { ids }
-    );
+    const response = await this.post<{
+      success: boolean;
+      updatedCount: number;
+      message?: string;
+    }>(`${this.basePath}/mark-many-read`, { ids });
     if (!response.success) {
-      throw new Error(response.message || 'Failed to mark notifications as read');
+      throw new Error(
+        response.message || 'Failed to mark notifications as read'
+      );
     }
     return response.updatedCount;
   }
 
   async getNotificationStats(recipientId?: number): Promise<NotificationStats> {
     const queryParams = recipientId ? `?recipientId=${recipientId}` : '';
-    const response = await this.get<{ success: boolean; data: NotificationStats; message?: string }>(
-      `${this.basePath}/stats${queryParams}`
-    );
+    const response = await this.get<{
+      success: boolean;
+      data: NotificationStats;
+      message?: string;
+    }>(`${this.basePath}/stats${queryParams}`);
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Failed to get notification stats');
     }
@@ -149,46 +209,64 @@ class NotificationService extends ApiService {
   }
 
   async getNotificationBadge(recipientId: number): Promise<NotificationBadge> {
-    const response = await this.get<{ success: boolean; data: NotificationBadge; message?: string }>(
-      `${this.basePath}/${recipientId}/badge`
-    );
+    const response = await this.get<{
+      success: boolean;
+      data: NotificationBadge;
+      message?: string;
+    }>(`${this.basePath}/${recipientId}/badge`);
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Failed to get notification badge');
     }
     return response.data;
   }
 
-  async getNotificationSummary(recipientId: number): Promise<NotificationSummary> {
-    const response = await this.get<{ success: boolean; data: NotificationSummary; message?: string }>(
-      `${this.basePath}/${recipientId}/summary`
-    );
+  async getNotificationSummary(
+    recipientId: number,
+    recipientType?: NotificationRecipientType
+  ): Promise<NotificationSummary> {
+    const query = recipientType ? `?recipientType=${recipientType}` : '';
+    const response = await this.get<{
+      success: boolean;
+      data: NotificationSummary;
+      message?: string;
+    }>(`${this.basePath}/${recipientId}/summary${query}`);
     if (!response.success || !response.data) {
       throw new Error(response.message || 'Failed to get notification summary');
     }
     return response.data;
   }
 
-  async getNotificationPreferences(recipientId: number, recipientType: string): Promise<NotificationPreferences> {
-    const response = await this.get<{ success: boolean; data: NotificationPreferences; message?: string }>(
-      `${this.basePath}/preferences/${recipientType}/${recipientId}`
-    );
+  async getNotificationPreferences(
+    recipientId: number,
+    recipientType: NotificationRecipientType
+  ): Promise<NotificationPreferences> {
+    const response = await this.get<{
+      success: boolean;
+      data: NotificationPreferences;
+      message?: string;
+    }>(`${this.basePath}/preferences/${recipientType}/${recipientId}`);
     if (!response.success || !response.data) {
-      throw new Error(response.message || 'Failed to get notification preferences');
+      throw new Error(
+        response.message || 'Failed to get notification preferences'
+      );
     }
     return response.data;
   }
 
   async updateNotificationPreferences(
     recipientId: number,
-    recipientType: string,
+    recipientType: NotificationRecipientType,
     preferences: Partial<NotificationPreferences>
   ): Promise<NotificationPreferences> {
-    const response = await this.put<{ success: boolean; data: NotificationPreferences; message?: string }>(
-      `${this.basePath}/preferences/${recipientType}/${recipientId}`,
-      preferences
-    );
+    const response = await this.put<{
+      success: boolean;
+      data: NotificationPreferences;
+      message?: string;
+    }>(`${this.basePath}/preferences/${recipientType}/${recipientId}`, preferences);
     if (!response.success || !response.data) {
-      throw new Error(response.message || 'Failed to update notification preferences');
+      throw new Error(
+        response.message || 'Failed to update notification preferences'
+      );
     }
     return response.data;
   }

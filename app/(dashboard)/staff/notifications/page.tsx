@@ -2,12 +2,11 @@
 
 import { NotificationsPage } from '@/components/notifications/NotificationsPage';
 
-export default function DoctorNotificationsPage() {
+export default function StaffNotificationsPage() {
   return (
     <NotificationsPage
-      layoutRole="doctor"
-      title="Doctor Notifications"
-      variant="doctor"
+      layoutRole="staff"
+      title="Notifications"
     />
   );
 }

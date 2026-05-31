@@ -1,6 +1,7 @@
-// components/notifications/NotificationPreferences.tsx
+'use client';
+
 import React from 'react';
-import { NotificationPreferences as PreferencesType } from '../../types/entities/notification.types';
+import { NotificationPreferences as PreferencesType } from '@/types/entities/notification.types';
 
 interface NotificationPreferencesProps {
   preferences: PreferencesType;

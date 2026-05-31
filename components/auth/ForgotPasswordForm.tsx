@@ -32,15 +32,16 @@ export const ForgotPasswordForm = () => {
     },
   });
 
-  const onSubmit = (data: ForgotPasswordFormData) => {
+  const onSubmit = async (data: ForgotPasswordFormData) => {
     setError(null);
     setEmail(data.email);
-    forgotPassword(data, {
-      onSuccess: () => setSubmitted(true),
-      onError: (err: any) => {
-        setError(err.response?.data?.message || 'Failed to send reset link');
-      },
-    });
+    
+    try {
+      await forgotPassword(data);
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to send reset link');
+    }
   };
 
   if (submitted) {
