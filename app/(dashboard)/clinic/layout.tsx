@@ -8,7 +8,7 @@ export default function ClinicAdminLayout({
 }) {
   return (
     <LayoutWrapper
-      role="clinicAdmin"
+      role="clinic"
       portalName="Clinic Portal"
       portalSubtitle="Healthcare Management"
       searchPlaceholder="Search patients, appointments..."

@@ -20,6 +20,24 @@ import {
   ProfessionalVerificationSubmitData,
 } from '@/types/entities/auth.types';
 
+// Mock user data for development
+const MOCK_USER: AuthUser = {
+  id: 1,
+  email: 'demo@heallink.com',
+  phone_number: '+1234567890',
+  role: 'staff', // Change this to 'patient', 'doctor', 'clinic', 'diagnostic_center' as needed
+  is_active: true,
+  is_verified: true,
+  verification_status: 'verified',
+  created_at: new Date().toISOString(),
+  first_name: 'Demo',
+  last_name: 'User',
+  staff_sub_role: 'lab assistant', // For staff role
+  employer_id: 1,
+  employer_type: 'clinic',
+  professional_verification_status: 'approved',
+};
+
 class AuthService extends ApiService {
   private readonly basePath = '/auth';
 
@@ -28,30 +46,29 @@ class AuthService extends ApiService {
   // ===============================
 
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    const response = await this.post<LoginResponse>(
-      `${this.basePath}/login`,
-      credentials
-    );
+    // Bypass actual login and return mock data
+    console.log('Login attempt (bypassed):', credentials);
     
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+    const mockResponse: LoginResponse = {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: { ...MOCK_USER, email: credentials.email },
+    };
+    
+    if (mockResponse.token) {
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('refreshToken', mockResponse.refreshToken);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
     }
     
-    return response;
+    return mockResponse;
   }
 
   async logout(): Promise<void> {
-    try {
-      await this.post(`${this.basePath}/logout`, {});
-    } catch (error) {
-      console.error('Logout API error:', error);
-    } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-    }
+    console.log('Logout (bypassed)');
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
   }
 
   // ===============================
@@ -59,108 +76,145 @@ class AuthService extends ApiService {
   // ===============================
 
   async registerUser(data: UserRegisterData): Promise<LoginResponse> {
-    const response = await this.post<LoginResponse>(`${this.basePath}/register/user`, data);
+    console.log('User registration (bypassed):', data);
     
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+    const mockResponse: LoginResponse = {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: {
+        ...MOCK_USER,
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone_number: data.phone_number,
+        role: 'patient',
+      },
+    };
+    
+    if (mockResponse.token) {
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('refreshToken', mockResponse.refreshToken);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
     }
     
-    return response;
+    return mockResponse;
   }
 
   async registerDoctor(data: DoctorRegisterData): Promise<LoginResponse> {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value instanceof File) {
-        formData.append(key, value);
-      } else if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
+    console.log('Doctor registration (bypassed):', data);
     
-    const response = await this.postFormData<LoginResponse>(`${this.basePath}/register/doctor`, formData);
+    const mockResponse: LoginResponse = {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: {
+        ...MOCK_USER,
+        email: data.email,
+        full_name: data.full_name,
+        phone_number: data.phone_number,
+        role: 'doctor',
+        specialization: data.specialization,
+        license_number: data.license_number,
+        location: data.location,
+      },
+    };
     
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+    if (mockResponse.token) {
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('refreshToken', mockResponse.refreshToken);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
     }
     
-    return response;
+    return mockResponse;
   }
 
   async registerClinic(data: ClinicRegisterData): Promise<LoginResponse> {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value instanceof File) {
-        formData.append(key, value);
-      } else if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
+    console.log('Clinic registration (bypassed):', data);
     
-    const response = await this.postFormData<LoginResponse>(`${this.basePath}/register/clinic`, formData);
+    const mockResponse: LoginResponse = {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: {
+        ...MOCK_USER,
+        email: data.email,
+        full_name: data.full_name,
+        phone_number: data.phone_number,
+        role: 'clinic',
+        license_number: data.license_number,
+        tin_number: data.tin_number,
+        address: data.address,
+      },
+    };
     
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+    if (mockResponse.token) {
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('refreshToken', mockResponse.refreshToken);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
     }
     
-    return response;
+    return mockResponse;
   }
 
   async registerDiagnosticCenter(data: DiagnosticCenterRegisterData): Promise<LoginResponse> {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value instanceof File) {
-        formData.append(key, value);
-      } else if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
+    console.log('Diagnostic center registration (bypassed):', data);
     
-    const response = await this.postFormData<LoginResponse>(
-      `${this.basePath}/register/diagnostic-center`,
-      formData
-    );
+    const mockResponse: LoginResponse = {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: {
+        ...MOCK_USER,
+        email: data.email,
+        full_name: data.full_name,
+        phone_number: data.phone_number,
+        role: 'diagnostic_center',
+        license_number: data.license_number,
+        tin_number: data.tin_number,
+        address: data.address,
+      },
+    };
     
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+    if (mockResponse.token) {
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('refreshToken', mockResponse.refreshToken);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
     }
     
-    return response;
+    return mockResponse;
   }
 
   async registerStaff(data: StaffRegisterData): Promise<{ message: string; staff_id: number; email: string }> {
-    return this.post<{ message: string; staff_id: number; email: string }>(
-      `${this.basePath}/register/staff`,
-      data
-    );
+    console.log('Staff registration (bypassed):', data);
+    
+    return {
+      message: 'Staff registered successfully',
+      staff_id: Math.floor(Math.random() * 1000),
+      email: data.email,
+    };
   }
 
   async completeStaffRegistration(token: string, password: string, confirmPassword: string): Promise<LoginResponse> {
-    const response = await this.post<LoginResponse>(`${this.basePath}/staff/complete-registration`, {
-      token,
-      password,
-      confirm_password: confirmPassword
-    });
+    console.log('Complete staff registration (bypassed):', { token, password, confirmPassword });
     
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
+    const mockResponse: LoginResponse = {
+      token: 'mock-jwt-token',
+      refreshToken: 'mock-refresh-token',
+      user: {
+        ...MOCK_USER,
+        role: 'staff',
+      },
+    };
+    
+    if (mockResponse.token) {
+      localStorage.setItem('token', mockResponse.token);
+      localStorage.setItem('refreshToken', mockResponse.refreshToken);
+      localStorage.setItem('user', JSON.stringify(mockResponse.user));
     }
     
-    return response;
+    return mockResponse;
   }
 
   async resendStaffInvitation(email: string): Promise<{ message: string }> {
-    return this.post<{ message: string }>(`${this.basePath}/staff/resend-invitation`, { email });
+    console.log('Resend staff invitation (bypassed):', email);
+    return { message: 'Invitation resent successfully' };
   }
 
   // ===============================
@@ -168,16 +222,13 @@ class AuthService extends ApiService {
   // ===============================
 
   async submitProfessionalVerification(data: ProfessionalVerificationSubmitData): Promise<{ message: string }> {
-    const response = await this.post<{ message: string }>(`${this.basePath}/submit-professional-verification`, data);
-    
-    const updatedUser = await this.getCurrentUser();
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    
-    return response;
+    console.log('Submit professional verification (bypassed):', data);
+    return { message: 'Verification submitted successfully' };
   }
 
   async getProfessionalVerificationStatus(): Promise<{ status: string; rejection_reason?: string }> {
-    return this.get<{ status: string; rejection_reason?: string }>(`${this.basePath}/professional-verification-status`);
+    console.log('Get professional verification status (bypassed)');
+    return { status: 'approved' };
   }
 
   // ===============================
@@ -185,16 +236,13 @@ class AuthService extends ApiService {
   // ===============================
 
   async verifyEmail(data: VerifyEmailData): Promise<{ message: string }> {
-    const response = await this.post<{ message: string }>(`${this.basePath}/verify-email`, data);
-    
-    const updatedUser = await this.getCurrentUser();
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    
-    return response;
+    console.log('Verify email (bypassed):', data);
+    return { message: 'Email verified successfully' };
   }
 
   async resendVerificationCode(data: ResendVerificationData): Promise<{ message: string }> {
-    return this.post<{ message: string }>(`${this.basePath}/resend-verification`, data);
+    console.log('Resend verification code (bypassed):', data);
+    return { message: 'Verification code sent' };
   }
 
   // ===============================
@@ -202,18 +250,18 @@ class AuthService extends ApiService {
   // ===============================
 
   async forgotPassword(data: ForgotPasswordData): Promise<{ message: string }> {
-    return this.post<{ message: string }>(`${this.basePath}/forgot-password`, data);
+    console.log('Forgot password (bypassed):', data);
+    return { message: 'Password reset link sent to your email' };
   }
 
   async resetPassword(data: ResetPasswordData): Promise<{ message: string }> {
-    return this.post<{ message: string }>(`${this.basePath}/reset-password`, data);
+    console.log('Reset password (bypassed):', data);
+    return { message: 'Password reset successfully' };
   }
 
   async changePassword(oldPassword: string, newPassword: string): Promise<{ message: string }> {
-    return this.post<{ message: string }>(`${this.basePath}/change-password`, {
-      oldPassword,
-      newPassword,
-    });
+    console.log('Change password (bypassed):', { oldPassword, newPassword });
+    return { message: 'Password changed successfully' };
   }
 
   // ===============================
@@ -221,22 +269,11 @@ class AuthService extends ApiService {
   // ===============================
 
   async refreshToken(): Promise<RefreshTokenResponse> {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const response = await this.post<RefreshTokenResponse>(
-      `${this.basePath}/refresh-token`,
-      { refreshToken }
-    );
-
-    if (response.token) {
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-    }
-
-    return response;
+    console.log('Refresh token (bypassed)');
+    return {
+      token: 'mock-refreshed-jwt-token',
+      refreshToken: 'mock-refreshed-refresh-token',
+    };
   }
 
   // ===============================
@@ -244,24 +281,24 @@ class AuthService extends ApiService {
   // ===============================
 
   async getCurrentUser(): Promise<AuthUser> {
+    console.log('Get current user (bypassed)');
     const cachedUser = localStorage.getItem('user');
     if (cachedUser) {
       try {
         return JSON.parse(cachedUser);
       } catch (e) {
-        // Invalid JSON, continue to API call
+        // Invalid JSON, return mock user
       }
     }
-    
-    const user = await this.get<AuthUser>(`${this.basePath}/me`);
-    localStorage.setItem('user', JSON.stringify(user));
-    return user;
+    return MOCK_USER;
   }
 
   async updateProfile(data: Partial<AuthUser>): Promise<AuthUser> {
-    const user = await this.put<AuthUser>(`${this.basePath}/profile`, data);
-    localStorage.setItem('user', JSON.stringify(user));
-    return user;
+    console.log('Update profile (bypassed):', data);
+    const currentUser = this.getCurrentUserSync() || MOCK_USER;
+    const updatedUser = { ...currentUser, ...data };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    return updatedUser;
   }
 
   // ===============================
@@ -269,23 +306,52 @@ class AuthService extends ApiService {
   // ===============================
 
   async getStaffMembers(employerId: number, employerType: string): Promise<AuthUser[]> {
-    return this.get<AuthUser[]>(`${this.basePath}/staff?employerId=${employerId}&employerType=${employerType}`);
+    console.log('Get staff members (bypassed):', { employerId, employerType });
+    return [
+      {
+        ...MOCK_USER,
+        id: 1,
+        first_name: 'John',
+        last_name: 'Doe',
+        email: 'john.doe@example.com',
+        role: 'staff',
+        staff_sub_role: 'lab assistant',
+      },
+      {
+        ...MOCK_USER,
+        id: 2,
+        first_name: 'Jane',
+        last_name: 'Smith',
+        email: 'jane.smith@example.com',
+        role: 'staff',
+        staff_sub_role: 'card_checker',
+      },
+    ];
   }
 
   async updateStaffRole(staffId: number, role: StaffSubRole): Promise<AuthUser> {
-    return this.put<AuthUser>(`${this.basePath}/staff/${staffId}/role`, { role });
+    console.log('Update staff role (bypassed):', { staffId, role });
+    return {
+      ...MOCK_USER,
+      id: staffId,
+      role: 'staff',
+      staff_sub_role: role,
+    };
   }
 
   async deactivateStaff(staffId: number): Promise<{ message: string }> {
-    return this.post<{ message: string }>(`${this.basePath}/staff/${staffId}/deactivate`, {});
+    console.log('Deactivate staff (bypassed):', staffId);
+    return { message: 'Staff deactivated successfully' };
   }
 
   async activateStaff(staffId: number): Promise<{ message: string }> {
-    return this.post<{ message: string }>(`${this.basePath}/staff/${staffId}/activate`, {});
+    console.log('Activate staff (bypassed):', staffId);
+    return { message: 'Staff activated successfully' };
   }
 
   async deleteStaff(staffId: number): Promise<{ message: string }> {
-    return this.delete<{ message: string }>(`${this.basePath}/staff/${staffId}`);
+    console.log('Delete staff (bypassed):', staffId);
+    return { message: 'Staff deleted successfully' };
   }
 
   // ===============================
@@ -293,16 +359,16 @@ class AuthService extends ApiService {
   // ===============================
 
   isAuthenticated(): boolean {
-    const token = localStorage.getItem('token');
-    return !!token;
+    // Always return true for development
+    return true;
   }
 
   getToken(): string | null {
-    return localStorage.getItem('token');
+    return localStorage.getItem('token') || 'mock-jwt-token';
   }
 
   getRefreshToken(): string | null {
-    return localStorage.getItem('refreshToken');
+    return localStorage.getItem('refreshToken') || 'mock-refresh-token';
   }
 
   getCurrentUserSync(): AuthUser | null {
@@ -311,10 +377,10 @@ class AuthService extends ApiService {
       try {
         return JSON.parse(user);
       } catch (e) {
-        return null;
+        return MOCK_USER;
       }
     }
-    return null;
+    return MOCK_USER;
   }
 
   hasRole(role: UserRole | UserRole[]): boolean {
@@ -342,7 +408,8 @@ class AuthService extends ApiService {
   getEmployerInfo(): { id: number; type: ProviderType } | null {
     const user = this.getCurrentUserSync();
     if (user?.role !== 'staff' || !user.employer_id || !user.employer_type) {
-      return null;
+      // Return mock employer info for development
+      return { id: 1, type: 'clinic' };
     }
     return {
       id: user.employer_id,
@@ -351,15 +418,8 @@ class AuthService extends ApiService {
   }
 
   shouldRedirectToProfessionalVerification(): boolean {
-    const user = this.getCurrentUserSync();
-    if (!user) return false;
-    
-    if (user.role !== 'doctor' && user.role !== 'clinic' && user.role !== 'diagnostic_center') {
-      return false;
-    }
-    
-    const status = user.professional_verification_status;
-    return !status || status === 'pending' || status === 'rejected';
+    // Always return false for development
+    return false;
   }
 }
 

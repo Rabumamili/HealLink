@@ -1,6 +1,7 @@
 // types/entities/notification.types.ts
 
 import { AppointmentStatus } from './appointment.types';
+import type { AuthUser, UserRole } from './auth.types';
 
 // ======================================================
 // ENUMS & TYPES
@@ -119,7 +120,8 @@ export interface MarkAllNotificationsReadDTO {
 // FILTERS
 // ======================================================
 
-export interface NotificationFilters {
+/** Query filters for listing notifications (API + store). */
+export interface NotificationQueryFilters {
   recipientId?: number;
 
   recipientType?: NotificationRecipientType;
@@ -135,6 +137,9 @@ export interface NotificationFilters {
 
   searchTerm?: string;
 }
+
+/** @deprecated Use NotificationQueryFilters */
+export type NotificationFilters = NotificationQueryFilters;
 
 // ======================================================
 // ENRICHED NOTIFICATION
