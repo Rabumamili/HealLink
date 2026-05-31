@@ -10,7 +10,7 @@ import {
   BulkSlotCreateDTO
 } from '@/types/entities/schedule.types';
 import { scheduleService } from '@/services/schedule.service';
-import { toast } from 'sonner';
+//import { toast } from 'sonner';
 
 interface ScheduleState {
   slots: TimeSlot[];
