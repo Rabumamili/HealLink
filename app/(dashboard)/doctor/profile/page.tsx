@@ -1,3 +1,4 @@
+// app/(dashboard)/doctor/profile/page.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -33,6 +34,7 @@ import {
   BadgeCheck,
   LogOut,
   Upload,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
@@ -44,6 +46,7 @@ export default function DoctorProfilePage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const licenseInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,7 +56,7 @@ export default function DoctorProfilePage() {
     loading,
     uploadLoading,
     passwordLoading,
-    deleteLoading,
+    deleteLoading: storeDeleteLoading,
     loadDoctorProfile,
     updateDoctor,
     uploadPhoto,
@@ -75,7 +78,7 @@ export default function DoctorProfilePage() {
   useEffect(() => {
     loadDoctorProfile();
     loadDoctorStatistics();
-  }, [loadDoctorProfile, loadDoctorStatistics]);
+  }, []);
 
   useEffect(() => {
     if (profile && "full_name" in profile && (profile as DoctorProfile).role === "doctor") {
@@ -98,7 +101,12 @@ export default function DoctorProfilePage() {
 
   const handleSave = async () => {
     const updated = await updateDoctor(formData);
-    if (updated) setIsEditing(false);
+    if (updated) {
+      setIsEditing(false);
+      toast.success("Profile updated successfully");
+    } else {
+      toast.error("Failed to update profile");
+    }
   };
 
   const handlePasswordChange = async () => {
@@ -113,28 +121,53 @@ export default function DoctorProfilePage() {
     const success = await updatePassword(passwordData);
     if (success) {
       setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
+      toast.success("Password changed successfully");
+    } else {
+      toast.error("Failed to change password");
     }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      await uploadPhoto(file);
-      await loadDoctorProfile();
+      const url = await uploadPhoto(file);
+      if (url) {
+        await loadDoctorProfile();
+        toast.success("Profile photo updated");
+      } else {
+        toast.error("Failed to upload photo");
+      }
     }
   };
 
   const handleLicenseUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      await uploadLicense(file);
-      await loadDoctorProfile();
+      const url = await uploadLicense(file);
+      if (url) {
+        await loadDoctorProfile();
+        toast.success("License document uploaded");
+      } else {
+        toast.error("Failed to upload document");
+      }
     }
   };
 
   const handleDeleteAccount = async () => {
-    const success = await removeAccount();
-    if (success) logout();
+    setIsDeleting(true);
+    try {
+      const success = await removeAccount();
+      if (success) {
+        toast.success("Account deleted successfully");
+        logout();
+      } else {
+        toast.error("Failed to delete account");
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting account");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const doctorProfile = profile as DoctorProfile | null;
@@ -164,7 +197,7 @@ export default function DoctorProfilePage() {
     return (
       <div className="max-w-[1280px] mx-auto flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#006767] mx-auto" />
+          <Loader2 className="animate-spin rounded-full h-12 w-12 text-[#006767] mx-auto" />
           <p className="mt-4 text-[#3d4949]">Loading profile...</p>
         </div>
       </div>
@@ -172,17 +205,14 @@ export default function DoctorProfilePage() {
   }
 
   return (
-    <div className="max-w-[1280px] mx-auto space-y-8">
+    <div className="max-w-[1280px] mx-auto space-y-8 pb-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#0b1c30] mb-2">Doctor Profile</h1>
           <p className="text-[#3d4949] text-base">Manage your professional information and account security.</p>
         </div>
-        <Button variant="destructive" onClick={logout} className="flex items-center gap-2">
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Button>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -200,16 +230,21 @@ export default function DoctorProfilePage() {
                         ?.split(" ")
                         .map((n) => n[0])
                         .join("")
-                        .slice(0, 2)}
+                        .slice(0, 2)
+                        .toUpperCase() || "D"}
                     </AvatarFallback>
                   </Avatar>
                 </div>
                 <button
                   onClick={() => photoInputRef.current?.click()}
                   disabled={uploadLoading}
-                  className="absolute bottom-1 right-1 bg-[#006767] text-white p-2 rounded-full shadow-lg border-2 border-white hover:scale-105 transition-transform"
+                  className="absolute bottom-1 right-1 bg-[#006767] text-white p-2 rounded-full shadow-lg border-2 border-white hover:scale-105 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Camera className="h-4 w-4" />
+                  {uploadLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
                 </button>
                 <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
               </div>
@@ -235,10 +270,16 @@ export default function DoctorProfilePage() {
                     className={`px-3 py-1 rounded-full text-xs font-bold ${
                       doctorProfile?.verification_status === "verified"
                         ? "bg-green-100 text-green-700"
+                        : doctorProfile?.verification_status === "rejected"
+                        ? "bg-red-100 text-red-700"
                         : "bg-yellow-100 text-yellow-700"
                     }`}
                   >
-                    {doctorProfile?.verification_status ?? "Pending"}
+                    {doctorProfile?.verification_status === "verified" 
+                      ? "Verified" 
+                      : doctorProfile?.verification_status === "rejected"
+                      ? "Rejected"
+                      : "Pending"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -328,11 +369,16 @@ export default function DoctorProfilePage() {
               <div className="flex justify-end mt-6">
                 <Button
                   onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-                  className="bg-[#006767] text-white px-8 py-3 rounded-xl hover:shadow-lg transition-all"
+                  className="bg-[#006767] text-white px-8 py-3 rounded-xl hover:bg-[#005555] hover:shadow-lg transition-all"
+                  disabled={isEditing && passwordLoading}
                 >
                   {isEditing ? (
                     <>
-                      <Save className="h-4 w-4 mr-2" />
+                      {passwordLoading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
                       Save Changes
                     </>
                   ) : (
@@ -385,7 +431,7 @@ export default function DoctorProfilePage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Consultation Fee</Label>
+                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Consultation Fee ($)</Label>
                   <Input
                     type="number"
                     value={formData.consultation_fee ?? ""}
@@ -445,14 +491,14 @@ export default function DoctorProfilePage() {
                 <Upload className="h-5 w-5 text-[#006767]" />
                 <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Documents</CardTitle>
               </div>
-              <CardDescription>Upload your professional documents for verification</CardDescription>
+              <CardDescription>Update your professional documents for verification</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-[#F1F5F9] rounded-xl">
                 <div>
                   <p className="text-sm font-medium text-[#0b1c30]">License Document</p>
                   <p className="text-xs text-[#3d4949]">
-                    {doctorProfile?.license_document_url ? "Uploaded" : "Not uploaded"}
+                    {doctorProfile?.license_document ? "Uploaded" : "Not uploaded"}
                   </p>
                 </div>
                 <Button
@@ -460,9 +506,13 @@ export default function DoctorProfilePage() {
                   size="sm"
                   disabled={uploadLoading}
                   onClick={() => licenseInputRef.current?.click()}
-                  className="border-[#006767] text-[#006767]"
+                  className="border-[#006767] text-[#006767] hover:bg-[#006767] hover:text-white transition-colors"
                 >
-                  <Upload className="h-4 w-4 mr-2" />
+                  {uploadLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-2" />
+                  )}
                   Upload
                 </Button>
                 <input ref={licenseInputRef} type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={handleLicenseUpload} />
@@ -508,7 +558,7 @@ export default function DoctorProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949] hover:text-[#006767] transition-colors"
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -528,7 +578,7 @@ export default function DoctorProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949] hover:text-[#006767] transition-colors"
                       >
                         {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -549,7 +599,7 @@ export default function DoctorProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949]"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#3d4949] hover:text-[#006767] transition-colors"
                       >
                         {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -561,9 +611,13 @@ export default function DoctorProfilePage() {
                     onClick={handlePasswordChange}
                     disabled={passwordLoading}
                     variant="outline"
-                    className="border-2 border-[#006767] text-[#006767] px-8 py-3 rounded-xl hover:bg-[#006767]/5"
+                    className="border-2 border-[#006767] text-[#006767] px-8 py-3 rounded-xl hover:bg-[#006767] hover:text-white transition-all"
                   >
-                    <Key className="h-4 w-4 mr-2" />
+                    {passwordLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Key className="h-4 w-4 mr-2" />
+                    )}
                     Update Security
                   </Button>
                 </div>
@@ -583,23 +637,41 @@ export default function DoctorProfilePage() {
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" disabled={deleteLoading} className="bg-red-600 hover:bg-red-700">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Account
+                    <Button 
+                      variant="destructive" 
+                      disabled={isDeleting || storeDeleteLoading}
+                      className="bg-red-600 hover:bg-red-700 text-white font-medium px-6 py-2 rounded-lg transition-all"
+                    >
+                      {isDeleting || storeDeleteLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete Account
+                        </>
+                      )}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogTitle className="text-red-600">Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete your account and remove all
-                        your data from our servers.
+                        your data from our servers. All your patients, appointments, and professional data will be lost forever.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteAccount} className="bg-red-600">
-                        Delete Account
+                      <AlertDialogCancel className="border-gray-300 hover:bg-gray-100">
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleDeleteAccount} 
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        Yes, delete my account
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

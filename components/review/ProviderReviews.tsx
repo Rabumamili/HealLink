@@ -1,120 +1,167 @@
-// components/review/WriteReviewDialog.tsx
-"use client"
+// components/reviews/ProviderReviewCard.tsx
+'use client';
 
-import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { StarRating } from "./StarRating"
-import { Stethoscope, Building2, FlaskConical } from "lucide-react"
+import { Card, CardContent } from '@/components/ui/card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { StarRating } from './StarRating';
+import { Calendar, MessageSquare, Building2, Stethoscope, FlaskConical, Edit2, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-interface PendingProvider {
-  id: string
-  name: string
-  providerType: "doctor" | "clinic" | "diagnostic_center"
-  specialty: string
-  service: string
-  visitDate: string
-  location: string
+interface ProviderReviewCardProps {
+  review: {
+    review_id?: number;
+    id?: number;
+    rating: number;
+    comment?: string;
+    created_at: string;
+    provider?: {
+      name: string;
+      provider_type: string;
+    };
+    patient?: {
+      first_name: string;
+      last_name: string;
+    };
+    service_name?: string;
+  };
+  variant?: 'clinic' | 'diagnostic' | 'doctor' | 'patient';
+  showActions?: boolean;
+  onEdit?: (review: any) => void;
+  onDelete?: (review: any) => void;
+  isPast?: boolean;
 }
 
-interface WriteReviewDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  provider: PendingProvider | null
-  onSubmit: (rating: number, comment: string) => Promise<boolean>
-}
-
-const providerTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+const providerIcons = {
   doctor: Stethoscope,
   clinic: Building2,
   diagnostic_center: FlaskConical,
-}
+};
 
-export function WriteReviewDialog({ open, onOpenChange, provider, onSubmit }: WriteReviewDialogProps) {
-  const [rating, setRating] = useState(0)
-  const [comment, setComment] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+const providerColors = {
+  doctor: 'from-teal-500 to-cyan-500',
+  clinic: 'from-[#008282] to-[#00a0a0]',
+  diagnostic_center: 'from-violet-500 to-indigo-500',
+  patient: 'from-blue-500 to-cyan-500',
+};
 
-  const handleSubmit = async () => {
-    if (rating === 0) return
-    
-    setIsSubmitting(true)
-    const success = await onSubmit(rating, comment)
-    setIsSubmitting(false)
-    
-    if (success) {
-      handleReset()
-      onOpenChange(false)
+export function ProviderReviewCard({ review, variant = 'clinic', showActions = false, onEdit, onDelete, isPast = false }: ProviderReviewCardProps) {
+  const formattedDate = new Date(review.created_at).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  const getInitials = () => {
+    if (variant === 'patient' && review.provider) {
+      return review.provider.name?.charAt(0) || 'P';
     }
-  }
+    if (review.patient) {
+      return `${review.patient.first_name?.charAt(0) || ''}${review.patient.last_name?.charAt(0) || ''}`.toUpperCase();
+    }
+    return 'U';
+  };
 
-  const handleReset = () => {
-    setRating(0)
-    setComment("")
-  }
+  const getName = () => {
+    if (variant === 'patient' && review.provider) {
+      return review.provider.name;
+    }
+    if (review.patient) {
+      return `${review.patient.first_name} ${review.patient.last_name}`;
+    }
+    return 'Anonymous';
+  };
 
-  if (!provider) return null
+  const getProviderTypeLabel = () => {
+    if (variant === 'patient' && review.provider) {
+      const types: Record<string, string> = {
+        doctor: 'Doctor',
+        clinic: 'Clinic',
+        diagnostic_center: 'Diagnostic Center'
+      };
+      return types[review.provider.provider_type] || 'Provider';
+    }
+    return null;
+  };
 
-  const ProviderIcon = providerTypeIcons[provider.providerType]
+  const Icon = variant !== 'patient' && review.provider ? providerIcons[review.provider.provider_type as keyof typeof providerIcons] : null;
+  const gradient = variant !== 'patient' && review.provider ? providerColors[review.provider.provider_type as keyof typeof providerColors] : providerColors.patient;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Write a Review</DialogTitle>
-          <DialogDescription>
-            Share your experience with {provider.name}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-6 py-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-14 w-14">
-              <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                <ProviderIcon className="h-6 w-6" />
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{provider.name}</p>
-              <p className="text-sm text-muted-foreground">{provider.service}</p>
-              <p className="text-xs text-muted-foreground">{provider.visitDate}</p>
-            </div>
-          </div>
+    <Card className={cn(
+      "border-slate-200 shadow-sm hover:shadow-md transition-all duration-200",
+      isPast && "opacity-75"
+    )}>
+      <CardContent className="pt-6">
+        <div className="flex items-start gap-4">
+          <Avatar className="h-12 w-12 rounded-xl">
+            <AvatarFallback className={cn('bg-gradient-to-br text-white text-lg', gradient)}>
+              {getInitials()}
+            </AvatarFallback>
+          </Avatar>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Your Rating</label>
-            <div className="flex justify-center py-2">
-              <StarRating rating={rating} onRatingChange={setRating} interactive size="large" />
+          <div className="flex-1">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h4 className="font-semibold text-slate-800 text-lg">{getName()}</h4>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <StarRating rating={review.rating} size="sm" readonly />
+                  <span className="text-xs text-slate-400">{formattedDate}</span>
+                  {getProviderTypeLabel() && (
+                    <>
+                      <span className="text-xs text-slate-300">•</span>
+                      <Badge variant="outline" className="text-xs bg-[#008282]/5 text-[#008282] border-[#008282]/10">
+                        {getProviderTypeLabel()}
+                      </Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+              {showActions && (
+                <div className="flex gap-2">
+                  {onEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEdit(review)}
+                      className="h-8 w-8 p-0 text-slate-500 hover:text-[#008282]"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDelete(review)}
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Your Review</label>
-            <Textarea
-              placeholder="Tell others about your experience..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              rows={4}
-            />
+            {review.comment && (
+              <div className="mt-4 rounded-xl bg-slate-50 p-4 border border-slate-100">
+                <div className="flex items-start gap-2">
+                  <MessageSquare className="h-4 w-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-slate-700 text-sm leading-relaxed">{review.comment}</p>
+                </div>
+              </div>
+            )}
+
+            {review.service_name && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+                <Calendar className="h-3 w-3" />
+                <span>Service: {review.service_name}</span>
+              </div>
+            )}
           </div>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={rating === 0 || isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit Review"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
+      </CardContent>
+    </Card>
+  );
 }

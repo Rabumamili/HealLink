@@ -1,9 +1,11 @@
+// components/auth/DiagnosticRegisterForm.tsx
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import {
   RegisterFormShell,
@@ -27,6 +29,8 @@ interface FormData {
   center_tin_number: string;
   center_accreditation: string;
   services_description: string;
+  operating_hours: string;
+  established_year: string;
   password: string;
   confirmPassword: string;
 }
@@ -34,14 +38,16 @@ interface FormData {
 export const DiagnosticRegisterForm = () => {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { registerProvider, isRegistering } = useAuth();
+  const { registerDiagnosticCenter, verifyEmail, resendVerificationCode, submitProfessionalVerification, isLoading } = useAuth();
   const [step, setStep] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [registrationFile, setRegistrationFile] = useState<File | null>(null);
+  const [license_document, setlicense_document] = useState<File | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
+  const [showVerificationCheckbox, setShowVerificationCheckbox] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: '',
     center_name: '',
@@ -51,6 +57,8 @@ export const DiagnosticRegisterForm = () => {
     center_tin_number: '',
     center_accreditation: '',
     services_description: '',
+    operating_hours: '',
+    established_year: '',
     password: '',
     confirmPassword: '',
   });
@@ -85,28 +93,34 @@ export const DiagnosticRegisterForm = () => {
       setError('Password must be at least 6 characters');
       return;
     }
-    if (!registrationFile) {
+    if (!license_document) {
       setError('Please upload your center registration document');
       return;
     }
 
     setError(null);
+    setIsSubmitting(true);
 
     try {
-      const submitFormData = new FormData();
-      Object.entries(formData).forEach(([key, value]) => {
-        submitFormData.append(key, String(value));
+      await registerDiagnosticCenter({
+        email: formData.email,
+        password: formData.password,
+        full_name: formData.center_name,
+        phone_number: formData.center_phone,
+        role: 'diagnostic_center',
+        address: formData.center_address,
+        license_number: formData.center_license_number,
+        tin_number: formData.center_tin_number,
+        license_document: license_document,
       });
-      submitFormData.append('role', 'diagnostic_admin');
-      submitFormData.append('registration_document', registrationFile);
-
-      await registerProvider(submitFormData, 'diagnostic_center');
       
       toast.success('Verification code sent to your email');
       setStep(2);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Registration failed';
       setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -117,28 +131,58 @@ export const DiagnosticRegisterForm = () => {
     }
 
     setError(null);
+    setIsSubmitting(true);
 
     try {
-      const { verifyEmail } = useAuth();
       await verifyEmail({ email: formData.email, code: verificationCode });
-      toast.success('Email verified successfully! Please login.');
-      router.push('/login?verified=true');
+      toast.success('Email verified! Please complete professional verification');
+      setStep(3);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Verification failed';
       setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleProfessionalVerification = async () => {
+    if (!showVerificationCheckbox) {
+      setError('Please confirm that all information is accurate');
+      return;
+    }
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await submitProfessionalVerification({
+        role: 'diagnostic_center',
+        license_number: formData.center_license_number,
+        tin_number: formData.center_tin_number,
+      });
+      
+      toast.success('Professional verification submitted for review');
+      router.push('/professional-verification-status');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Submission failed';
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleResendCode = async () => {
     if (resendTimer > 0) return;
+    setIsSubmitting(true);
     try {
-      const { resendVerificationCode } = useAuth();
-      await resendVerificationCode(formData.email);
+      await resendVerificationCode({ email: formData.email });
       toast.success('Verification code resent');
       setResendTimer(60);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to resend code';
       setError(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -155,15 +199,25 @@ export const DiagnosticRegisterForm = () => {
         'Digital test reporting',
         'Integrated EMR system',
       ]}
-      title={step === 1 ? 'Diagnostic Center Registration' : 'Verify Your Email'}
+      title={
+        step === 1 ? 'Diagnostic Center Registration' :
+        step === 2 ? 'Verify Your Email' :
+        'Professional Verification'
+      }
       subtitle={
         step === 1
           ? 'Register your diagnostic facility to join HealLink.'
-          : `We've sent a verification code to ${formData.email}`
+          : step === 2
+          ? `We've sent a verification code to ${formData.email}`
+          : 'Confirm your professional information before submission'
       }
-      stepBadge={step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}
+      stepBadge={
+        step === 1 ? 'Step 1 of 3' :
+        step === 2 ? 'Step 2 of 3' :
+        'Step 3 of 3'
+      }
     >
-      {step === 1 ? (
+      {step === 1 && (
         <div className="space-y-5 sm:space-y-6 md:space-y-7">
           {error && <ErrorBanner message={error} />}
 
@@ -216,6 +270,52 @@ export const DiagnosticRegisterForm = () => {
                 </div>
 
                 <div className="space-y-1.5">
+                  <label className={labelClass}>Operating Hours *</label>
+                  <div className="relative group">
+                    <input
+                      className={inputClass}
+                      placeholder="8:00 AM - 8:00 PM"
+                      type="text"
+                      value={formData.operating_hours}
+                      onChange={(e) => update('operating_hours', e.target.value)}
+                    />
+                    <InputFieldIcon name="schedule" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Services Description - Full width */}
+              <div className="space-y-1.5">
+                <label className={labelClass}>Services Description *</label>
+                <textarea
+                  className={`${inputClass} resize-none min-h-[72px] sm:min-h-[80px]`}
+                  placeholder="X-ray, MRI, Blood Tests, Ultrasound, CT Scan, etc."
+                  rows={2}
+                  value={formData.services_description}
+                  onChange={(e) => update('services_description', e.target.value)}
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  List the main diagnostic services you provide
+                </p>
+              </div>
+
+              {/* Established Year and Accreditation */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Established Year</label>
+                  <div className="relative group">
+                    <input
+                      className={inputClass}
+                      placeholder="2020"
+                      type="text"
+                      value={formData.established_year}
+                      onChange={(e) => update('established_year', e.target.value)}
+                    />
+                    <InputFieldIcon name="badge" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
                   <label className={labelClass}>Accreditation</label>
                   <div className="relative group">
                     <input
@@ -231,21 +331,6 @@ export const DiagnosticRegisterForm = () => {
                     Optional: Include relevant accreditations
                   </p>
                 </div>
-              </div>
-
-              {/* Services Description - Full width */}
-              <div className="space-y-1.5">
-                <label className={labelClass}>Services Description</label>
-                <textarea
-                  className={`${inputClass} resize-none min-h-[72px] sm:min-h-[80px]`}
-                  placeholder="X-ray, MRI, Blood Tests, Ultrasound, CT Scan, etc."
-                  rows={2}
-                  value={formData.services_description}
-                  onChange={(e) => update('services_description', e.target.value)}
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  List the main diagnostic services you provide
-                </p>
               </div>
             </div>
           </div>
@@ -283,11 +368,11 @@ export const DiagnosticRegisterForm = () => {
               <div className="space-y-1.5">
                 <label className={labelClass}>Registration Document *</label>
                 <FileUploadZone
-                  fileName={registrationFile?.name ?? null}
+                  fileName={license_document?.name ?? null}
                   emptyLabel="Upload Registration Certificate (PDF, JPG, PNG) *"
                   onClick={() => fileInputRef.current?.click()}
                   inputRef={fileInputRef}
-                  onChange={(e) => setRegistrationFile(e.target.files?.[0] || null)}
+                  onChange={(e) => setlicense_document(e.target.files?.[0] || null)}
                 />
                 <p className="text-xs text-slate-500 mt-1">
                   Accepted formats: PDF, JPG, PNG (Max 5MB)
@@ -370,13 +455,15 @@ export const DiagnosticRegisterForm = () => {
               type="button"
               label="Register Diagnostic Center"
               loadingLabel="Submitting..."
-              isLoading={isRegistering}
+              isLoading={isSubmitting}
               onClick={handleNext}
             />
             <LoginLink />
           </div>
         </div>
-      ) : (
+      )}
+
+      {step === 2 && (
         <VerificationStep
           email={formData.email}
           verificationCode={verificationCode}
@@ -388,9 +475,87 @@ export const DiagnosticRegisterForm = () => {
             setError(null);
           }}
           onVerify={handleVerify}
-          isLoading={isRegistering}
+          isLoading={isSubmitting}
           error={error}
         />
+      )}
+
+      {step === 3 && (
+        <div className="space-y-6">
+          {error && <ErrorBanner message={error} />}
+          
+          <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                  <span className="text-amber-600 text-sm font-bold">!</span>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-amber-800 mb-2">Important Notice</h3>
+                <p className="text-sm text-amber-700 mb-3">
+                  By submitting this verification, you confirm that all provided information is accurate and complete. 
+                  Falsifying information may result in rejection or legal consequences.
+                </p>
+                <div className="bg-white rounded p-3 space-y-2">
+                  <div className="flex items-start gap-2 text-sm text-gray-600">
+                    <Check className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span>License Number: <strong>{formData.center_license_number}</strong></span>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-gray-600">
+                    <Check className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span>TIN Number: <strong>{formData.center_tin_number}</strong></span>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-gray-600">
+                    <Check className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span>Center Name: <strong>{formData.center_name}</strong></span>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm text-gray-600">
+                    <Check className="h-4 w-4 text-green-600 mt-0.5" />
+                    <span>Address: <strong>{formData.center_address}</strong></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showVerificationCheckbox}
+              onChange={(e) => setShowVerificationCheckbox(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+            />
+            <span className="text-sm text-gray-700">
+              I confirm that all information provided is true, accurate, and complete. 
+              I understand that providing false information may result in immediate rejection 
+              and potential legal action.
+            </span>
+          </label>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setStep(2);
+                setError(null);
+              }}
+              className="flex-1"
+              disabled={isSubmitting}
+            >
+              Back
+            </Button>
+            <Button
+              type="button"
+              onClick={handleProfessionalVerification}
+              disabled={isSubmitting}
+              className="flex-1 bg-gradient-to-r from-teal-700 to-cyan-600"
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit for Verification'}
+            </Button>
+          </div>
+        </div>
       )}
     </RegisterFormShell>
   );

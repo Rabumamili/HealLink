@@ -1,3 +1,4 @@
+// components/common/sidebar.tsx
 "use client"
 
 import Link from "next/link"
@@ -17,6 +18,11 @@ import {
   Stethoscope,
   FlaskRound as Flask,
   X,
+  FlaskConical,
+  CheckCircle,
+  Settings,
+  User,
+  Activity,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -29,7 +35,7 @@ interface SidebarItem {
 }
 
 interface CommonSidebarProps {
-  role: "doctor" | "clinicAdmin" | "diagnosticCenter" | "patient"
+  role: "doctor" | "clinic" | "diagnosticCenter" | "patient" | "staff"
   isMobile: boolean
   isOpen: boolean
   portalName: string
@@ -49,26 +55,25 @@ const getSidebarItems = (role: string): SidebarItem[] => {
       { name: "Analytics", href: "/doctor/analytics", icon: BarChart3 },
       { name: "Reviews", href: "/doctor/reviews", icon: Star },
     ],
-    clinicAdmin: [
-      { name: "Dashboard", href: "/clinicAdmin/dashboard", icon: LayoutDashboard },
-      { name: "Services", href: "/clinicAdmin/services", icon: Building2 },
-      { name: "Appointments", href: "/clinicAdmin/appointments", icon: Calendar },
-      { name: "Schedule", href: "/clinicAdmin/schedule", icon: Clock },
-      { name: "Check-in", href: "/clinicAdmin/checkin", icon: UserPlus },
-      { name: "Staff", href: "/clinicAdmin/staff", icon: Users },
-      { name: "Analytics", href: "/clinicAdmin/analytics", icon: BarChart3 },
-      { name: "Reviews", href: "/clinicAdmin/reviews", icon: Star },
+    clinic: [
+      { name: "Dashboard", href: "/clinic/dashboard", icon: LayoutDashboard },
+      { name: "Services", href: "/clinic/services", icon: Building2 },
+      { name: "Appointments", href: "/clinic/appointments", icon: Calendar },
+      { name: "Schedule", href: "/clinic/schedule", icon: Clock },
+      { name: "Check-in", href: "/clinic/checkin", icon: UserPlus },
+      { name: "Staff", href: "/clinic/staff", icon: Users },
+      { name: "Analytics", href: "/clinic/analytics", icon: BarChart3 },
+      { name: "Reviews", href: "/clinic/reviews", icon: Star },
     ],
     diagnosticCenter: [
-      { name: "Dashboard", href: "/diagnosticCenterAdmin/dashboard", icon: LayoutDashboard },
-      { name: "Appointments", href: "/diagnosticCenterAdmin/appointments", icon: Calendar },
-      { name: "Tests", href: "/diagnosticCenterAdmin/services", icon: Flask },
-      { name: "Schedule", href: "/diagnosticCenterAdmin/schedule", icon: Clock },
-      { name: "Check-in", href: "/diagnosticCenterAdmin/checkin", icon: UserPlus },
-      { name: "Staff", href: "/diagnosticCenterAdmin/staff", icon: Users },
-      { name: "Analytics", href: "/diagnosticCenterAdmin/analytics", icon: BarChart3 },
-      { name: "Reviews", href: "/diagnosticCenterAdmin/reviews", icon: Star },
-      
+      { name: "Dashboard", href: "/diagnosticCenter/dashboard", icon: LayoutDashboard },
+      { name: "Appointments", href: "/diagnosticCenter/appointments", icon: Calendar },
+      { name: "Tests", href: "/diagnosticCenter/services", icon: Flask },
+      { name: "Schedule", href: "/diagnosticCenter/schedule", icon: Clock },
+      { name: "Check-in", href: "/diagnosticCenter/checkin", icon: UserPlus },
+      { name: "Staff", href: "/diagnosticCenter/staff", icon: Users },
+      { name: "Analytics", href: "/diagnosticCenter/analytics", icon: BarChart3 },
+      { name: "Reviews", href: "/diagnosticCenter/reviews", icon: Star },
     ],
     patient: [
       { name: "Dashboard", href: "/patient/dashboard", icon: LayoutDashboard },
@@ -78,6 +83,12 @@ const getSidebarItems = (role: string): SidebarItem[] => {
       { name: "Results", href: "/patient/results", icon: FileText },
       { name: "Payments", href: "/patient/payments", icon: CreditCard },
       { name: "Reviews", href: "/patient/reviews", icon: Star },
+    ],
+    staff: [
+      { name: "Dashboard", href: "/staff/dashboard", icon: LayoutDashboard },
+      { name: "Patient Check-in", href: "/staff/checkin", icon: UserPlus },
+      { name: "Diagnostic Results", href: "/staff/results", icon: FlaskConical },
+      { name: "Profile", href: "/staff/profile", icon: User },
     ],
   }
 
@@ -122,7 +133,7 @@ export function CommonSidebar({
         ) : (
           <div className="w-full flex justify-center">
             <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center text-white font-bold">
-              H
+              {portalName.charAt(0)}
             </div>
           </div>
         )}

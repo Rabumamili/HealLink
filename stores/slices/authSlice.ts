@@ -1,512 +1,473 @@
-// store/slices/authSlice.ts
-import { StateCreator } from 'zustand';
-import { AuthUser, ProfessionalVerificationStatus } from '@/types/entities/auth.types';
+// stores/slices/authSlice.ts
+import { create } from 'zustand';
+import { devtools, persist, PersistOptions } from 'zustand/middleware';
+import { authService } from '@/services/auth.service';
+import {
+  AuthUser,
+  LoginCredentials,
+  UserRegisterData,
+  DoctorRegisterData,
+  ClinicRegisterData,
+  DiagnosticCenterRegisterData,
+  StaffRegisterData,
+  StaffSubRole,
+  VerifyEmailData,
+  ResendVerificationData,
+  ForgotPasswordData,
+  ResetPasswordData,
+  ProfessionalVerificationSubmitData,
+} from '@/types/entities/auth.types';
 
-export interface AuthState {
+interface StaffRegistrationResponse {
+  message: string;
+  staff_id: number;
+  email: string;
+}
+
+interface MessageResponse {
+  message: string;
+}
+
+interface VerificationStatusResponse {
+  status: string;
+  rejection_reason?: string;
+}
+
+interface AuthState {
   // State
   user: AuthUser | null;
-  token: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
   isLoading: boolean;
-  isLoggingIn: boolean;
-  isRegistering: boolean;
-  isVerifyingEmail: boolean;
-  isResettingPassword: boolean;
-  isSendingResetLink: boolean;
   error: string | null;
-  
-  // Professional verification
-  professionalVerificationStatus: {
-    status: string;
-    submittedAt?: string;
-    approvedAt?: string;
-    rejectionReason?: string;
-  } | null;
+  isInitialized: boolean;
   
   // Actions
-  setUser: (user: AuthUser | null) => void;
-  setTokens: (token: string | null, refreshToken: string | null) => void;
-  setLoading: (isLoading: boolean) => void;
-  setError: (error: string | null) => void;
-  clearAuth: () => void;
-  
-  // Async actions
-  login: (credentials: { email: string; password: string }) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
-  registerUser: (data: any) => Promise<any>;
-  registerProvider: (formData: FormData, role: string) => Promise<any>;
-  registerStaff: (data: any) => Promise<any>;
-  verifyEmail: (data: { email: string; code: string; tempUserId?: string }) => Promise<any>;
-  resendVerificationCode: (email: string) => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>;
-  resetPassword: (token: string, password: string, confirmPassword: string) => Promise<void>;
-  refreshTokenRequest: () => Promise<void>;
-  getMe: () => Promise<void>;
+  registerUser: (data: UserRegisterData) => Promise<void>;
+  registerDoctor: (data: DoctorRegisterData) => Promise<void>;
+  registerClinic: (data: ClinicRegisterData) => Promise<void>;
+  registerDiagnosticCenter: (data: DiagnosticCenterRegisterData) => Promise<void>;
+  registerStaff: (data: StaffRegisterData) => Promise<StaffRegistrationResponse>;
+  completeStaffRegistration: (token: string, password: string, confirmPassword: string) => Promise<void>;
+  resendStaffInvitation: (email: string) => Promise<MessageResponse>;
+  verifyEmail: (data: VerifyEmailData) => Promise<void>;
+  resendVerificationCode: (data: ResendVerificationData) => Promise<void>;
+  forgotPassword: (data: ForgotPasswordData) => Promise<void>;
+  resetPassword: (data: ResetPasswordData) => Promise<void>;
+  getCurrentUser: () => Promise<void>;
+  updateProfile: (data: Partial<AuthUser>) => Promise<void>;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  clearError: () => void;
+  initialize: () => Promise<void>;
   
   // Professional verification actions
-  checkProfessionalVerification: () => Promise<void>;
-  submitProfessionalVerification: (formData: FormData) => Promise<void>;
-  canAccessDashboard: () => boolean;
+  submitProfessionalVerification: (data: ProfessionalVerificationSubmitData) => Promise<void>;
+  getProfessionalVerificationStatus: () => Promise<VerificationStatusResponse>;
   
-  // Helper methods
-  getUserDisplayName: () => string;
-  getUserInitials: () => string;
-  isProvider: () => boolean;
-  isPatient: () => boolean;
-  isStaff: () => boolean;
-  requiresProfessionalVerification: () => boolean;
-  isProfessionalVerificationPending: () => boolean;
-  isProfessionalVerificationApproved: () => boolean;
+  // Staff management actions
+  getStaffMembers: (employerId: number, employerType: string) => Promise<AuthUser[]>;
+  updateStaffRole: (staffId: number, role: StaffSubRole) => Promise<AuthUser>;
+  deactivateStaff: (staffId: number) => Promise<MessageResponse>;
+  activateStaff: (staffId: number) => Promise<MessageResponse>;
+  deleteStaff: (staffId: number) => Promise<MessageResponse>;
 }
-const toProfessionalVerificationStatus = (status: string | undefined): ProfessionalVerificationStatus | undefined => {
-  if (!status) return undefined;
-  const validStatuses: ProfessionalVerificationStatus[] = ['pending', 'approved', 'rejected'];
-  return validStatuses.includes(status as ProfessionalVerificationStatus) 
-    ? status as ProfessionalVerificationStatus 
-    : undefined;
+
+type AuthPersist = Pick<AuthState, 'user' | 'isInitialized'>;
+
+const persistOptions: PersistOptions<AuthState, AuthPersist> = {
+  name: 'auth-storage',
+  storage: {
+    getItem: (name) => {
+      if (typeof window === 'undefined') return null;
+      const value = localStorage.getItem(name);
+      if (!value) return null;
+      try {
+        return JSON.parse(value);
+      } catch {
+        return null;
+      }
+    },
+    setItem: (name, value) => {
+      if (typeof window === 'undefined') return;
+      localStorage.setItem(name, JSON.stringify(value));
+    },
+    removeItem: (name) => {
+      if (typeof window === 'undefined') return;
+      localStorage.removeItem(name);
+    },
+  },
+  partialize: (state) => ({ 
+    user: state.user,
+    isInitialized: state.isInitialized 
+  }),
 };
 
-export const createAuthSlice: StateCreator<AuthState> = (set, get) => ({
-  user: null,
-  token: null,
-  refreshToken: null,
-  isAuthenticated: false,
-  isLoading: false,
-  isLoggingIn: false,
-  isRegistering: false,
-  isVerifyingEmail: false,
-  isResettingPassword: false,
-  isSendingResetLink: false,
-  error: null,
-  professionalVerificationStatus: null,
-
-  // Basic actions
-  setUser: (user) => set({ user, isAuthenticated: !!user }),
-  
-  setTokens: (token, refreshToken) => {
-    if (token) {
-      localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', refreshToken || '');
-    } else {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-    }
-    set({ token, refreshToken });
-  },
-  
-  setLoading: (isLoading) => set({ isLoading }),
-  
-  setError: (error) => set({ error }),
-  
-  clearAuth: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    set({
-      user: null,
-      token: null,
-      refreshToken: null,
-      isAuthenticated: false,
-      error: null,
-      professionalVerificationStatus: null,
-    });
-  },
-
-  // Login
-  login: async (credentials) => {
-    set({ isLoggingIn: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const response = await authService.login(credentials);
-      
-      // Convert the verification status to the correct type
-      const userWithCorrectStatus = {
-        ...response.user,
-        professional_verification_status: toProfessionalVerificationStatus(response.user.professional_verification_status)
-      };
-      
-      localStorage.setItem('user', JSON.stringify(userWithCorrectStatus));
-      
-      set({
-        user: userWithCorrectStatus,
-        token: response.token,
-        refreshToken: response.refreshToken,
-        isAuthenticated: true,
-        isLoggingIn: false,
-      });
-      
-      // Check professional verification status for providers
-      if (response.user.role === 'doctor' || 
-          response.user.role === 'clinic' || 
-          response.user.role === 'diagnostic_center') {
-        await get().checkProfessionalVerification();
-      }
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Login failed',
-        isLoggingIn: false,
-      });
-      throw error;
-    }
-  },
-
-  // Logout
-  logout: async () => {
-    try {
-      const { authService } = await import('@/services/auth.service');
-      await authService.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      get().clearAuth();
-    }
-  },
-
-  // Register User (Patient)
-  registerUser: async (data) => {
-    set({ isRegistering: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const response = await authService.registerUser(data);
-      set({ isRegistering: false });
-      return response;
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Registration failed',
-        isRegistering: false,
-      });
-      throw error;
-    }
-  },
-
-  // Register Provider
-  registerProvider: async (formData, role) => {
-    set({ isRegistering: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      let response;
-      
-      switch (role) {
-        case 'doctor':
-          response = await authService.registerDoctorWithFiles(formData);
-          break;
-        case 'clinic':
-          response = await authService.registerClinicWithFiles(formData);
-          break;
-        case 'diagnostic_center':
-          response = await authService.registerDiagnosticCenterWithFiles(formData);
-          break;
-        default:
-          throw new Error('Invalid provider role');
-      }
-      
-      set({ isRegistering: false });
-      return response;
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Registration failed',
-        isRegistering: false,
-      });
-      throw error;
-    }
-  },
-
-  // Register Staff
-  registerStaff: async (data) => {
-    set({ isRegistering: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const response = await authService.registerStaff(data);
-      set({ isRegistering: false });
-      return response;
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Staff registration failed',
-        isRegistering: false,
-      });
-      throw error;
-    }
-  },
-
-  // Verify Email - FIXED with proper type conversion
-  verifyEmail: async (data) => {
-    set({ isVerifyingEmail: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      
-      const response = await authService.verifyEmail({
-        email: data.email,
-        code: data.code,
-      });
-      
-      // Update user with new verification status if response contains user data
-      if (response?.user) {
-        // Convert the verification status to the correct type
-        const updatedUser = {
-          ...response.user,
-          professional_verification_status: toProfessionalVerificationStatus(response.user.professional_verification_status)
-        };
-        
-        // Update localStorage
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        
-        // Update state
-        set({ 
-          user: updatedUser,
-          isAuthenticated: true,
-          professionalVerificationStatus: {
-            status: updatedUser.professional_verification_status || 'pending',
-            submittedAt: updatedUser.professional_verification_submitted_at || new Date().toISOString(),
-          }
-        });
-        
-        // Also store tokens if provided
-        if (response.token) {
-          localStorage.setItem('token', response.token);
-          if (response.refreshToken) {
-            localStorage.setItem('refreshToken', response.refreshToken);
-          }
-          set({ 
-            token: response.token,
-            refreshToken: response.refreshToken || null
-          });
-        }
-      } else if (response?.data?.user) {
-        // Alternative response structure
-        const updatedUser = {
-          ...response.data.user,
-          professional_verification_status: toProfessionalVerificationStatus(response.data.user.professional_verification_status)
-        };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        set({ 
-          user: updatedUser,
-          isAuthenticated: true,
-          professionalVerificationStatus: {
-            status: updatedUser.professional_verification_status || 'pending',
-          }
-        });
-      } else {
-        // If no user returned, just mark verification as complete
-        set({ isVerifyingEmail: false });
-        return response;
-      }
-      
-      set({ isVerifyingEmail: false });
-      return response;
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Email verification failed',
-        isVerifyingEmail: false,
-      });
-      throw error;
-    }
-  },
-
-  // Resend Verification Code
-  resendVerificationCode: async (email) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      await authService.resendVerificationCode({ email });
-      set({ isLoading: false });
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Failed to resend code',
-        isLoading: false,
-      });
-      throw error;
-    }
-  },
-
-  // Forgot Password
-  forgotPassword: async (email) => {
-    set({ isSendingResetLink: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      await authService.forgotPassword({ email });
-      set({ isSendingResetLink: false });
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Failed to send reset link',
-        isSendingResetLink: false,
-      });
-      throw error;
-    }
-  },
-
-  // Reset Password
-  resetPassword: async (token, password, confirmPassword) => {
-    set({ isResettingPassword: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      await authService.resetPassword({ token, password, confirm_password: confirmPassword });
-      set({ isResettingPassword: false });
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Failed to reset password',
-        isResettingPassword: false,
-      });
-      throw error;
-    }
-  },
-
-  // Refresh Token Request
-  refreshTokenRequest: async () => {
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const response = await authService.refreshToken();
-      set({
-        token: response.token,
-        refreshToken: response.refreshToken,
-      });
-    } catch (error) {
-      get().clearAuth();
-      throw error;
-    }
-  },
-
-  // Get Current User
-  getMe: async () => {
-    set({ isLoading: true });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const user = await authService.getMe();
-      
-      // Convert the verification status to the correct type
-      const userWithCorrectStatus = {
-        ...user,
-        professional_verification_status: toProfessionalVerificationStatus(user.professional_verification_status)
-      };
-      
-      localStorage.setItem('user', JSON.stringify(userWithCorrectStatus));
-      set({
-        user: userWithCorrectStatus,
-        isAuthenticated: true,
-        isLoading: false,
-      });
-      
-      // Check professional verification for providers
-      if (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center') {
-        await get().checkProfessionalVerification();
-      }
-    } catch (error) {
-      set({
-        isLoading: false,
-        isAuthenticated: false,
+export const useAuthStore = create<AuthState>()(
+  devtools(
+    persist(
+      (set, get) => ({
         user: null,
-      });
-      throw error;
-    }
-  },
-
-  // Professional Verification Actions
-  checkProfessionalVerification: async () => {
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const status = await authService.getProfessionalVerificationStatus();
-      set({ professionalVerificationStatus: status });
-      
-      // Also update user object if needed
-      const currentUser = get().user;
-      if (currentUser && status.status) {
-        const updatedUser = { 
-          ...currentUser, 
-          professional_verification_status: toProfessionalVerificationStatus(status.status)
-        };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
-        set({ user: updatedUser });
-      }
-    } catch (error) {
-      console.error('Failed to get verification status:', error);
-    }
-  },
-
-  submitProfessionalVerification: async (formData) => {
-    set({ isLoading: true, error: null });
-    try {
-      const { authService } = await import('@/services/auth.service');
-      await authService.submitProfessionalVerification(formData);
-      await get().checkProfessionalVerification();
-      set({ isLoading: false });
-    } catch (error: any) {
-      set({
-        error: error.response?.data?.message || 'Failed to submit verification',
         isLoading: false,
-      });
-      throw error;
-    }
-  },
+        error: null,
+        isInitialized: false,
 
-  canAccessDashboard: () => {
-    const { user, professionalVerificationStatus } = get();
-    if (!user) return false;
-    
-    // Patients and staff can always access
-    if (user.role === 'patient' || user.role === 'staff') {
-      return true;
-    }
-    
-    // Providers need approved verification
-    return professionalVerificationStatus?.status === 'approved';
-  },
+        initialize: async () => {
+          if (get().isInitialized) return;
+          
+          set({ isLoading: true });
+          try {
+            if (authService.isAuthenticated()) {
+              const user = await authService.getCurrentUser();
+              set({ user, isInitialized: true, error: null });
+            } else {
+              set({ isInitialized: true });
+            }
+          } catch (error) {
+            console.error('Failed to initialize auth:', error);
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            set({ user: null, isInitialized: true });
+          } finally {
+            set({ isLoading: false });
+          }
+        },
 
-  // Helper methods
-  getUserDisplayName: () => {
-    const { user } = get();
-    if (!user) return '';
-    
-    if (user.role === 'patient' || user.role === 'staff') {
-      return `${user.first_name || ''} ${user.last_name || ''}`.trim();
-    }
-    
-    if (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center') {
-      return user.full_name || '';
-    }
-    
-    return user.email;
-  },
+        login: async (credentials) => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.login(credentials);
+            set({ user: response.user, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
 
-  getUserInitials: () => {
-    const name = get().getUserDisplayName();
-    if (!name) return '?';
-    
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return (parts[0][0] || '?').toUpperCase();
-  },
+        logout: async () => {
+          set({ isLoading: true });
+          try {
+            await authService.logout();
+          } catch (error) {
+            console.error('Logout error:', error);
+          } finally {
+            set({ user: null, error: null, isLoading: false });
+          }
+        },
 
-  isProvider: () => {
-    const { user } = get();
-    if (!user) return false;
-    return ['doctor', 'clinic', 'diagnostic_center'].includes(user.role);
-  },
+        registerUser: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.registerUser(data);
+            set({ user: response.user, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
 
-  isPatient: () => {
-    const { user } = get();
-    return user?.role === 'patient';
-  },
+        registerDoctor: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.registerDoctor(data);
+            set({ user: response.user, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Doctor registration failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
 
-  isStaff: () => {
-    const { user } = get();
-    return user?.role === 'staff';
-  },
+        registerClinic: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.registerClinic(data);
+            set({ user: response.user, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Clinic registration failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
 
-  requiresProfessionalVerification: () => {
-    const { user } = get();
-    if (!user) return false;
-    return ['doctor', 'clinic', 'diagnostic_center'].includes(user.role);
-  },
+        registerDiagnosticCenter: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.registerDiagnosticCenter(data);
+            set({ user: response.user, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Diagnostic center registration failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
 
-  isProfessionalVerificationPending: () => {
-    const { professionalVerificationStatus } = get();
-    return professionalVerificationStatus?.status === 'pending';
-  },
+        registerStaff: async (data: StaffRegisterData): Promise<StaffRegistrationResponse> => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.registerStaff(data);
+            set({ error: null });
+            return response;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Staff registration failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
 
-  isProfessionalVerificationApproved: () => {
-    const { professionalVerificationStatus } = get();
-    return professionalVerificationStatus?.status === 'approved';
-  },
-});
+        completeStaffRegistration: async (token, password, confirmPassword) => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.completeStaffRegistration(token, password, confirmPassword);
+            set({ user: response.user, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Staff registration completion failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        resendStaffInvitation: async (email): Promise<MessageResponse> => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.resendStaffInvitation(email);
+            set({ error: null });
+            return response;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to resend invitation';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        submitProfessionalVerification: async (data: ProfessionalVerificationSubmitData) => {
+          set({ isLoading: true, error: null });
+          try {
+            await authService.submitProfessionalVerification(data);
+            await get().getCurrentUser();
+            set({ error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Professional verification submission failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        getProfessionalVerificationStatus: async (): Promise<VerificationStatusResponse> => {
+          set({ isLoading: true, error: null });
+          try {
+            const status = await authService.getProfessionalVerificationStatus();
+            set({ error: null });
+            return status;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch verification status';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        verifyEmail: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            await authService.verifyEmail(data);
+            await get().getCurrentUser();
+            set({ error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Email verification failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        resendVerificationCode: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            await authService.resendVerificationCode(data);
+            set({ error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to resend verification code';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        forgotPassword: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            await authService.forgotPassword(data);
+            set({ error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to send reset password email';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        resetPassword: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            await authService.resetPassword(data);
+            set({ error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Password reset failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        getCurrentUser: async () => {
+          set({ isLoading: true, error: null });
+          try {
+            const user = await authService.getCurrentUser();
+            set({ user, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch user data';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        updateProfile: async (data) => {
+          set({ isLoading: true, error: null });
+          try {
+            const updatedUser = await authService.updateProfile(data);
+            set({ user: updatedUser, error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Profile update failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        changePassword: async (oldPassword, newPassword) => {
+          set({ isLoading: true, error: null });
+          try {
+            await authService.changePassword(oldPassword, newPassword);
+            set({ error: null });
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Password change failed';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        getStaffMembers: async (employerId, employerType): Promise<AuthUser[]> => {
+          set({ isLoading: true, error: null });
+          try {
+            const staff = await authService.getStaffMembers(employerId, employerType);
+            set({ error: null });
+            return staff;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch staff members';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        updateStaffRole: async (staffId, role): Promise<AuthUser> => {
+          set({ isLoading: true, error: null });
+          try {
+            const updatedStaff = await authService.updateStaffRole(staffId, role);
+            set({ error: null });
+            return updatedStaff;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to update staff role';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        deactivateStaff: async (staffId): Promise<MessageResponse> => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.deactivateStaff(staffId);
+            set({ error: null });
+            return response;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to deactivate staff';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        activateStaff: async (staffId): Promise<MessageResponse> => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.activateStaff(staffId);
+            set({ error: null });
+            return response;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to activate staff';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        deleteStaff: async (staffId): Promise<MessageResponse> => {
+          set({ isLoading: true, error: null });
+          try {
+            const response = await authService.deleteStaff(staffId);
+            set({ error: null });
+            return response;
+          } catch (error: any) {
+            const errorMessage = error.response?.data?.message || error.message || 'Failed to delete staff';
+            set({ error: errorMessage });
+            throw error;
+          } finally {
+            set({ isLoading: false });
+          }
+        },
+
+        clearError: () => {
+          set({ error: null });
+        },
+      }),
+      persistOptions
+    ),
+    { name: 'AuthStore' }
+  )
+);

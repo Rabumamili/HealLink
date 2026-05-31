@@ -1,35 +1,26 @@
+// app/(dashboard)/patient/reviews/page.tsx - Fixed with consistent width and gradient header
+
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import Link from 'next/link';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Star,
-  StarOff,
-  ThumbsUp,
-  Calendar,
-  MessageSquare,
-  ChevronRight,
   Edit2,
   Trash2,
-  FileText,
-  RefreshCw,
   Filter,
-  X
+  X,
+  MessageSquare,
+  ThumbsUp
 } from 'lucide-react';
 import { useReview } from '@/hooks/useReview';
-import { PageHeader } from '@/components/common/PageHeader';
+import { StarRating } from '@/components/review/StarRating';
+import { RatingDistribution } from '@/components/review/RatingDistribution';
+import { ProviderReviewCard } from '@/components/review/ProviderReviews';
 import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -51,12 +41,31 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { getRatingLabel, getRatingColor } from '@/types/entities/review.types';
+import { StatsCard } from '@/components/common/StatsCard';
 
-// Get current patient ID
+// Types
+interface Review {
+  review_id: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+  provider?: {
+    name: string;
+    provider_type: string;
+  };
+  service_name?: string;
+}
+
+interface RatingDistributionType {
+  1: number;
+  2: number;
+  3: number;
+  4: number;
+  5: number;
+}
+
 const getCurrentPatientId = (): number => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('currentPatientId');
@@ -65,166 +74,63 @@ const getCurrentPatientId = (): number => {
       if (!isNaN(parsed)) return parsed;
     }
   }
-  return 201; // Default patient ID
+  return 201;
 };
 
-// Star Rating Component
-const StarRating = ({ rating, onRatingChange, readonly = false, size = 'md' }: {
-  rating: number;
-  onRatingChange?: (rating: number) => void;
-  readonly?: boolean;
-  size?: 'sm' | 'md' | 'lg';
-}) => {
-  const sizeClasses = {
-    sm: 'h-4 w-4',
-    md: 'h-5 w-5',
-    lg: 'h-6 w-6'
-  };
-
-  const handleClick = (value: number) => {
-    if (!readonly && onRatingChange) {
-      onRatingChange(value);
-    }
-  };
-
+// Gradient Header Component
+function GradientHeader({ title, description, icon }: { title: string; description: string; icon?: React.ReactNode }) {
   return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => handleClick(star)}
-          className={cn(
-            'transition-all',
-            !readonly && 'cursor-pointer hover:scale-110',
-            readonly && 'cursor-default'
-          )}
-          disabled={readonly}
-        >
-          <Star
-            className={cn(
-              sizeClasses[size],
-              star <= rating
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'fill-gray-200 text-gray-300',
-              !readonly && 'hover:text-yellow-400'
-            )}
-          />
-        </button>
-      ))}
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#008282] to-[#00a0a0] mb-8">
+      <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+      <div className="absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
+      <div className="absolute right-10 top-10 h-32 w-32 rounded-full bg-white/5 blur-3xl" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-white/50 to-white/20" />
+      
+      <div className="relative px-6 py-6 md:px-8 md:py-7">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              {icon && (
+                <div className="rounded-xl bg-white/20 p-2.5 backdrop-blur-sm">
+                  <div className="h-5 w-5 text-white">{icon}</div>
+                </div>
+              )}
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{title}</h1>
+            </div>
+            <p className="text-white/80 text-sm md:text-base max-w-2xl ml-12">{description}</p>
+          </div>
+          <div className="flex-shrink-0 ml-12 md:ml-0">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                // Refresh logic
+                toast.success('Reviews refreshed');
+              }}
+              className="rounded-xl border-white/30 bg-white/10 text-white hover:bg-white/20 backdrop-blur-sm"
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
-  );
-};
+  )
+}
 
-// Review Card Component
-const ReviewCard = ({
-  review,
-  onEdit,
-  onDelete
-}: {
-  review: any;
-  onEdit: (review: any) => void;
-  onDelete: (review: any) => void;
-}) => {
-  const formattedDate = new Date(review.created_at).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  const providerTypeLabels: Record<string, string> = {
-    doctor: 'Doctor',
-    clinic: 'Clinic',
-    diagnostic_center: 'Diagnostic Center'
-  };
-
-  return (
-    <Card className="overflow-hidden border-gray-200 shadow-sm hover:shadow-md transition-all">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            {/* Provider Avatar */}
-            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-[#006767] to-[#008282] flex items-center justify-center text-white font-bold text-lg">
-              {review.provider?.name?.charAt(0) || 'P'}
-            </div>
-
-            <div>
-              <CardTitle className="text-lg">
-                {review.provider?.name || 'Provider'}
-              </CardTitle>
-              <CardDescription className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className="text-xs">
-                  {providerTypeLabels[review.provider?.provider_type] || 'Provider'}
-                </Badge>
-                <span className="text-xs text-gray-400">•</span>
-                <span className="text-xs text-gray-500">{formattedDate}</span>
-              </CardDescription>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onEdit(review)}
-              className="h-8 w-8 p-0"
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onDelete(review)}
-              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-3">
-          <StarRating rating={review.rating} readonly size="md" />
-          <span className="text-sm font-medium text-gray-700">
-            {getRatingLabel(review.rating)}
-          </span>
-        </div>
-
-        {review.comment && (
-          <div className="rounded-lg bg-gray-50 p-3">
-            <p className="text-gray-700 text-sm leading-relaxed">{review.comment}</p>
-          </div>
-        )}
-      </CardContent>
-
-      <CardFooter className="border-t border-gray-100 pt-3 text-xs text-gray-500">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-3 w-3" />
-          <span>Reviewed: {formattedDate}</span>
-        </div>
-      </CardFooter>
-    </Card>
-  );
-};
-
-// Review Form Dialog
-const ReviewFormDialog = ({
+// Review Edit Form Dialog
+const EditReviewDialog = ({
   open,
   onOpenChange,
-  onSubmit,
-  initialData,
-  isEditing
+  review,
+  onSave
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (rating: number, comment: string) => Promise<void>;
-  initialData?: { rating: number; comment: string };
-  isEditing: boolean;
+  review: Review | null;
+  onSave: (rating: number, comment: string) => Promise<void>;
 }) => {
-  const [rating, setRating] = useState(initialData?.rating || 0);
-  const [comment, setComment] = useState(initialData?.comment || '');
+  const [rating, setRating] = useState(review?.rating || 0);
+  const [comment, setComment] = useState(review?.comment || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -232,65 +138,53 @@ const ReviewFormDialog = ({
       toast.error('Please select a rating');
       return;
     }
-
     setIsSubmitting(true);
-    await onSubmit(rating, comment);
+    await onSave(rating, comment);
     setIsSubmitting(false);
     onOpenChange(false);
-    setRating(0);
-    setComment('');
   };
+
+  if (!review) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md rounded-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Your Review' : 'Write a Review'}</DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? 'Update your rating and feedback for this provider'
-              : 'Share your experience with this healthcare provider'}
+          <DialogTitle className="text-xl font-bold text-slate-800">Edit Your Review</DialogTitle>
+          <DialogDescription className="text-slate-500">
+            Update your rating and feedback for {review.provider?.name}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Rating</Label>
-            <div className="flex items-center gap-4">
-              <StarRating rating={rating} onRatingChange={setRating} size="lg" />
-              {rating > 0 && (
-                <span className="text-sm font-medium text-gray-700">
-                  {getRatingLabel(rating)}
-                </span>
-              )}
-            </div>
+            <Label className="text-slate-700">Rating</Label>
+            <StarRating rating={rating} onRatingChange={setRating} size="lg" showLabel />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="comment">Your Review (Optional)</Label>
+            <Label htmlFor="comment" className="text-slate-700">Your Review (Optional)</Label>
             <Textarea
               id="comment"
-              placeholder="Share details about your experience with this provider..."
+              placeholder="Share details about your experience..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               rows={4}
+              className="rounded-xl border-slate-200 focus:border-[#008282] focus:ring-[#008282]"
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={isSubmitting || rating === 0}
-            className="bg-[#006767] hover:bg-[#008282]"
+            className="bg-[#008282] hover:bg-[#00a0a0] rounded-xl"
           >
-            {isSubmitting
-              ? isEditing ? 'Updating...' : 'Submitting...'
-              : isEditing ? 'Update Review' : 'Submit Review'
-            }
+            {isSubmitting ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -299,16 +193,16 @@ const ReviewFormDialog = ({
 };
 
 // Delete Confirmation Dialog
-const DeleteConfirmDialog = ({
+const DeleteReviewDialog = ({
   open,
   onOpenChange,
-  onConfirm,
-  review
+  review,
+  onConfirm
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  review: Review | null;
   onConfirm: () => Promise<void>;
-  review: any;
 }) => {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -319,24 +213,26 @@ const DeleteConfirmDialog = ({
     onOpenChange(false);
   };
 
+  if (!review) return null;
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="rounded-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete Review</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to delete your review for {review?.provider?.name}?
+          <AlertDialogTitle className="text-xl font-bold text-slate-800">Delete Review</AlertDialogTitle>
+          <AlertDialogDescription className="text-slate-500">
+            Are you sure you want to delete your review for {review.provider?.name}?
             This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={isDeleting}
-            className="bg-red-600 hover:bg-red-700"
+            className="bg-red-600 hover:bg-red-700 rounded-xl"
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isDeleting ? 'Deleting...' : 'Delete Review'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -344,52 +240,53 @@ const DeleteConfirmDialog = ({
   );
 };
 
-// Main Page Component
 export default function PatientReviewsPage() {
   const [patientId, setPatientId] = useState<number>(201);
-  const [editingReview, setEditingReview] = useState<any>(null);
-  const [deletingReview, setDeletingReview] = useState<any>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
+  const [deletingReview, setDeletingReview] = useState<Review | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  const [tempRatingFilter, setTempRatingFilter] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const {
     reviews,
-    patientStats,
     isLoading,
     fetchReviewsByPatient,
     updateReview,
     deleteReview,
   } = useReview();
 
-  // Load patient ID and fetch reviews
-  useMemo(() => {
+  useEffect(() => {
     const id = getCurrentPatientId();
     setPatientId(id);
   }, []);
 
-  // Fetch reviews when patientId changes
   const loadReviews = useCallback(async () => {
     if (patientId) {
       await fetchReviewsByPatient(patientId);
     }
   }, [patientId, fetchReviewsByPatient]);
 
-  // Filter reviews by rating
-  const filteredReviews = useMemo(() => {
-    if (!tempRatingFilter) return reviews;
-    return reviews.filter(r => r.rating === tempRatingFilter);
-  }, [reviews, tempRatingFilter]);
+  useEffect(() => {
+    loadReviews();
+  }, [loadReviews]);
 
-  const handleEdit = (review: any) => {
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadReviews();
+    setIsRefreshing(false);
+    toast.success('Reviews refreshed');
+  };
+
+  const handleEdit = (review: Review) => {
     setEditingReview(review);
-    setIsFormOpen(true);
+    setIsEditOpen(true);
   };
 
   const handleUpdateReview = async (rating: number, comment: string) => {
     if (!editingReview) return;
-
     const success = await updateReview(editingReview.review_id, { rating, comment });
     if (success) {
       toast.success('Review updated successfully');
@@ -402,7 +299,6 @@ export default function PatientReviewsPage() {
 
   const handleDeleteReview = async () => {
     if (!deletingReview) return;
-
     const success = await deleteReview(deletingReview.review_id);
     if (success) {
       toast.success('Review deleted successfully');
@@ -413,166 +309,141 @@ export default function PatientReviewsPage() {
     setDeletingReview(null);
   };
 
-  const handleRefresh = async () => {
-    await loadReviews();
-    toast.success('Reviews refreshed');
-  };
+  const filteredReviews = useMemo(() => {
+    if (!ratingFilter) return reviews;
+    return reviews.filter((r: Review) => r.rating === ratingFilter);
+  }, [reviews, ratingFilter]);
 
-  const ratingStats = useMemo(() => {
-    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    reviews.forEach(review => {
-      distribution[review.rating as keyof typeof distribution]++;
+  const ratingDistribution = useMemo(() => {
+    const distribution: RatingDistributionType = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    reviews.forEach((review: Review) => {
+      const rating = review.rating as 1 | 2 | 3 | 4 | 5;
+      distribution[rating]++;
     });
     return distribution;
   }, [reviews]);
 
   const averageRating = useMemo(() => {
     if (reviews.length === 0) return 0;
-    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-    return (sum / reviews.length).toFixed(1);
+    const sum = reviews.reduce((acc: number, r: Review) => acc + r.rating, 0);
+    return sum / reviews.length;
+  }, [reviews]);
+
+  const positiveCount = useMemo(() => {
+    return reviews.filter((r: Review) => r.rating >= 4).length;
   }, [reviews]);
 
   if (isLoading && reviews.length === 0) {
-    return <LoadingState message="Loading your reviews..." />;
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex justify-center items-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#008282]" />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      <div className="max-w-4xl mx-auto px-4 md:px-8 py-8">
-        <PageHeader
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <GradientHeader
           title="My Reviews"
-          subtitle="Manage your reviews for healthcare providers"
-          actions={
-            <Button
-              onClick={handleRefresh}
-              variant="outline"
-              className="rounded-xl"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          }
+          description="View and manage all your reviews for healthcare providers you've visited."
+          icon={<MessageSquare className="h-5 w-5" />}
         />
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-gray-900">{reviews.length}</p>
-                <p className="text-sm text-gray-500">Total Reviews</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                  <p className="text-3xl font-bold text-gray-900">{averageRating}</p>
-                </div>
-                <p className="text-sm text-gray-500">Average Rating</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-3xl font-bold text-gray-900">
-                  {patientStats?.average_rating_given?.toFixed(1) || '0.0'}
-                </p>
-                <p className="text-sm text-gray-500">Your Avg Rating Given</p>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <StatsCard
+            title="Total Reviews"
+            value={reviews.length}
+            icon={<MessageSquare className="h-5 w-5" />}
+            description="Reviews written"
+            variant="default"
+          />
+          <StatsCard
+            title="Average Rating"
+            value={averageRating.toFixed(1)}
+            icon={<Star className="h-5 w-5" />}
+            description="Your average rating given"
+            variant="primary"
+          />
+          <StatsCard
+            title="Positive Reviews"
+            value={positiveCount}
+            icon={<ThumbsUp className="h-5 w-5" />}
+            description="4-5 star ratings"
+            variant="success"
+          />
         </div>
 
         {/* Rating Distribution */}
         {reviews.length > 0 && (
-          <Card className="mb-6">
+          <Card className="border-slate-200 shadow-sm mb-6">
             <CardHeader>
-              <CardTitle className="text-base">Rating Distribution</CardTitle>
+              <CardTitle className="text-base text-slate-800">Your Rating Distribution</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {[5, 4, 3, 2, 1].map(star => {
-                const count = ratingStats[star as keyof typeof ratingStats];
-                const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
-                return (
-                  <div key={star} className="flex items-center gap-3">
-                    <div className="flex items-center gap-1 w-16">
-                      <span className="text-sm font-medium">{star}</span>
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                    </div>
-                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className={cn('h-full rounded-full', getRatingColor(star))}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <div className="w-12 text-sm text-gray-500">{count}</div>
-                  </div>
-                );
-              })}
+            <CardContent>
+              <RatingDistribution distribution={ratingDistribution} totalReviews={reviews.length} />
             </CardContent>
           </Card>
         )}
 
         {/* Filter Bar */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowFilters(!showFilters)}
-              className="rounded-lg"
+              className="rounded-xl border-slate-200"
             >
               <Filter className="h-4 w-4 mr-2" />
               Filter
             </Button>
-            {tempRatingFilter && (
-              <Badge className="bg-[#006767] text-white">
-                Rating: {tempRatingFilter}★
-                <button
-                  onClick={() => setTempRatingFilter(null)}
-                  className="ml-2 hover:text-gray-200"
-                >
+            {ratingFilter && (
+              <Badge className="bg-[#008282] text-white rounded-full">
+                {ratingFilter}★
+                <button onClick={() => setRatingFilter(null)} className="ml-2 hover:text-white/80">
                   <X className="h-3 w-3" />
                 </button>
               </Badge>
             )}
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-500">
             Showing {filteredReviews.length} of {reviews.length} reviews
           </p>
         </div>
 
-        {/* Rating Filter Dialog */}
+        {/* Filter Dialog */}
         {showFilters && (
-          <Card className="mb-6">
+          <Card className="border-slate-200 shadow-sm mb-6">
             <CardHeader>
-              <CardTitle className="text-sm">Filter by Rating</CardTitle>
+              <CardTitle className="text-sm text-slate-800">Filter by Rating</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 flex-wrap">
                 {[5, 4, 3, 2, 1].map(star => (
                   <Button
                     key={star}
-                    variant={tempRatingFilter === star ? 'default' : 'outline'}
+                    variant={ratingFilter === star ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setTempRatingFilter(tempRatingFilter === star ? null : star)}
-                    className={tempRatingFilter === star ? 'bg-[#006767]' : ''}
+                    onClick={() => setRatingFilter(ratingFilter === star ? null : star)}
+                    className={cn(
+                      'rounded-xl',
+                      ratingFilter === star && 'bg-[#008282] hover:bg-[#00a0a0]'
+                    )}
                   >
-                    {star} ★
+                    {star} ★ ({ratingDistribution[star as keyof RatingDistributionType] || 0})
                   </Button>
                 ))}
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setTempRatingFilter(null)}
+                  onClick={() => setRatingFilter(null)}
+                  className="rounded-xl"
                 >
-                  Clear
+                  Clear All
                 </Button>
               </div>
             </CardContent>
@@ -582,10 +453,12 @@ export default function PatientReviewsPage() {
         {/* Reviews List */}
         <div className="space-y-4">
           {filteredReviews.length > 0 ? (
-            filteredReviews.map((review) => (
-              <ReviewCard
+            filteredReviews.map((review: Review) => (
+              <ProviderReviewCard
                 key={review.review_id}
                 review={review}
+                variant="patient"
+                showActions={true}
                 onEdit={handleEdit}
                 onDelete={(review) => {
                   setDeletingReview(review);
@@ -596,41 +469,46 @@ export default function PatientReviewsPage() {
           ) : (
             <EmptyState
               variant="review"
-              message={tempRatingFilter ? `No ${tempRatingFilter}-star reviews` : "No reviews yet"}
+              title="No Reviews Yet"
+              message={ratingFilter ? `No ${ratingFilter}-star reviews` : "You haven't written any reviews"}
               submessage={
-                tempRatingFilter
-                  ? `You haven't written any ${tempRatingFilter}-star reviews`
-                  : "You haven't written any reviews yet"
+                ratingFilter
+                  ? `You haven't written any ${ratingFilter}-star reviews yet`
+                  : "Share your experience with healthcare providers you've visited"
               }
-              actionLabel="View Providers"
+              actionLabel="Find Providers"
               actionHref="/patient/providers"
             />
           )}
         </div>
+
+        {/* Info Card */}
+        <Card className="mt-6 bg-[#008282]/5 border-[#008282]/10">
+          <CardContent className="p-5">
+            <h3 className="font-semibold text-slate-800 text-sm mb-2">Why Your Reviews Matter</h3>
+            <div className="space-y-1.5 text-xs text-slate-600">
+              <p>Your feedback helps other patients make informed decisions about their healthcare.</p>
+              <p>Reviews also help providers improve their services and patient care quality.</p>
+              <p>You can only review providers you've had appointments with.</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Edit Review Dialog */}
-      <ReviewFormDialog
-        open={isFormOpen && !!editingReview}
-        onOpenChange={(open) => {
-          setIsFormOpen(open);
-          if (!open) setEditingReview(null);
-        }}
-        onSubmit={handleUpdateReview}
-        initialData={
-          editingReview
-            ? { rating: editingReview.rating, comment: editingReview.comment }
-            : undefined
-        }
-        isEditing={true}
+      {/* Edit Dialog */}
+      <EditReviewDialog
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        review={editingReview}
+        onSave={handleUpdateReview}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
+      {/* Delete Dialog */}
+      <DeleteReviewDialog
         open={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
-        onConfirm={handleDeleteReview}
         review={deletingReview}
+        onConfirm={handleDeleteReview}
       />
     </div>
   );

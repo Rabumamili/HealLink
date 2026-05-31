@@ -2,14 +2,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Stethoscope, ClipboardList, DollarSign, TrendingUp } from 'lucide-react';
 
 import { ServiceTable } from '@/components/services/service-table';
 import { ServiceSearchFilter } from '@/components/services/service-search-filter';
 import { ServiceFormModal } from '@/components/services/service-form-modal';
+import { ServicePageHeader } from '@/components/services/ServicePageHeader';
 import { StatsCard } from '@/components/common/StatsCard';
-
 import { useServices } from '@/hooks/useService';
 
 const PROVIDER_ID = 101;
@@ -20,13 +19,8 @@ export default function DoctorServicesPage() {
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<any>(null);
 
-  const {
-    services,
-    stats,
-    createService,
-    updateService,
-    deleteService,
-  } = useServices({ providerId: PROVIDER_ID, autoFetch: true });
+  const { services, stats, createService, updateService, deleteService } =
+    useServices({ providerId: PROVIDER_ID, autoFetch: true });
 
   const filtered = useMemo(() => {
     return services.filter(s =>
@@ -35,69 +29,94 @@ export default function DoctorServicesPage() {
     );
   }, [services, search, status]);
 
-  return (
-    <div className="w-full max-w-full overflow-x-hidden p-4 sm:p-6 lg:p-8 space-y-6">
+  const activeCount = services.filter(s => s.status === 'Active').length;
 
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">My Services</h1>
-          <p className="text-gray-600 text-sm">Manage consultations</p>
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-10">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        
+        {/* Header */}
+        <ServicePageHeader
+          title="My Services"
+          description="Manage your consultation services, set fees, and track your professional offerings."
+          icon={<Stethoscope className="h-5 w-5" />}
+          onAddClick={() => setOpen(true)}
+          addButtonLabel="Add Service"
+        />
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatsCard
+            title="Active Services"
+            value={activeCount}
+            icon={<Stethoscope className="h-5 w-5" />}
+            description="Currently offered"
+            variant="primary"
+          />
+          <StatsCard
+            title="Total Services"
+            value={services.length}
+            icon={<ClipboardList className="h-5 w-5" />}
+            description="All time"
+            variant="default"
+          />
+          <StatsCard
+            title="Total Revenue"
+            value={`ETB ${stats?.totalRevenue?.toLocaleString() || 0}`}
+            icon={<DollarSign className="h-5 w-5" />}
+            description="From consultations"
+            variant="success"
+          />
+          <StatsCard
+            title="Average Fee"
+            value={`ETB ${stats?.averageFee?.toLocaleString() || 0}`}
+            icon={<TrendingUp className="h-5 w-5" />}
+            description="Per consultation"
+            variant="info"
+          />
         </div>
 
-        <Button onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Service
-        </Button>
-      </div>
-
-      {/* STATS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Active" value={services.filter(s=>s.status==='Active').length} icon={<span>🩺</span>} />
-        <StatsCard title="Revenue" value={`ETB ${stats?.totalRevenue || 0}`} icon={<span>💰</span>} />
-        <StatsCard title="Avg Fee" value={`ETB ${stats?.averageFee || 0}`} icon={<span>📊</span>} />
-        <StatsCard title="Total" value={services.length} icon={<span>📋</span>} />
-      </div>
-
-      {/* FILTER */}
-      <ServiceSearchFilter
-        searchTerm={search}
-        onSearchChange={setSearch}
-        statusFilter={status}
-        onStatusFilterChange={setStatus}
-      />
-
-      {/* TABLE */}
-      <div className="w-full overflow-x-auto">
-        <ServiceTable
-          services={filtered}
-          onEdit={setEdit}
-          onDelete={(id, name) => {
-            if (confirm(`Delete "${name}"?`)) deleteService(id);
-          }}
+        {/* Filter */}
+        <ServiceSearchFilter
+          searchTerm={search}
+          onSearchChange={setSearch}
+          statusFilter={status}
+          onStatusFilterChange={setStatus}
         />
-      </div>
 
-      {/* MODALS */}
-      <ServiceFormModal
-        open={open}
-        onOpenChange={setOpen}
-        onSave={(d) => createService({ ...d, providerId: PROVIDER_ID })}
-        providerId={PROVIDER_ID}
-        title="Add Service"
-        description="Create consultation"
-      />
+        {/* Table */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+          <ServiceTable
+            services={filtered}
+            onEdit={setEdit}
+            onDelete={(id, name) => {
+              if (confirm(`Delete "${name}"? This action cannot be undone.`)) deleteService(id);
+            }}
+          />
+        </div>
 
-      {edit && (
+        {/* Add Modal */}
         <ServiceFormModal
-          open={!!edit}
-          onOpenChange={() => setEdit(null)}
-          onSave={(d) => updateService(edit.id, d)}
-          initialData={edit}
-          title="Edit Service"
-          description="Update service"
+          open={open}
+          onOpenChange={setOpen}
+          onSave={(d) => createService({ ...d, providerId: PROVIDER_ID })}
+          providerId={PROVIDER_ID}
+          title="Add Service"
+          description="Create a new consultation service"
         />
-      )}
+
+        {/* Edit Modal */}
+        {edit && (
+          <ServiceFormModal
+            open={!!edit}
+            onOpenChange={() => setEdit(null)}
+            onSave={(d) => updateService(edit.id, d)}
+            initialData={edit}
+            title="Edit Service"
+            description="Update service details"
+          />
+        )}
+      </div>
     </div>
   );
 }

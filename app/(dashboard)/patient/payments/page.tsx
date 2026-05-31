@@ -1,3 +1,5 @@
+// app/(dashboard)/patient/payments/page.tsx - Fixed
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -40,8 +42,38 @@ import {
 import { usePayment } from "@/hooks/usePayment"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { StatsCard } from "@/components/common/StatsCard"
+import { cn } from "@/lib/utils" // IMPORTANT: Add this import
 
-// Status configuration - removed Refunded
+// Gradient Header Component
+function GradientHeader({ title, description, icon }: { title: string; description: string; icon?: React.ReactNode }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#008282] to-[#00a0a0] mb-8">
+      <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+      <div className="absolute -left-20 -bottom-20 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
+      <div className="absolute right-10 top-10 h-32 w-32 rounded-full bg-white/5 blur-3xl" />
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-white/50 to-white/20" />
+      
+      <div className="relative px-6 py-6 md:px-8 md:py-7">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              {icon && (
+                <div className="rounded-xl bg-white/20 p-2.5 backdrop-blur-sm">
+                  <div className="h-5 w-5 text-white">{icon}</div>
+                </div>
+              )}
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">{title}</h1>
+            </div>
+            <p className="text-white/80 text-sm md:text-base max-w-2xl ml-12">{description}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Status configuration
 const statusConfig: Record<string, {
   icon: React.ComponentType<{ className?: string }>
   color: string
@@ -64,7 +96,6 @@ const statusConfig: Record<string, {
   },
 }
 
-// Helper function to format date
 const formatDate = (dateString: string) => {
   return format(new Date(dateString), "MMM dd, yyyy")
 }
@@ -85,7 +116,7 @@ function ReceiptDialog({ payment, onDownloadPDF }: {
   }
 
   return (
-    <DialogContent className="max-w-md print:shadow-none print:border-0" id="receipt-content">
+    <DialogContent className="max-w-md rounded-2xl print:shadow-none print:border-0" id="receipt-content">
       <DialogHeader className="print:hidden">
         <DialogTitle>Payment Receipt</DialogTitle>
         <DialogDescription>
@@ -96,41 +127,41 @@ function ReceiptDialog({ payment, onDownloadPDF }: {
       <div className="space-y-6 py-4 print:py-0">
         <div className="text-center border-b pb-4">
           <div className="flex justify-center mb-2">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Receipt className="h-6 w-6 text-primary" />
+            <div className="h-12 w-12 rounded-full bg-[#008282]/10 flex items-center justify-center">
+              <Receipt className="h-6 w-6 text-[#008282]" />
             </div>
           </div>
           <h3 className="font-bold text-xl">HealLink</h3>
-          <p className="text-sm text-muted-foreground">Payment Receipt - Chapa</p>
+          <p className="text-sm text-slate-500">Payment Receipt - Chapa</p>
         </div>
 
         <div className="space-y-3 text-sm">
           <div className="flex justify-between flex-wrap gap-2">
-            <span className="text-muted-foreground">Receipt ID</span>
+            <span className="text-slate-500">Receipt ID</span>
             <span className="font-medium">PAY-{payment.id}</span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
-            <span className="text-muted-foreground">Date</span>
+            <span className="text-slate-500">Date</span>
             <span className="font-medium">{formatDate(payment.createdAt)}</span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
-            <span className="text-muted-foreground">Appointment ID</span>
+            <span className="text-slate-500">Appointment ID</span>
             <span className="font-medium">#{payment.appointmentId}</span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
-            <span className="text-muted-foreground">Payment Method</span>
+            <span className="text-slate-500">Payment Method</span>
             <span className="font-medium flex items-center gap-1">
               <CreditCard className="h-3 w-3" />
               {payment.provider.toUpperCase()}
             </span>
           </div>
           <div className="flex justify-between flex-wrap gap-2">
-            <span className="text-muted-foreground">Transaction ID</span>
+            <span className="text-slate-500">Transaction ID</span>
             <span className="font-mono text-xs break-all">{payment.txRef}</span>
           </div>
           {payment.chapaReference && (
             <div className="flex justify-between flex-wrap gap-2">
-              <span className="text-muted-foreground">Chapa Reference</span>
+              <span className="text-slate-500">Chapa Reference</span>
               <span className="font-mono text-xs break-all">{payment.chapaReference}</span>
             </div>
           )}
@@ -139,16 +170,16 @@ function ReceiptDialog({ payment, onDownloadPDF }: {
         <div className="border-t pt-4">
           <div className="flex justify-between items-center flex-wrap gap-2">
             <span className="font-semibold">Total Amount</span>
-            <span className="text-2xl font-bold text-primary">ETB {payment.amount}</span>
+            <span className="text-2xl font-bold text-[#008282]">ETB {payment.amount}</span>
           </div>
         </div>
 
         <div className="flex gap-3 print:hidden">
-          <Button variant="outline" className="flex-1" onClick={handlePrint} disabled={isPrinting}>
+          <Button variant="outline" className="flex-1 rounded-xl" onClick={handlePrint} disabled={isPrinting}>
             <Printer className="h-4 w-4 mr-2" />
             {isPrinting ? "Printing..." : "Print"}
           </Button>
-          <Button className="flex-1" onClick={() => onDownloadPDF(payment)}>
+          <Button className="flex-1 rounded-xl bg-[#008282] hover:bg-[#00a0a0] text-white" onClick={() => onDownloadPDF(payment)}>
             <Download className="h-4 w-4 mr-2" />
             Download PDF
           </Button>
@@ -162,14 +193,12 @@ export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   
-  // Get current user - replace with your auth hook
-  const patientId = 201 // This should come from your auth context
+  const patientId = 201
   
   const {
     payments,
     isLoading,
     error,
-    fetchPatientPayments,
     getTotalAmountSpent,
     clearError
   } = usePayment({
@@ -177,14 +206,12 @@ export default function PaymentsPage() {
     autoFetch: true
   })
 
-  // Clear error on unmount
   useEffect(() => {
     return () => {
       clearError()
     }
   }, [clearError])
 
-  // Show error toast if any
   useEffect(() => {
     if (error) {
       toast.error(error)
@@ -192,7 +219,6 @@ export default function PaymentsPage() {
     }
   }, [error, clearError])
 
-  // Calculate statistics from real data
   const totalSpent = getTotalAmountSpent()
   
   const thisMonth = payments
@@ -204,7 +230,6 @@ export default function PaymentsPage() {
 
   const uniqueProviders = new Set(payments.map(p => p.appointmentId)).size
 
-  // Filter payments based on search and active tab
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = 
       payment.txRef.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -216,12 +241,9 @@ export default function PaymentsPage() {
     return matchesSearch && matchesTab
   })
 
-  // Handle PDF download
   const handleDownloadPDF = async (payment: any) => {
     try {
       toast.info("Generating PDF...")
-      // Implement PDF generation logic here
-      // You can use jsPDF or another library
       toast.success("PDF downloaded successfully")
     } catch (error) {
       toast.error("Failed to download PDF")
@@ -230,211 +252,198 @@ export default function PaymentsPage() {
 
   if (isLoading && payments.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex justify-center items-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Payments</h1>
-        <p className="text-muted-foreground">View your payment history and receipts</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <GradientHeader
+          title="Payments"
+          description="View your payment history and receipts for all healthcare services."
+          icon={<CreditCard className="h-5 w-5" />}
+        />
 
-      {/* Chapa Info Banner */}
-      <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <CreditCard className="h-5 w-5 text-primary flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium">All payments are securely processed through <span className="text-primary font-semibold">Chapa</span></p>
-              <p className="text-xs text-muted-foreground">Chapa supports Telebirr, CBEBirr, and major bank cards</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <Card>
+        {/* Chapa Info Banner */}
+        <Card className="mb-8 bg-[#008282]/5 border-[#008282]/20">
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <CreditCard className="h-5 w-5 text-primary" />
-              </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <CreditCard className="h-5 w-5 text-[#008282] flex-shrink-0" />
               <div>
-                <p className="text-xs text-muted-foreground">Total Spent</p>
-                <p className="text-xl font-bold">ETB {totalSpent.toLocaleString()}</p>
+                <p className="text-sm font-medium text-slate-800">All payments are securely processed through <span className="text-[#008282] font-semibold">Chapa</span></p>
+                <p className="text-xs text-slate-500">Chapa supports Telebirr, CBEBirr, and major bank cards</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">This Month</p>
-                <p className="text-xl font-bold">ETB {thisMonth.toLocaleString()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <Calendar className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Transactions</p>
-                <p className="text-xl font-bold">{payments.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                <Building2 className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Appointments</p>
-                <p className="text-xl font-bold">{uniqueProviders}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* Payment History */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>
-                All your payment transactions processed via Chapa
-              </CardDescription>
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input 
-                placeholder="Search by transaction or appointment..."
-                className="pl-10 w-full sm:w-64"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="flex flex-wrap h-auto gap-1 mb-4">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="SUCCESS">Completed</TabsTrigger>
-              <TabsTrigger value="PENDING">Pending</TabsTrigger>
-              <TabsTrigger value="FAILED">Failed</TabsTrigger>
-            </TabsList>
+        {/* Stats Cards */}
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-8">
+          <StatsCard
+            title="Total Spent"
+            value={`ETB ${totalSpent.toLocaleString()}`}
+            icon={<CreditCard className="h-5 w-5" />}
+            variant="default"
+          />
+          <StatsCard
+            title="This Month"
+            value={`ETB ${thisMonth.toLocaleString()}`}
+            icon={<TrendingUp className="h-5 w-5" />}
+            variant="success"
+          />
+          <StatsCard
+            title="Transactions"
+            value={payments.length}
+            icon={<Calendar className="h-5 w-5" />}
+            variant="info"
+          />
+          <StatsCard
+            title="Appointments"
+            value={uniqueProviders}
+            icon={<Building2 className="h-5 w-5" />}
+            variant="primary"
+          />
+        </div>
 
-            <TabsContent value={activeTab}>
-              {filteredPayments.length === 0 ? (
-                <div className="text-center py-12">
-                  <Search className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                  <h3 className="font-semibold text-lg">No payments found</h3>
-                  <p className="text-muted-foreground mt-1">
-                    {searchQuery ? "Try adjusting your search query" : "No payments to display"}
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Transaction</TableHead>
-                        <TableHead className="hidden sm:table-cell">Appointment ID</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead className="hidden sm:table-cell">Method</TableHead>
-                        <TableHead className="hidden sm:table-cell">Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredPayments.map((payment) => {
-                        const StatusIcon = statusConfig[payment.status]?.icon || Clock
-                        const statusColor = statusConfig[payment.status]?.color || "bg-gray-100 text-gray-700"
-                        const statusLabel = statusConfig[payment.status]?.label || payment.status
-                        
-                        return (
-                          <TableRow key={payment.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{payment.txRef}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {formatDate(payment.createdAt)}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="hidden sm:table-cell">
-                              <Badge variant="outline">
-                                #{payment.appointmentId}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="whitespace-nowrap font-semibold">
-                              ETB {payment.amount}
-                            </TableCell>
-                            <TableCell className="hidden sm:table-cell whitespace-nowrap">
-                              <Badge variant="outline" className="gap-1">
-                                <CreditCard className="h-3 w-3" />
-                                {payment.provider.toUpperCase()}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="hidden sm:table-cell whitespace-nowrap">
-                              <Badge className={statusColor}>
-                                <StatusIcon className="h-3 w-3 mr-1" />
-                                {statusLabel}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right whitespace-nowrap">
-                              {payment.status === "FAILED" ? (
-                                <Button variant="outline" size="sm" asChild>
-                                  <Link href={`/patient/bookings?appointment=${payment.appointmentId}`}>
-                                    Retry Payment
-                                  </Link>
-                                </Button>
-                              ) : payment.status === "SUCCESS" ? (
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                      <Receipt className="h-4 w-4 mr-2" />
-                                      <span className="hidden sm:inline">Receipt</span>
-                                    </Button>
-                                  </DialogTrigger>
-                                  <ReceiptDialog payment={payment} onDownloadPDF={handleDownloadPDF} />
-                                </Dialog>
-                              ) : (
-                                <Badge variant="secondary" className="whitespace-nowrap">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  Processing
+        {/* Payment History */}
+        <Card className="border-slate-200 shadow-sm overflow-hidden">
+          <CardHeader className="border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg text-slate-800">Payment History</CardTitle>
+                <CardDescription className="text-slate-500">
+                  All your payment transactions processed via Chapa
+                </CardDescription>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input 
+                  placeholder="Search by transaction or appointment..."
+                  className="pl-10 w-full sm:w-64 rounded-xl border-slate-200 focus:ring-[#008282]/20"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+              <div className="px-6 pt-4 pb-3 border-b border-slate-100">
+                <TabsList className="bg-slate-100 rounded-xl">
+                  <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:text-[#008282] rounded-lg">
+                    All
+                  </TabsTrigger>
+                  <TabsTrigger value="SUCCESS" className="data-[state=active]:bg-white data-[state=active]:text-[#008282] rounded-lg">
+                    Completed
+                  </TabsTrigger>
+                  <TabsTrigger value="PENDING" className="data-[state=active]:bg-white data-[state=active]:text-[#008282] rounded-lg">
+                    Pending
+                  </TabsTrigger>
+                  <TabsTrigger value="FAILED" className="data-[state=active]:bg-white data-[state=active]:text-[#008282] rounded-lg">
+                    Failed
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value={activeTab} className="m-0">
+                {filteredPayments.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Search className="h-12 w-12 mx-auto text-slate-300 mb-4" />
+                    <h3 className="font-semibold text-lg text-slate-800">No payments found</h3>
+                    <p className="text-slate-500 mt-1">
+                      {searchQuery ? "Try adjusting your search query" : "No payments to display"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50/50 border-b border-slate-100">
+                          <TableHead className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Transaction</TableHead>
+                          <TableHead className="hidden sm:table-cell px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Appointment ID</TableHead>
+                          <TableHead className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</TableHead>
+                          <TableHead className="hidden md:table-cell px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Method</TableHead>
+                          <TableHead className="hidden sm:table-cell px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</TableHead>
+                          <TableHead className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-slate-100">
+                        {filteredPayments.map((payment) => {
+                          const StatusIcon = statusConfig[payment.status]?.icon || Clock
+                          const statusColor = statusConfig[payment.status]?.color || "bg-gray-100 text-gray-700"
+                          const statusLabel = statusConfig[payment.status]?.label || payment.status
+                          
+                          return (
+                            <TableRow key={payment.id} className="hover:bg-slate-50/50 transition-colors">
+                              <TableCell className="px-6 py-4">
+                                <div>
+                                  <p className="font-medium text-slate-800">{payment.txRef}</p>
+                                  <p className="text-sm text-slate-500">
+                                    {formatDate(payment.createdAt)}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell px-6 py-4">
+                                <Badge variant="outline" className="rounded-full">
+                                  #{payment.appointmentId}
                                 </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                              </TableCell>
+                              <TableCell className="px-6 py-4 whitespace-nowrap font-semibold text-slate-800">
+                                ETB {payment.amount}
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell px-6 py-4 whitespace-nowrap">
+                                <Badge variant="outline" className="gap-1 rounded-full">
+                                  <CreditCard className="h-3 w-3" />
+                                  {payment.provider.toUpperCase()}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell px-6 py-4 whitespace-nowrap">
+                                <Badge className={cn("rounded-full", statusColor)}>
+                                  <StatusIcon className="h-3 w-3 mr-1" />
+                                  {statusLabel}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="px-6 py-4 text-right whitespace-nowrap">
+                                {payment.status === "FAILED" ? (
+                                  <Button variant="outline" size="sm" className="rounded-xl" asChild>
+                                    <Link href={`/patient/bookings?appointment=${payment.appointmentId}`}>
+                                      Retry Payment
+                                    </Link>
+                                  </Button>
+                                ) : payment.status === "SUCCESS" ? (
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="text-[#008282] hover:text-[#00a0a0]">
+                                        <Receipt className="h-4 w-4 mr-2" />
+                                        <span className="hidden sm:inline">Receipt</span>
+                                      </Button>
+                                    </DialogTrigger>
+                                    <ReceiptDialog payment={payment} onDownloadPDF={handleDownloadPDF} />
+                                  </Dialog>
+                                ) : (
+                                  <Badge variant="secondary" className="whitespace-nowrap rounded-full">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    Processing
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

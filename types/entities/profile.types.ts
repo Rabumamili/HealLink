@@ -4,25 +4,10 @@ import { ProviderType, VerificationStatus, ProfessionalVerificationStatus, Staff
 import { PaymentStatus } from './payment.types';
 
 // ===============================
-// BASE PROFILE TYPES
-// ===============================
-
-export interface BaseProfile {
-  id: number;
-  user_id: number;
-  email: string;
-  phone_number: string;
-  profile_photo?: string;
-  created_at: string;
-  updated_at?: string;
-}
-
-// ===============================
-// USER (PATIENT) PROFILE
+// PATIENT PROFILE
 // ===============================
 
 export interface PatientProfile {
-  status: PaymentStatus;
   id: number;
   user_id: number;
   role: 'patient';
@@ -35,7 +20,7 @@ export interface PatientProfile {
   blood_type?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
   address?: string;
   profile_photo?: string;
-  
+  status: PaymentStatus;
   
   // Statistics
   total_appointments?: number;
@@ -58,37 +43,28 @@ export interface PatientProfileUpdate {
 }
 
 // ===============================
-// DOCTOR PROFILE (without rating/review stats)
+// PROVIDER BASE (Common provider fields)
 // ===============================
 
-export interface DoctorProfile {
+export interface BaseProviderProfile {
   id: number;
   user_id: number;
-  role: 'doctor';
-  provider_type: 'doctor';
   email: string;
   phone_number: string;
   full_name: string;
-  
-  // Professional details
-  specialization: string;
-  license_number: string;
-  years_of_experience: number;
-  consultation_fee: number | string;
-  qualifications: string;
-  bio?: string;
-  education?: string;
-  location: string;
-  description?: string;
-  
-  
-  // Images
   profile_photo?: string;
-
   
-  // Documents
-  license_document_url?: string;
-  degree_document_url?: string;
+  // Provider type
+  provider_type: ProviderType;
+  
+  // Business/License info
+  license_number: string;
+  tin_number?: string;
+  license_document: string;
+  
+  // Location
+  location?: string;
+  address?: string;
   
   // Status
   verification_status: VerificationStatus;
@@ -96,12 +72,30 @@ export interface DoctorProfile {
   is_active: boolean;
   joined_date: string;
   
-  // Statistics (reviews removed - now in review.types.ts)
-  total_appointments?: number;
-  total_patients?: number;
-  
   created_at: string;
   updated_at?: string;
+}
+
+// ===============================
+// DOCTOR PROVIDER PROFILE
+// ===============================
+
+export interface DoctorProfile extends BaseProviderProfile {
+  role: 'doctor';
+  provider_type: 'doctor';
+  
+  // Professional details
+  specialization: string;
+  years_of_experience?: number;
+  consultation_fee?: number | string;
+  qualifications?: string;
+  bio?: string;
+  education?: string;
+  description?: string;
+  
+  // Statistics
+  total_appointments?: number;
+  total_patients?: number;
 }
 
 export interface DoctorProfileUpdate {
@@ -120,39 +114,23 @@ export interface DoctorProfileUpdate {
 }
 
 // ===============================
-// CLINIC PROFILE (without rating/review stats)
+// CLINIC PROVIDER PROFILE
 // ===============================
 
-export interface ClinicProfile {
-  id: number;
-  user_id: number;
+export interface ClinicProfile extends BaseProviderProfile {
   role: 'clinic';
   provider_type: 'clinic';
-  email: string;
-  phone_number: string;
-  full_name: string;
-  address: string;
-  license_number: string;
-  tin_number: string;
-  operating_hours: string;
-  description: string;
+  
+  // Clinic specific
+  operating_hours?: string;
+  description?: string;
   established_year?: string;
-  location: string;
   
-  // Images
-  profile_photo?: string;
-  
-  // Documents
-  registration_document_url?: string;
-  
-  // Status
-  verification_status: VerificationStatus;
-  professional_verification_status: ProfessionalVerificationStatus;
-  is_active: boolean;
-  joined_date: string;
-  
-  created_at: string;
-  updated_at?: string;
+  // Statistics
+  total_doctors?: number;
+  total_staff?: number;
+  total_appointments?: number;
+  total_patients_served?: number;
 }
 
 export interface ClinicProfileUpdate {
@@ -169,45 +147,26 @@ export interface ClinicProfileUpdate {
 }
 
 // ===============================
-// DIAGNOSTIC CENTER PROFILE (without rating/review stats)
+// DIAGNOSTIC CENTER PROVIDER PROFILE
 // ===============================
 
-export interface DiagnosticCenterProfile {
-  id: number;
-  user_id: number;
+export interface DiagnosticCenterProfile extends BaseProviderProfile {
   role: 'diagnostic_center';
   provider_type: 'diagnostic_center';
-  email: string;
-  phone_number: string;
-  full_name: string;
-  address: string;
-  license_number: string;
-  tin_number: string;
-  accreditation: string;
-  services_description: string;
-  operating_hours: string;
+  
+  // Diagnostic center specific
+  accreditation?: string;
+  services_description?: string;
+  operating_hours?: string;
   established_year?: string;
-  location: string;
   
   // Services offered
-  services_offered: string[];
+  services_offered?: string[];
   
-  // Images
-  profile_photo?: string;
-  
-  // Documents
-  registration_document_url?: string;
-  
-  // Status
-  verification_status: VerificationStatus;
-  professional_verification_status: ProfessionalVerificationStatus;
-  is_active: boolean;
-  joined_date: string;
-  
-
-  
-  created_at: string;
-  updated_at?: string;
+  // Statistics
+  total_tests_performed?: number;
+  total_patients_served?: number;
+  monthly_tests?: number;
 }
 
 export interface DiagnosticCenterProfileUpdate {
@@ -215,7 +174,6 @@ export interface DiagnosticCenterProfileUpdate {
   address?: string;
   phone_number?: string;
   email?: string;
-  website?: string;
   license_number?: string;
   tin_number?: string;
   accreditation?: string;
@@ -234,16 +192,30 @@ export interface DiagnosticCenterProfileUpdate {
 export interface StaffProfile {
   id: number;
   user_id: number;
-  employer_id: number;
-  employer_type: ProviderType;
-  employer_name?: string;
+  role: 'staff';
   email: string;
   first_name: string;
   last_name: string;
   phone_number: string;
-  role: StaffSubRole;
-  is_active: boolean;
   profile_photo?: string;
+  
+  // Employment info
+  employer_id: number;
+  employer_type: ProviderType;
+  employer_name?: string;
+  
+  // Staff role
+  staff_sub_role: StaffSubRole;
+  
+  // Status
+  is_active: boolean;
+  
+  // Statistics
+  total_appointments_handled?: number;
+  total_patients_served?: number;
+  average_response_time?: number;
+  task_completion_rate?: number;
+  
   created_at: string;
   updated_at?: string;
 }
@@ -254,7 +226,19 @@ export interface StaffProfileUpdate {
   phone_number?: string;
   profile_photo?: string;
   is_active?: boolean;
+  staff_sub_role?: StaffSubRole;
 }
+
+// ===============================
+// UNION TYPE FOR ALL PROFILES
+// ===============================
+
+export type Profile = 
+  | PatientProfile 
+  | DoctorProfile 
+  | ClinicProfile 
+  | DiagnosticCenterProfile 
+  | StaffProfile;
 
 // ===============================
 // PROFILE RESPONSES
@@ -288,7 +272,7 @@ export interface ChangePasswordResponse {
 }
 
 // ===============================
-// PROFILE STATISTICS (without review stats)
+// PROFILE STATISTICS
 // ===============================
 
 export interface PatientStatistics {
@@ -307,6 +291,8 @@ export interface DoctorStatistics {
   upcoming_appointments: number;
   completed_appointments: number;
   cancellation_rate: number;
+  average_rating?: number;
+  total_reviews?: number;
 }
 
 export interface ClinicStatistics {
@@ -317,6 +303,7 @@ export interface ClinicStatistics {
   monthly_appointments: number;
   revenue?: number;
   occupancy_rate?: number;
+  average_rating?: number;
 }
 
 export interface DiagnosticCenterStatistics {
@@ -327,6 +314,7 @@ export interface DiagnosticCenterStatistics {
   monthly_tests: number;
   average_processing_time?: number;
   patient_satisfaction_rate?: number;
+  average_rating?: number;
 }
 
 export interface StaffStatistics {
@@ -337,34 +325,79 @@ export interface StaffStatistics {
 }
 
 // ===============================
-// UNION TYPE FOR ALL PROFILES
+// TYPE GUARDS & HELPER FUNCTIONS
 // ===============================
 
-export type Profile = 
-  | PatientProfile 
-  | DoctorProfile 
-  | ClinicProfile 
-  | DiagnosticCenterProfile 
-  | StaffProfile;
-
-// Helper function to get display name from profile
 export function getDisplayName(profile: Profile): string {
-  if ('first_name' in profile && profile.first_name) {
-    const lastName = (profile as any).last_name || '';
-    return `${profile.first_name} ${lastName}`.trim();
+  if (isStaff(profile)) {
+    return `${profile.first_name} ${profile.last_name}`.trim();
   }
   
-  if ('full_name' in profile && profile.full_name) {
+  if (isPatient(profile)) {
+    return `${profile.first_name} ${profile.last_name}`.trim();
+  }
+  
+  if (isProvider(profile)) {
     return profile.full_name;
   }
   
   return 'User';
 }
 
-// Helper function to get profile type
-export function getProfileType(profile: Profile): string {
-  if ('role' in profile) {
-    return profile.role;
+export function getProfilePhoto(profile: Profile | null): string | undefined {
+  if (!profile) return undefined;
+  return profile.profile_photo;
+}
+
+export function getProfileRole(profile: Profile): string {
+  return profile.role;
+}
+
+export function getProviderType(profile: Profile): ProviderType | null {
+  if (isProvider(profile)) {
+    return profile.provider_type;
   }
-  return 'unknown';
+  return null;
+}
+
+// Type guards
+export function isProvider(profile: Profile): profile is DoctorProfile | ClinicProfile | DiagnosticCenterProfile {
+  return 'provider_type' in profile;
+}
+
+export function isPatient(profile: Profile): profile is PatientProfile {
+  return profile.role === 'patient';
+}
+
+export function isDoctor(profile: Profile): profile is DoctorProfile {
+  return profile.role === 'doctor' && 'provider_type' in profile && profile.provider_type === 'doctor';
+}
+
+export function isClinic(profile: Profile): profile is ClinicProfile {
+  return profile.role === 'clinic' && 'provider_type' in profile && profile.provider_type === 'clinic';
+}
+
+export function isDiagnosticCenter(profile: Profile): profile is DiagnosticCenterProfile {
+  return profile.role === 'diagnostic_center' && 'provider_type' in profile && profile.provider_type === 'diagnostic_center';
+}
+
+export function isStaff(profile: Profile): profile is StaffProfile {
+  return profile.role === 'staff';
+}
+
+export function getStaffSubRole(profile: Profile): StaffSubRole | null {
+  if (isStaff(profile)) {
+    return profile.staff_sub_role;
+  }
+  return null;
+}
+
+// Get statistics by profile type
+export function getStatisticsByProfileType(profile: Profile, statistics: any) {
+  if (isPatient(profile)) return statistics as PatientStatistics;
+  if (isDoctor(profile)) return statistics as DoctorStatistics;
+  if (isClinic(profile)) return statistics as ClinicStatistics;
+  if (isDiagnosticCenter(profile)) return statistics as DiagnosticCenterStatistics;
+  if (isStaff(profile)) return statistics as StaffStatistics;
+  return null;
 }

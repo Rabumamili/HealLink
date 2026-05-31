@@ -70,7 +70,7 @@ export const EmailVerificationDialog = ({
       await verifyEmail({
         email,
         code: verificationCodeString,
-        tempUserId,
+      
       });
       
       toast.success('Email verified successfully! Professional verification submitted.');
@@ -87,7 +87,7 @@ export const EmailVerificationDialog = ({
     setIsResending(true);
 
     try {
-      await resendVerificationCode(email);
+      await resendVerificationCode({ email });
       setTimeLeft(60);
       setCanResend(false);
       toast.success('Verification code resent!');

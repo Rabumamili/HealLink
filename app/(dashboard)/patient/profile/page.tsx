@@ -1,3 +1,4 @@
+// app/(dashboard)/patient/profile/page.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -83,7 +84,7 @@ export default function PatientProfilePage() {
   useEffect(() => {
     loadPatientProfile();
     loadPatientStatistics();
-  }, [loadPatientProfile, loadPatientStatistics]);
+  }, []);
 
   useEffect(() => {
     if (profile && "first_name" in profile) {
@@ -102,7 +103,10 @@ export default function PatientProfilePage() {
 
   const handleSave = async () => {
     const updated = await updatePatient(formData);
-    if (updated) setIsEditing(false);
+    if (updated) {
+      setIsEditing(false);
+      toast.success("Profile updated successfully");
+    }
   };
 
   const handlePasswordChange = async () => {
@@ -117,6 +121,7 @@ export default function PatientProfilePage() {
     const success = await updatePassword(passwordData);
     if (success) {
       setPasswordData({ current_password: "", new_password: "", confirm_password: "" });
+      toast.success("Password changed successfully");
     }
   };
 
@@ -125,6 +130,7 @@ export default function PatientProfilePage() {
     if (file) {
       await uploadPhoto(file);
       await loadPatientProfile();
+      toast.success("Profile photo updated");
     }
   };
 
@@ -175,10 +181,7 @@ export default function PatientProfilePage() {
           <h1 className="text-3xl font-bold tracking-tight text-[#0b1c30] mb-2">Patient Profile</h1>
           <p className="text-[#3d4949] text-base">Manage your personal information and account security.</p>
         </div>
-        <Button variant="destructive" onClick={logout} className="flex items-center gap-2">
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Button>
+    
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -359,7 +362,7 @@ export default function PatientProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Medical Information — blood type only */}
+          {/* Medical Information */}
           <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -391,20 +394,6 @@ export default function PatientProfilePage() {
                   </Select>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Emergency Contact */}
-          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <UserPlus className="h-5 w-5 text-[#006767]" />
-                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Emergency Contact</CardTitle>
-              </div>
-              <CardDescription>Person to contact in case of emergency</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-[#3d4949]">Emergency contact management coming soon.</p>
             </CardContent>
           </Card>
 

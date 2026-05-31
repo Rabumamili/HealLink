@@ -54,25 +54,25 @@ export const PatientRegisterForm = () => {
     resolver: zodResolver(patientSchema),
   });
 
-  const onSubmit = async (data: PatientFormData) => {
-    setError(null);
-    try {
-      const { confirmPassword, ...submitData } = data;
-      const response = await registerUser({
-        ...submitData,
-        role: 'patient',
-      });
+const onSubmit = async (data: PatientFormData) => {
+  setError(null);
+  try {
+    const { confirmPassword, ...submitData } = data;
+    
+    await registerUser({
+      ...submitData,
+      role: 'patient',
+    });
 
-      toast.success('Registration successful! Please verify your email.');
-      
-      const tempUserId = response?.data?.userId || response?.userId;
-      router.push(
-        `/verify-email?email=${encodeURIComponent(data.email)}&role=patient&tempUserId=${tempUserId || ''}`
-      );
-    } catch (err: any) {
-      setError(err?.message || 'Registration failed');
-    }
-  };
+    toast.success('Registration successful! Please verify your email.');
+    
+    router.push(
+      `/verify-email?email=${encodeURIComponent(data.email)}&role=patient`
+    );
+  } catch (err: any) {
+    setError(err?.message || 'Registration failed');
+  }
+};
 
   return (
     <RegisterFormShell

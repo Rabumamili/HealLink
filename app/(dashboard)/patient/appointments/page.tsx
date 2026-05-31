@@ -1,4 +1,5 @@
-// app/(routes)/patient/appointments/page.tsx
+// app/(routes)/patient/appointments/page.tsx - Complete fixed version with providerSpecialty
+
 'use client';
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
@@ -12,6 +13,7 @@ import {
   RefreshCw,
   Clock3,
   Sparkles,
+  Star,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,8 +30,10 @@ import { AppointmentDetailsDialog } from '@/components/appointments/AppointmentD
 import { AppointmentFilters } from '@/components/appointments/AppointmentFilters';
 import { AppointmentStatsCards } from '@/components/appointments/AppointmentStatsCards';
 import { RescheduleDialog } from '@/components/appointments/RescheduleDialog';
+import { WriteReviewDialog } from '@/components/review/WriteReviewDialog';
 
 import { useAppointments } from '@/hooks/useAppointments';
+import { useReview } from '@/hooks/useReview';
 import { EnrichedAppointment } from '@/types/entities/appointment.types';
 
 import { toast } from 'sonner';
@@ -49,7 +53,10 @@ const normalize = (value?: string | null): string =>
   value?.toLowerCase().trim() || '';
 
 // IMPORTANT: Card number is NOT included in patient view for security
-const toCardData = (appointment: EnrichedAppointment): AppointmentCardData => ({
+const toCardData = (
+  appointment: EnrichedAppointment,
+  hasReviewed: boolean = false
+): AppointmentCardData => ({
   id: appointment.id,
   patientId: appointment.patientId,
   patientName: appointment.patientName,
@@ -66,7 +73,7 @@ const toCardData = (appointment: EnrichedAppointment): AppointmentCardData => ({
   notes: appointment.notes,
   fee: appointment.fee,
   paymentStatus: appointment.paymentStatus,
-  cardNumber: null, // EXPLICITLY REMOVED - Patients should NEVER see card numbers
+  cardNumber: null,
   location: appointment.location,
   locationDetail: appointment.locationDetail,
   patientEmail: appointment.patientEmail,
@@ -74,7 +81,8 @@ const toCardData = (appointment: EnrichedAppointment): AppointmentCardData => ({
   providerName: appointment.providerName,
   providerType: appointment.providerType,
   providerEmail: appointment.providerEmail,
-  providerPhone: appointment.providerPhone
+  providerPhone: appointment.providerPhone,
+  hasReviewed,
 });
 
 export default function PatientAppointmentsPage() {
@@ -82,8 +90,11 @@ export default function PatientAppointmentsPage() {
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentCardData | null>(null);
   const [viewOpen, setViewOpen] = useState<boolean>(false);
   const [rescheduleOpen, setRescheduleOpen] = useState<boolean>(false);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState<boolean>(false);
+  const [selectedAppointmentForReview, setSelectedAppointmentForReview] = useState<EnrichedAppointment | null>(null);
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'past'>('today');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [reviewedAppointments, setReviewedAppointments] = useState<Set<number>>(new Set());
 
   const {
     appointments,
@@ -96,11 +107,29 @@ export default function PatientAppointmentsPage() {
     fetchPatientAppointments,
   } = useAppointments();
 
+  const {
+    reviews,
+    createReview,
+    fetchReviewsByPatient,
+    isLoading: reviewsLoading,
+  } = useReview();
+
   useEffect(() => {
     const id = getCurrentPatientId();
     setPatientId(id);
     fetchPatientAppointments(id);
   }, [fetchPatientAppointments]);
+
+  useEffect(() => {
+    if (patientId) {
+      fetchReviewsByPatient(patientId);
+    }
+  }, [patientId, fetchReviewsByPatient]);
+
+  useEffect(() => {
+    const reviewedIds = new Set(reviews.map((r: any) => r.appointment_id || r.appointmentId));
+    setReviewedAppointments(reviewedIds);
+  }, [reviews]);
 
   const patientAppointments = useMemo(() => {
     return appointments.filter((apt: EnrichedAppointment) => apt.patientId === patientId);
@@ -227,13 +256,14 @@ export default function PatientAppointmentsPage() {
       setIsRefreshing(true);
       await refreshData();
       await fetchPatientAppointments(patientId);
+      await fetchReviewsByPatient(patientId);
       toast.success('Appointments refreshed');
     } catch {
       toast.error('Failed to refresh');
     } finally {
       setIsRefreshing(false);
     }
-  }, [refreshData, fetchPatientAppointments, patientId]);
+  }, [refreshData, fetchPatientAppointments, fetchReviewsByPatient, patientId]);
 
   const handleView = useCallback((appointment: AppointmentCardData): void => {
     setSelectedAppointment(appointment);
@@ -277,6 +307,45 @@ export default function PatientAppointmentsPage() {
     [updateTiming, fetchPatientAppointments, patientId]
   );
 
+  const handleWriteReview = useCallback((appointment: EnrichedAppointment): void => {
+    setSelectedAppointmentForReview(appointment);
+    setReviewDialogOpen(true);
+  }, []);
+
+  const handleSubmitReview = useCallback(
+    async (rating: number, comment: string): Promise<void> => {
+      if (!selectedAppointmentForReview) return;
+
+      const reviewData = {
+        providerId: selectedAppointmentForReview.providerId,
+        providerType: selectedAppointmentForReview.providerType || 'clinic',
+        rating,
+        comment,
+      };
+
+      try {
+        const success = await createReview(reviewData as any);
+        
+        if (success) {
+          toast.success('Thank you for your review!');
+          await fetchReviewsByPatient(patientId);
+          setReviewDialogOpen(false);
+          setSelectedAppointmentForReview(null);
+        } else {
+          toast.error('Failed to submit review');
+        }
+      } catch (error) {
+        console.error('Review submission error:', error);
+        toast.error('Failed to submit review');
+      }
+    },
+    [createReview, fetchReviewsByPatient, patientId, selectedAppointmentForReview]
+  );
+
+  const canReview = useCallback((appointment: EnrichedAppointment): boolean => {
+    return appointment.status === 'Completed' && !reviewedAppointments.has(appointment.id);
+  }, [reviewedAppointments]);
+
   if (isLoading && appointments.length === 0) {
     return <LoadingState message="Loading your appointments..." />;
   }
@@ -284,7 +353,6 @@ export default function PatientAppointmentsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-20">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
-        {/* Modern Header with consistent #008282 color */}
         <AppointmentHeader
           title="My Appointments"
           description="View and manage all your upcoming and past medical appointments. Track your healthcare journey, view service details, and stay on top of your schedule."
@@ -314,7 +382,6 @@ export default function PatientAppointmentsPage() {
           }
         />
 
-        {/* Today's Overview Section */}
         {todayAppointments.length > 0 && activeTab === 'today' && (
           <div className="mb-6 rounded-xl bg-gradient-to-r from-[#008282]/5 to-[#00a0a0]/5 border border-[#008282]/10 p-4">
             <div className="flex items-start gap-3">
@@ -369,7 +436,7 @@ export default function PatientAppointmentsPage() {
             currentAppointments.map((appointment: EnrichedAppointment) => (
               <AppointmentCard
                 key={appointment.id}
-                appointment={toCardData(appointment)}
+                appointment={toCardData(appointment, reviewedAppointments.has(appointment.id))}
                 variant="patient"
                 isPast={activeTab === 'past'}
                 onView={handleView}
@@ -383,6 +450,7 @@ export default function PatientAppointmentsPage() {
                     ? handleCancel
                     : undefined
                 }
+                onReview={canReview(appointment) ? () => handleWriteReview(appointment) : undefined}
               />
             ))
           ) : (
@@ -409,6 +477,14 @@ export default function PatientAppointmentsPage() {
         appointment={selectedAppointment}
         variant="patient"
         onReschedule={handleReschedule}
+        onReview={selectedAppointment && selectedAppointment.status === 'Completed' && !reviewedAppointments.has(selectedAppointment.id) 
+          ? () => {
+              const fullAppointment = patientAppointments.find(a => a.id === selectedAppointment.id);
+              if (fullAppointment) handleWriteReview(fullAppointment);
+              setViewOpen(false);
+            }
+          : undefined
+        }
       />
 
       <RescheduleDialog
@@ -416,6 +492,14 @@ export default function PatientAppointmentsPage() {
         onOpenChange={setRescheduleOpen}
         appointment={selectedAppointment}
         onConfirm={handleRescheduleConfirm}
+      />
+
+      <WriteReviewDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        providerName={selectedAppointmentForReview?.providerName || ''}
+        serviceName={selectedAppointmentForReview?.serviceName}
+        onSubmit={handleSubmitReview}
       />
     </div>
   );

@@ -1,275 +1,329 @@
 // hooks/useAuth.ts
-import { create } from 'zustand';
-import { createAuthSlice, AuthState } from '@/stores/slices/authSlice';
-import { devtools, persist } from 'zustand/middleware';
-import { useState } from 'react';
+'use client';
 
-// Create the store
-export const useAuthStore = create<AuthState>()(
-  devtools(
-    persist(
-      (set, get, api) => ({
-        ...createAuthSlice(set, get, api),
-      }),
-      {
-        name: 'auth-storage',
-        partialize: (state) => ({
-          token: state.token,
-          refreshToken: state.refreshToken,
-          user: state.user,
-          isAuthenticated: state.isAuthenticated,
-        }),
-      }
-    ),
-    { name: 'AuthStore' }
-  )
-);
+import { useEffect } from 'react';
+import { useAuthStore } from '@/stores/slices/authSlice';
+import { useRouter } from 'next/navigation';
+import {
+  LoginCredentials,
+  UserRegisterData,
+  DoctorRegisterData,
+  ClinicRegisterData,
+  DiagnosticCenterRegisterData,
+  StaffRegisterData,
+  StaffSubRole,
+  VerifyEmailData,
+  ResendVerificationData,
+  ForgotPasswordData,
+  ResetPasswordData,
+  AuthUser,
+  UserRole,
+  ProviderType,
+  ProfessionalVerificationSubmitData,
+  ProfessionalVerificationStatus,
+} from '@/types/entities/auth.types';
+import { authService } from '@/services/auth.service';
 
-// Main auth hook
-export const useAuth = () => {
+interface UseAuthOptions {
+  requireAuth?: boolean;
+  allowedRoles?: UserRole[];
+  redirectTo?: string;
+  redirectIfAuthenticated?: string;
+}
+
+// ─── Type guards ─────────────────────────────────────────────────────────────
+
+const isProvider = (
+  user: AuthUser | null
+): user is AuthUser & {
+  role: 'doctor' | 'clinic' | 'diagnostic_center';
+  professional_verification_status?: ProfessionalVerificationStatus;
+  rejection_reason?: string;
+} =>
+  user !== null &&
+  (user.role === 'doctor' ||
+    user.role === 'clinic' ||
+    user.role === 'diagnostic_center');
+
+const isPatient = (
+  user: AuthUser | null
+): user is AuthUser & { role: 'patient' } =>
+  user !== null && user.role === 'patient';
+
+const isStaffUser = (
+  user: AuthUser | null
+): user is AuthUser & { role: 'staff' } =>
+  user !== null && user.role === 'staff';
+
+// ─── Hook ────────────────────────────────────────────────────────────────────
+
+export const useAuth = (options: UseAuthOptions = {}) => {
+  const {
+    requireAuth = false,
+    allowedRoles = [],
+    redirectTo = '/login',
+    redirectIfAuthenticated,
+  } = options;
+
+  const router = useRouter();
   const store = useAuthStore();
-  
-  return {
-    // State
-    user: store.user,
-    token: store.token,
-    refreshToken: store.refreshToken,
-    isAuthenticated: store.isAuthenticated,
-    isLoading: store.isLoading,
-    isLoggingIn: store.isLoggingIn,
-    isRegistering: store.isRegistering,
-    isVerifyingEmail: store.isVerifyingEmail,
-    isResettingPassword: store.isResettingPassword,
-    isSendingResetLink: store.isSendingResetLink,
-    error: store.error,
-    professionalVerificationStatus: store.professionalVerificationStatus,
-    
-    // Actions
-    login: store.login,
-    logout: store.logout,
-    registerUser: store.registerUser,
-    registerProvider: store.registerProvider,
-    registerStaff: store.registerStaff,
-    verifyEmail: store.verifyEmail,
-    resendVerificationCode: store.resendVerificationCode,
-    forgotPassword: store.forgotPassword,
-    resetPassword: store.resetPassword,
-    refreshTokenRequest: store.refreshTokenRequest,
-    getMe: store.getMe,
-    
-    // Professional verification
-    checkProfessionalVerification: store.checkProfessionalVerification,
-    submitProfessionalVerification: store.submitProfessionalVerification,
-    canAccessDashboard: store.canAccessDashboard,
-    
-    // Helpers
-    getUserDisplayName: store.getUserDisplayName,
-    getUserInitials: store.getUserInitials,
-    isProvider: store.isProvider,
-    isPatient: store.isPatient,
-    isStaff: store.isStaff,
-    requiresProfessionalVerification: store.requiresProfessionalVerification,
-    isProfessionalVerificationPending: store.isProfessionalVerificationPending,
-    isProfessionalVerificationApproved: store.isProfessionalVerificationApproved,
-    
-    // Clear auth
-    clearAuth: store.clearAuth,
-    setError: store.setError,
-    setLoading: store.setLoading,
-  };
-};
 
-// Hook for checking dashboard access
-export const useDashboardAccess = () => {
-  const { 
-    user, 
-    canAccessDashboard, 
-    professionalVerificationStatus,
-    isProvider: checkIsProvider,
-    isPatient: checkIsPatient,
-    isStaff: checkIsStaff
-  } = useAuth();
-  
-  return {
-    canAccess: canAccessDashboard(),
-    isProvider: checkIsProvider(),
-    isPatient: checkIsPatient(),
-    isStaff: checkIsStaff(),
-    verificationStatus: professionalVerificationStatus?.status,
-    isVerificationPending: professionalVerificationStatus?.status === 'pending',
-    isVerificationApproved: professionalVerificationStatus?.status === 'approved',
-    isVerificationRejected: professionalVerificationStatus?.status === 'rejected',
-    rejectionReason: professionalVerificationStatus?.rejectionReason,
-    userRole: user?.role,
-  };
-};
-
-// Hook for staff-specific actions
-export const useStaffManagement = () => {
-  const { user, token } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  const [staffList, setStaffList] = useState<any[]>([]);
-  
-  const registerStaff = async (data: any) => {
-    setIsLoading(true);
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const response = await authService.registerStaff(data);
-      return response;
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const getStaffList = async (employerId: number, employerType: string) => {
-    setIsLoading(true);
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const response = await authService.getStaffList(employerId, employerType);
-      setStaffList(response.data);
-      return response.data;
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const updateStaffRole = async (staffId: number, role: string) => {
-    setIsLoading(true);
-    try {
-      const { authService } = await import('@/services/auth.service');
-      const response = await authService.updateStaffRole(staffId, role);
-      setStaffList(prev => prev.map(staff => 
-        staff.id === staffId ? { ...staff, staff_sub_role: role } : staff
-      ));
-      return response.data;
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const deactivateStaff = async (staffId: number) => {
-    setIsLoading(true);
-    try {
-      const { authService } = await import('@/services/auth.service');
-      await authService.deactivateStaff(staffId);
-      setStaffList(prev => prev.map(staff => 
-        staff.id === staffId ? { ...staff, is_active: false } : staff
-      ));
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const activateStaff = async (staffId: number) => {
-    setIsLoading(true);
-    try {
-      const { authService } = await import('@/services/auth.service');
-      await authService.activateStaff(staffId);
-      setStaffList(prev => prev.map(staff => 
-        staff.id === staffId ? { ...staff, is_active: true } : staff
-      ));
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  return {
+  const {
+    user,
+    isLoading,
+    error,
+    isInitialized,
+    initialize,
+    login: storeLogin,
+    logout: storeLogout,
+    registerUser,
+    registerDoctor,
+    registerClinic,
+    registerDiagnosticCenter,
     registerStaff,
-    getStaffList,
+    completeStaffRegistration,
+    resendStaffInvitation,
+    verifyEmail,
+    resendVerificationCode,
+    forgotPassword,
+    resetPassword,
+    getCurrentUser: storeGetCurrentUser,
+    updateProfile,
+    changePassword,
+    clearError,
+    getStaffMembers,
     updateStaffRole,
     deactivateStaff,
     activateStaff,
-    staffList,
-    isLoading,
-  };
-};
+    deleteStaff,
+    submitProfessionalVerification,
+    getProfessionalVerificationStatus,
+  } = store;
 
-// Hook for role-based access control
-export const useRoleAccess = () => {
-  const { user, isProvider, isPatient, isStaff } = useAuth();
-  
-  const hasRole = (roles: string | string[]) => {
-    if (!user) return false;
-    const roleArray = Array.isArray(roles) ? roles : [roles];
-    return roleArray.includes(user.role);
+  // ── Init ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isInitialized) {
+      initialize();
+    }
+  }, [initialize, isInitialized]);
+
+  // ── Route guard ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isInitialized || isLoading) return;
+
+    const isAuthenticated = !!user;
+    const hasRequiredRole =
+      allowedRoles.length === 0 ||
+      (user && allowedRoles.includes(user.role));
+
+    if (redirectIfAuthenticated && isAuthenticated) {
+      router.push(redirectIfAuthenticated);
+      return;
+    }
+    if (requireAuth && !isAuthenticated) {
+      router.push(redirectTo);
+      return;
+    }
+    if (requireAuth && isAuthenticated && !hasRequiredRole) {
+      router.push('/unauthorized');
+      return;
+    }
+  }, [
+    user,
+    isLoading,
+    isInitialized,
+    requireAuth,
+    allowedRoles,
+    redirectTo,
+    redirectIfAuthenticated,
+    router,
+  ]);
+
+  // ── getCurrentUser — returns AuthUser | null ──────────────────────────────
+  const getCurrentUser = async (): Promise<AuthUser | null> => {
+    await storeGetCurrentUser();
+    return useAuthStore.getState().user;
   };
-  
-  const hasAnyRole = (roles: string[]) => {
+
+  // ── Role helpers ──────────────────────────────────────────────────────────
+  const hasRole = (role: UserRole | UserRole[]): boolean => {
     if (!user) return false;
+    const roles = Array.isArray(role) ? role : [role];
     return roles.includes(user.role);
   };
-  
-  const hasAllRoles = (roles: string[]) => {
-    if (!user) return false;
-    return roles.every(role => role === user.role);
-  };
-  
-  return {
-    isProvider: isProvider(),
-    isPatient: isPatient(),
-    isStaff: isStaff(),
-    userRole: user?.role,
-    hasRole,
-    hasAnyRole,
-    hasAllRoles,
-  };
-};
 
-// Hook for authentication status
-export const useAuthStatus = () => {
-  const { isAuthenticated, user, isLoading, error } = useAuth();
-  
+  const checkIsStaff = (): boolean => isStaffUser(user);
+
+  const hasStaffRole = (subRole: StaffSubRole | StaffSubRole[]): boolean => {
+    if (!isStaffUser(user)) return false;
+    const roles = Array.isArray(subRole) ? subRole : [subRole];
+    return roles.includes(user.staff_sub_role!);
+  };
+
+  const isVerified = (): boolean => user?.is_verified || false;
+
+  const isProfessionalVerified = (): boolean => {
+    if (!isProvider(user)) return false;
+    return user.professional_verification_status === 'approved';
+  };
+
+  const hasSubmittedProfessionalVerification = (): boolean => {
+    if (!isProvider(user)) return false;
+    const s = user.professional_verification_status;
+    return s === 'submitted' || s === 'approved';
+  };
+
+  const isProfessionalVerificationPending = (): boolean => {
+    if (!isProvider(user)) return false;
+    const s = user.professional_verification_status;
+    return s === 'pending' || !s;
+  };
+
+  const getProfessionalStatus = (): {
+    status?: ProfessionalVerificationStatus;
+    reason?: string;
+  } => {
+    if (!isProvider(user)) return { status: undefined, reason: undefined };
+    return {
+      status: user.professional_verification_status,
+      reason: user.rejection_reason,
+    };
+  };
+
+  const needsProfessionalVerification = (): boolean => {
+    if (!isProvider(user)) return false;
+    const s = user.professional_verification_status;
+    return s === 'pending' || s === 'rejected' || !s;
+  };
+
+  const getEmployerInfo = (): { id: number; type: ProviderType } | null =>
+    authService.getEmployerInfo();
+
+  // ── Login (with post-login routing) ──────────────────────────────────────
+  const login = async (
+    credentials: LoginCredentials,
+    redirectPath?: string
+  ) => {
+    try {
+      await storeLogin(credentials);
+
+      const currentUser = authService.getCurrentUserSync();
+
+      if (!redirectPath && currentUser) {
+        if (isPatient(currentUser)) {
+          redirectPath = '/patient/dashboard';
+        } else if (isStaffUser(currentUser)) {
+          if (currentUser.staff_sub_role === 'lab assistant') {
+            redirectPath = '/staff/lab-dashboard';
+          } else if (currentUser.staff_sub_role === 'card_checker') {
+            redirectPath = '/staff/card-checker-dashboard';
+          } else {
+            redirectPath = '/staff/dashboard';
+          }
+        } else if (isProvider(currentUser)) {
+          const status = currentUser.professional_verification_status;
+          if (status === 'approved') {
+            const routes: Record<string, string> = {
+              doctor: '/doctor/dashboard',
+              clinic: '/clinic/dashboard',
+              diagnostic_center: '/diagnostic/dashboard',
+            };
+            redirectPath = routes[currentUser.role];
+          } else if (status === 'submitted') {
+            redirectPath = '/professional-verification-status';
+          } else if (status === 'rejected') {
+            redirectPath = '/professional-verification-status?status=rejected';
+          } else {
+            redirectPath = '/professional-verification-submit';
+          }
+        }
+      }
+
+      if (redirectPath) router.push(redirectPath);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  const logout = async () => {
+    await storeLogout();
+    router.push('/login');
+  };
+
+  // ── Staff registration wrapper ────────────────────────────────────────────
+  const registerStaffWrapper = async (data: StaffRegisterData) => {
+    try {
+      const response = await registerStaff(data);
+      return { success: true, data: response };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
+  // ── Return surface ────────────────────────────────────────────────────────
   return {
-    isAuthenticated,
+    // State
+    user,
     isLoading,
     error,
-    user,
-    isLoggedIn: isAuthenticated,
-    isLoggedOut: !isAuthenticated && !isLoading,
-  };
-};
+    isInitialized,
+    isAuthenticated: !!user,
 
-// Hook for professional verification status
-export const useProfessionalVerification = () => {
-  const {
-    user,
-    professionalVerificationStatus,
-    checkProfessionalVerification,
-    submitProfessionalVerification,
+    // Role helpers
+    hasRole,
+    isStaff: checkIsStaff,
+    hasStaffRole,
+    isVerified,
+    isProfessionalVerified,
+    hasSubmittedProfessionalVerification,
     isProfessionalVerificationPending,
-    isProfessionalVerificationApproved,
-    requiresProfessionalVerification,
-    isLoading,
-  } = useAuth();
-  
-  const needsVerification = requiresProfessionalVerification();
-  const isPending = isProfessionalVerificationPending();
-  const isApproved = isProfessionalVerificationApproved();
-  const isRejected = professionalVerificationStatus?.status === 'rejected';
-  const rejectionReason = professionalVerificationStatus?.rejectionReason;
-  
-  return {
-    needsVerification,
-    isPending,
-    isApproved,
-    isRejected,
-    rejectionReason,
-    status: professionalVerificationStatus?.status,
-    submittedAt: professionalVerificationStatus?.submittedAt,
-    approvedAt: professionalVerificationStatus?.approvedAt,
-    checkStatus: checkProfessionalVerification,
-    submitVerification: submitProfessionalVerification,
-    isLoading,
-    canAccessDashboard: isApproved || !needsVerification,
+    getProfessionalStatus,
+    needsProfessionalVerification,
+    getEmployerInfo,
+
+    // Auth actions
+    login,
+    logout,
+
+    // Registration
+    registerUser,
+    registerDoctor,
+    registerClinic,
+    registerDiagnosticCenter,
+    registerStaff: registerStaffWrapper,
+    completeStaffRegistration,
+    resendStaffInvitation,
+
+    // Verification
+    verifyEmail,
+    resendVerificationCode,
+    submitProfessionalVerification,
+    getProfessionalVerificationStatus,
+
+    // Password
+    forgotPassword,
+    resetPassword,
+    changePassword,
+
+    // Profile
+    getCurrentUser,
+    updateProfile,
+
+    // Staff management
+    getStaffMembers,
+    updateStaffRole,
+    deactivateStaff,
+    activateStaff,
+    deleteStaff,
+
+    // Utils
+    clearError,
+
+    // Loading aliases
+    isRegistering: isLoading,
+    isVerifyingEmail: isLoading,
+    isSendingResetLink: isLoading,
   };
 };

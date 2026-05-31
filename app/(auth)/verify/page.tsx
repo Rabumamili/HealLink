@@ -1,3 +1,4 @@
+// app/verify-email/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -5,16 +6,16 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { EmailVerificationDialog } from '@/components/auth/EmailVerificationDialog';
 import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 export default function VerifyEmailPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, isAuthenticated, professionalVerificationStatus } = useAuth();
+  const { user, isAuthenticated, getCurrentUser } = useAuth();
   const [showVerification, setShowVerification] = useState(true);
   
   const email = searchParams.get('email') || '';
   const role = searchParams.get('role') || '';
-  const tempUserId = searchParams.get('tempUserId') || '';
 
   // If already authenticated, redirect appropriately
   useEffect(() => {
@@ -26,7 +27,7 @@ export default function VerifyEmailPage() {
         router.push('/staff/dashboard');
       }
       else if (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center') {
-        const verificationStatus = professionalVerificationStatus?.status || user.professional_verification_status;
+        const verificationStatus = user.professional_verification_status;
         
         if (verificationStatus === 'approved') {
           const roleRoutes: Record<string, string> = {
@@ -34,17 +35,21 @@ export default function VerifyEmailPage() {
             clinic: '/clinic/dashboard',
             diagnostic_center: '/diagnostic/dashboard',
           };
-          router.push(roleRoutes[user.role] || '/dashboard');
+          router.push(roleRoutes[user.role]);
         } 
-        else if (verificationStatus === 'pending') {
+        else if (verificationStatus === 'submitted') {
           router.push('/professional-verification-status');
         }
         else if (verificationStatus === 'rejected') {
           router.push('/professional-verification-status?status=rejected');
         }
+        else {
+          // Not yet submitted - go to submission page
+          router.push('/professional-verification-submit');
+        }
       }
     }
-  }, [isAuthenticated, user, professionalVerificationStatus, router]);
+  }, [isAuthenticated, user, router]);
 
   // Redirect if no email provided
   useEffect(() => {
@@ -53,15 +58,19 @@ export default function VerifyEmailPage() {
     }
   }, [email, router]);
 
-  const handleVerificationComplete = () => {
+  const handleVerificationComplete = async () => {
     setShowVerification(false);
     
+    // Refresh user data
+    await getCurrentUser();
+    
     if (role === 'patient') {
+      toast.success('Email verified successfully! Please login.');
       router.push('/login?verified=true');
     } else {
-      // For providers: after email verification, professional verification is automatically submitted
-      // Show pending status page
-      router.push('/professional-verification-status');
+      // For providers: after email verification, redirect to professional verification submission
+      toast.success('Email verified! Please complete professional verification.');
+      router.push('/professional-verification-submit');
     }
   };
 
@@ -84,10 +93,8 @@ export default function VerifyEmailPage() {
         onOpenChange={setShowVerification}
         email={email}
         role={role}
-        tempUserId={tempUserId}
         onVerificationComplete={handleVerificationComplete}
-        onCancel={handleCancel}
-      />
+        onCancel={handleCancel} tempUserId={''}      />
     </AuthLayout>
   );
 }

@@ -1,3 +1,4 @@
+// components/layout/LayoutWrapper.tsx
 "use client"
 
 import { useEffect, useState } from "react"
@@ -11,7 +12,7 @@ import { cn } from "@/lib/utils"
 
 interface LayoutWrapperProps {
   children: React.ReactNode
-  role: "doctor" | "clinicAdmin" | "diagnosticCenter" | "patient"
+  role: "doctor" | "clinic" | "diagnosticCenter" | "patient" | "staff"
   portalName: string
   portalSubtitle: string
   titleColor?: string
@@ -32,28 +33,26 @@ const getPageTitle = (pathname: string, role: string): string => {
       "/doctor/staff": "Staff",
       "/doctor/analytics": "Analytics",
       "/doctor/reviews": "Reviews",
-     
     },
-    clinicAdmin: {
-      "/clinicAdmin/dashboard": "Dashboard",
-      "/clinicAdmin/services": "Services",
-      "/clinicAdmin/appointments": "Appointments",
-      "/clinicAdmin/schedule": "Schedule",
-      "/clinicAdmin/checkin": "Check-in",
-      "/clinicAdmin/staff": "Staff",
-      "/clinicAdmin/analytics": "Analytics",
-      "clinicAdmin/reviews": "Reviews",
-     
+    clinic: {
+      "/clinic/dashboard": "Dashboard",
+      "/clinic/services": "Services",
+      "/clinic/appointments": "Appointments",
+      "/clinic/schedule": "Schedule",
+      "/clinic/checkin": "Check-in",
+      "/clinic/staff": "Staff",
+      "/clinic/analytics": "Analytics",
+      "/clinic/reviews": "Reviews",
     },
     diagnosticCenter: {
-      "/diagnosticCenterAdmin/dashboard": "Dashboard",
-      "/diagnosticCenterAdmin/appointments": "Appointments",
-      "/diagnosticCenterAdmin/services": "Tests",
-      "/diagnosticCenterAdmin/schedule": "Schedule",
-      "/diagnosticCenterAdmin/checkin": "Check-in",
-      "/diagnosticCenterAdmin/staff": "Staff",
-      "/diagnosticCenterAdmin/analytics": "Analytics",
-      "/diagnosticCenterAdmin/reviews": "Reviews",
+      "/diagnosticCenter/dashboard": "Dashboard",
+      "/diagnosticCenter/appointments": "Appointments",
+      "/diagnosticCenter/services": "Tests",
+      "/diagnosticCenter/schedule": "Schedule",
+      "/diagnosticCenter/checkin": "Check-in",
+      "/diagnosticCenter/staff": "Staff",
+      "/diagnosticCenter/analytics": "Analytics",
+      "/diagnosticCenter/reviews": "Reviews",
     },
     patient: {
       "/patient/dashboard": "Dashboard",
@@ -63,6 +62,12 @@ const getPageTitle = (pathname: string, role: string): string => {
       "/patient/results": "Results",
       "/patient/payments": "Payments",
       "/patient/reviews": "Reviews",
+    },
+    staff: {
+      "/staff/dashboard": "Dashboard",
+      "/staff/checkin": "Patient Check-in",
+      "/staff/results": "Diagnostic Results",
+      "/staff/profile": "Profile",
     },
   }
 
@@ -174,7 +179,6 @@ export function LayoutWrapper({
           />
         </div>
 
-
         <CommonTopHeader
           title={!isDashboard ? pageTitle : ""}
           isMobile={isResponsive}
@@ -188,8 +192,7 @@ export function LayoutWrapper({
           userEmail={userEmail}
           role={role}
           profileLink={`/${role}/profile`}
-          settingsLink={`/${role}/settings`}
-          notificationsLink={`/${role}/notifications`} // Add this line
+          notificationsLink={`/${role}/notifications`}
           isMobileMenuOpen={isMobileMenuOpen}
         />
 

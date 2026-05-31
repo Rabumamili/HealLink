@@ -1,4 +1,5 @@
-// components/appointments/AppointmentCard.tsx
+// components/appointments/AppointmentCard.tsx - Complete updated file
+
 'use client';
 
 import { ReactNode, useMemo } from 'react';
@@ -22,8 +23,7 @@ import {
   CircleDollarSign,
   FileText,
   Sparkles,
-  ArrowRight,
-  User,
+  Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +55,7 @@ export interface AppointmentCardData {
   providerPhone?: string;
   providerSpecialty?: string;
   queuePosition?: number;
+  hasReviewed?: boolean;
 }
 
 interface AppointmentCardProps {
@@ -72,6 +73,7 @@ interface AppointmentCardProps {
   onCheckIn?: (appointment: AppointmentCardData) => void;
   onConfirm?: (appointment: AppointmentCardData) => void;
   onContact?: (appointment: AppointmentCardData) => void;
+  onReview?: (appointment: AppointmentCardData) => void;
   actions?: ReactNode;
 }
 
@@ -130,6 +132,7 @@ export function AppointmentCard({
   onCheckIn,
   onConfirm,
   onContact,
+  onReview,
   actions,
 }: AppointmentCardProps) {
   const style = variantStyles[variant] || variantStyles.patient;
@@ -156,6 +159,9 @@ export function AppointmentCard({
   const isPatientView = variant === 'patient';
   const isProviderView = variant !== 'patient';
   const showCardNumber = !isPatientView && appointment.cardNumber;
+  
+  // Check if review button should show
+  const showReviewButton = appointment.status === 'Completed' && !appointment.hasReviewed && onReview;
 
   return (
     <div
@@ -169,7 +175,6 @@ export function AppointmentCard({
     >
       <div className={cn('absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r', style.accent)} />
       
-      {/* Subtle background pattern */}
       <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#008282]/5 blur-3xl" />
       </div>
@@ -374,6 +379,18 @@ export function AppointmentCard({
             {showActions && onComplete && appointment.status === 'In Progress' && (
               <Button size="sm" onClick={() => onComplete(appointment)} className={cn('rounded-xl text-white shadow-md text-sm h-8 px-3', style.button)}>
                 Complete
+              </Button>
+            )}
+            {/* REVIEW BUTTON */}
+            {showReviewButton && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => onReview(appointment)}
+                className="rounded-xl border-[#008282] text-[#008282] hover:bg-[#008282]/10 text-sm h-8 px-3"
+              >
+                <Star className="mr-1 h-3 w-3" />
+                Write Review
               </Button>
             )}
           </div>

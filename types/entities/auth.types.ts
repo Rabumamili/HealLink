@@ -7,11 +7,8 @@ export type UserRole =
   | 'diagnostic_center' 
   | 'staff';
 
-export type StaffSubRole = 
-  | 'receptionist' 
-  | 'technician' 
-  | 'nurse' 
-  | 'lab_assistant' 
+export type StaffSubRole =  
+  | 'lab assistant' 
   | 'card_checker';
 
 export type ProviderType = 'doctor' | 'clinic' | 'diagnostic_center';
@@ -19,15 +16,16 @@ export type ProviderType = 'doctor' | 'clinic' | 'diagnostic_center';
 export type VerificationStatus = 'pending' | 'verified' | 'rejected';
 export type ProfessionalVerificationStatus = 'pending' | 'submitted' | 'approved' | 'rejected';
 
-// ===============================
-// AUTH USER (BACKEND RESPONSE)
-// ===============================
-
 export interface AuthUser {
   id: number;
   email: string;
   phone_number: string;
   role: UserRole;
+  is_active: boolean;
+  is_verified: boolean;
+  verification_status: VerificationStatus;
+  created_at: string;
+  updated_at?: string;
   
   // For Users (patients) and Staff
   first_name?: string;
@@ -38,25 +36,23 @@ export interface AuthUser {
   
   // Staff specific
   staff_sub_role?: StaffSubRole;
+  employer_id?: number;
+  employer_type?: ProviderType;
   
-  // Provider specific (for doctors, clinics, diagnostic centers)
+  // Provider specific
   provider_id?: number;
   provider_type?: ProviderType;
-  
-  // Status
-  is_active: boolean;
-  is_verified: boolean;
-  verification_status: VerificationStatus;
   professional_verification_status?: ProfessionalVerificationStatus;
+  rejection_reason?: string;
   
-  // Profile
-  profile_photo?: string;
-  created_at: string;
+  // Provider fields
+  specialization?: string;
+  license_number?: string;
+  tin_number?: string;
+  license_document?: string;
+  location?: string;
+  address?: string;
 }
-
-// ===============================
-// LOGIN
-// ===============================
 
 export interface LoginCredentials {
   email: string;
@@ -92,19 +88,10 @@ export interface DoctorRegisterData {
   full_name: string;
   phone_number: string;
   role: 'doctor';
-  
-  // Professional details
   specialization: string;
   license_number: string;
-  years_of_experience: number;
-  consultation_fee: number;
-  qualifications: string;
-  bio?: string;
   location: string;
-  
-  // Documents
   license_document?: File;
-  degree_document?: File;
 }
 
 export interface ClinicRegisterData {
@@ -112,18 +99,11 @@ export interface ClinicRegisterData {
   password: string;
   full_name: string;
   role: 'clinic';
-  
-  // Clinic details
   address: string;
-  phone: string;
+  phone_number: string;
   license_number: string;
   tin_number: string;
-  operating_hours: string;
-  description?: string;
-  established_year?: string;
-  
-  // Documents
-  registration_document?: File;
+  license_document?: File;
 }
 
 export interface DiagnosticCenterRegisterData {
@@ -131,22 +111,13 @@ export interface DiagnosticCenterRegisterData {
   password: string;
   full_name: string;
   role: 'diagnostic_center';
-  
-  // Center details
   address: string;
-  phone: string;
+  phone_number: string;
   license_number: string;
   tin_number: string;
-  accreditation: string;
-  services_description: string;
-  operating_hours: string;
-  established_year?: string;
-  
-  // Documents
-  registration_document?: File;
+  license_document?: File;
 }
 
-// STAFF REGISTRATION
 export interface StaffRegisterData {
   employer_id: number;
   employer_type: ProviderType;
@@ -155,9 +126,15 @@ export interface StaffRegisterData {
   last_name: string;
   phone_number: string;
   role: StaffSubRole;
+  send_invitation?: boolean;
 }
 
-// Union type for all registration data
+export interface ProfessionalVerificationSubmitData {
+  role: UserRole;
+  license_number: string;
+  tin_number?: string;
+}
+
 export type RegisterData = 
   | UserRegisterData 
   | DoctorRegisterData 

@@ -1,67 +1,70 @@
-// components/review/StarRating.tsx
-"use client"
+// components/reviews/StarRating.tsx
+'use client';
 
-import { useState } from "react"
-import { Star } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Star } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface StarRatingProps {
-  rating: number
-  onRatingChange?: (rating: number) => void
-  interactive?: boolean
-  size?: "default" | "large"
-  className?: string
+  rating: number;
+  onRatingChange?: (rating: number) => void;
+  readonly?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  showLabel?: boolean;
 }
 
-export function StarRating({ 
-  rating, 
-  onRatingChange, 
-  interactive = false,
-  size = "default",
-  className
-}: StarRatingProps) {
-  const [hoverRating, setHoverRating] = useState(0)
-  
-  const getRatingLabel = (rating: number): string => {
-    switch (rating) {
-      case 5: return "Excellent!"
-      case 4: return "Very Good"
-      case 3: return "Good"
-      case 2: return "Fair"
-      case 1: return "Poor"
-      default: return ""
+const sizeClasses = {
+  sm: 'h-3 w-3',
+  md: 'h-4 w-4',
+  lg: 'h-5 w-5'
+};
+
+const ratingLabels: Record<number, string> = {
+  1: 'Poor',
+  2: 'Fair',
+  3: 'Good',
+  4: 'Very Good',
+  5: 'Excellent'
+};
+
+export function StarRating({ rating, onRatingChange, readonly = false, size = 'md', showLabel = false }: StarRatingProps) {
+  const handleClick = (value: number) => {
+    if (!readonly && onRatingChange) {
+      onRatingChange(value);
     }
-  }
-  
+  };
+
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="flex gap-1">
+    <div className="flex items-center gap-2">
+      <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"
-            disabled={!interactive}
-            className={interactive ? "cursor-pointer" : "cursor-default"}
-            onMouseEnter={() => interactive && setHoverRating(star)}
-            onMouseLeave={() => interactive && setHoverRating(0)}
-            onClick={() => interactive && onRatingChange?.(star)}
+            onClick={() => handleClick(star)}
+            className={cn(
+              'transition-all',
+              !readonly && 'cursor-pointer hover:scale-110',
+              readonly && 'cursor-default'
+            )}
+            disabled={readonly}
           >
-            <Star 
+            <Star
               className={cn(
-                size === "large" ? "h-8 w-8" : "h-5 w-5",
-                star <= (hoverRating || rating) 
-                  ? "fill-yellow-400 text-yellow-400" 
-                  : "text-muted-foreground/30 fill-muted-foreground/30"
-              )} 
+                sizeClasses[size],
+                star <= rating
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'fill-gray-200 text-gray-300',
+                !readonly && 'hover:text-yellow-400'
+              )}
             />
           </button>
         ))}
       </div>
-      {interactive && hoverRating > 0 && (
-        <p className="text-center text-sm text-muted-foreground">
-          {getRatingLabel(hoverRating)}
-        </p>
+      {showLabel && rating > 0 && (
+        <span className="text-sm font-medium text-gray-700">
+          {ratingLabels[rating]}
+        </span>
       )}
     </div>
-  )
+  );
 }

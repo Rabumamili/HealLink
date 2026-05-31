@@ -1,10 +1,11 @@
+// components/common/top-header.tsx
 "use client"
 
 import { useState, ChangeEvent, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation" // Add this import
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Bell,
   Settings,
@@ -37,10 +38,10 @@ interface TopHeaderProps {
   userInitials?: string
   userName?: string
   userEmail?: string
-  role?: "doctor" | "clinicAdmin" | "diagnosticCenter" | "patient"
+  userAvatar?: string
+  role?: "doctor" | "clinic" | "diagnosticCenter" | "patient" | "staff"
   profileLink?: string
-  settingsLink?: string
-  notificationsLink?: string // Add this prop
+  notificationsLink?: string
   isMobileMenuOpen?: boolean
 }
 
@@ -55,15 +56,16 @@ export function CommonTopHeader({
   userInitials = "JD",
   userName = "User",
   userEmail = "user@heallink.com",
+  userAvatar,
   role = "patient",
   profileLink = "/profile",
-  settingsLink = "/settings",
-  notificationsLink = "/notifications", // Add default value
+  notificationsLink = "/notifications",
   isMobileMenuOpen = false,
 }: TopHeaderProps) {
-  const router = useRouter() // Add this
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [scrolled, setScrolled] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -75,6 +77,7 @@ export function CommonTopHeader({
 
   const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
+    // Handle search logic here
   }
 
   // Calculate left offset based on sidebar state for desktop
@@ -86,9 +89,13 @@ export function CommonTopHeader({
 
   const leftOffset = getLeftOffset()
 
-  // Add notification click handler
   const handleNotificationClick = () => {
     router.push(notificationsLink)
+  }
+
+  const handleLogout = () => {
+    localStorage.clear()
+    router.push("/login")
   }
 
   return (
@@ -136,17 +143,22 @@ export function CommonTopHeader({
       <div className="flex items-center gap-2 shrink-0">
         {/* Mobile Search Button */}
         {showSearch && isMobile && (
-          <Button variant="ghost" size="icon" className="relative">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative"
+            onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+          >
             <Search className="h-5 w-5" />
           </Button>
         )}
 
-        {/* Notification Bell - Now clickable with Link or Button */}
+        {/* Notification Bell */}
         <Button 
           variant="ghost" 
           size="icon" 
           className="relative"
-          onClick={handleNotificationClick} // Add onClick handler
+          onClick={handleNotificationClick}
         >
           <Bell className="h-5 w-5" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -156,10 +168,12 @@ export function CommonTopHeader({
           <HelpCircle className="h-5 w-5" />
         </Button>
 
+        {/* User Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
               <Avatar className="h-10 w-10">
+                <AvatarImage src={userAvatar} />
                 <AvatarFallback className="bg-teal-100 text-teal-700">
                   {userInitials}
                 </AvatarFallback>
@@ -180,14 +194,9 @@ export function CommonTopHeader({
                 <span>Profile</span>
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={settingsLink} className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </Link>
-            </DropdownMenuItem>
+          
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600 cursor-pointer">
+            <DropdownMenuItem onClick={handleLogout} className="text-red-600 cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>
@@ -195,8 +204,8 @@ export function CommonTopHeader({
         </DropdownMenu>
       </div>
 
-      {/* Mobile Search Bar - Expandable (simplified) */}
-      {showSearch && isMobile && searchQuery && (
+      {/* Mobile Search Bar - Expandable */}
+      {showSearch && isMobile && mobileSearchOpen && (
         <div className="absolute top-full left-0 right-0 p-3 bg-white border-b shadow-md z-50">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
