@@ -30,7 +30,7 @@ function VerifyEmailContent() {
       }
 
       try {
-        await verifyEmail({ code: token });
+        await verifyEmail({ email, code: token });
         setStatus('success');
         
         // Refresh user data after verification
