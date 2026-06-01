@@ -4,7 +4,8 @@ export type UserRole =
   | 'patient'
   | 'doctor'
   | 'clinic'
-  | 'diagnostic_center';
+  | 'diagnostic_center'
+  | 'staff';
 
 export type ProviderType = 'doctor' | 'clinic' | 'diagnostic_center';
 
@@ -29,6 +30,8 @@ export interface AuthUser {
 
   provider_id?: number;
   provider_type?: ProviderType;
+  employer_id?: number;
+  employer_type?: ProviderType;
   professional_verification_status?: ProfessionalVerificationStatus;
   rejection_reason?: string;
   specialization?: string;
@@ -39,6 +42,8 @@ export interface AuthUser {
   location?: string;
   address?: string;
   description?: string;
+
+  staff_sub_role?: StaffSubRole;
 }
 
 export interface LoginCredentials {
@@ -102,6 +107,18 @@ export interface DiagnosticCenterRegisterData {
   tin_number: string;
   license_document: File;
   description?: string;
+}
+
+export type StaffSubRole = 'lab assistant' | 'card_checker';
+
+export interface StaffRegisterData {
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  employer_id: number;
+  employer_type: ProviderType;
+  staff_sub_role: StaffSubRole;
 }
 
 export interface ProfessionalVerificationSubmitData {

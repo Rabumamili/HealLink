@@ -1,14 +1,14 @@
 // app/verify-email/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { EmailVerificationDialog } from '@/components/auth/EmailVerificationDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isAuthenticated, getCurrentUser } = useAuth();
@@ -23,9 +23,6 @@ export default function VerifyEmailPage() {
       if (user.role === 'patient') {
         router.push('/patient/dashboard');
       } 
-      else if (user.role === 'staff') {
-        router.push('/staff/dashboard');
-      }
       else if (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center') {
         const verificationStatus = user.professional_verification_status;
         
@@ -96,5 +93,21 @@ export default function VerifyEmailPage() {
         onVerificationComplete={handleVerificationComplete}
         onCancel={handleCancel} tempUserId={''}      />
     </AuthLayout>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthLayout title="Verify Email" description="Loading...">
+          <div className="flex min-h-[200px] items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+          </div>
+        </AuthLayout>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

@@ -17,6 +17,8 @@ import {
   ResetPasswordData,
   RefreshTokenResponse,
   AuthUser,
+  StaffRegisterData,
+  StaffSubRole,
   ProfessionalVerificationSubmitData,
   BackendPatient,
   BackendPatientRegisterRequest,
@@ -335,6 +337,46 @@ class AuthService extends ApiService {
 
   async changePassword(_oldPassword: string, _newPassword: string): Promise<{ message: string }> {
     notImplemented('Password change');
+  }
+
+  // ===============================
+  // STAFF REGISTRATION & MANAGEMENT
+  // ===============================
+
+  async registerStaff(_data: StaffRegisterData): Promise<{ message: string; staff_id: number; email: string }> {
+    notImplemented('Staff registration');
+  }
+
+  async completeStaffRegistration(
+    _token: string,
+    _password: string,
+    _confirmPassword: string
+  ): Promise<{ user: AuthUser }> {
+    notImplemented('Staff registration completion');
+  }
+
+  async resendStaffInvitation(_email: string): Promise<{ message: string }> {
+    notImplemented('Staff invitation resend');
+  }
+
+  async getStaffMembers(_employerId: number, _employerType: string): Promise<AuthUser[]> {
+    notImplemented('Staff members list');
+  }
+
+  async updateStaffRole(_staffId: number, _role: StaffSubRole): Promise<AuthUser> {
+    notImplemented('Staff role update');
+  }
+
+  async deactivateStaff(_staffId: number): Promise<{ message: string }> {
+    notImplemented('Staff deactivation');
+  }
+
+  async activateStaff(_staffId: number): Promise<{ message: string }> {
+    notImplemented('Staff activation');
+  }
+
+  async deleteStaff(_staffId: number): Promise<{ message: string }> {
+    notImplemented('Staff deletion');
   }
 
   // ===============================

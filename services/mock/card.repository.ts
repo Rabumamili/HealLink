@@ -34,6 +34,38 @@ const mockAppointmentsForCards: Record<number, AppointmentReference> = {
   108: { id: 108, patientId: 208, patientName: 'Jennifer Martinez', scheduledDateTime: '2026-01-26T10:00:00Z', serviceName: 'Dental Filling', providerType: 'clinic', providerName: 'Hayat General Clinic' }
 };
 
+function buildMockCard(
+  id: number,
+  appointmentId: number,
+  cardNumber: string,
+  status: CardStatus,
+  createdAt: string,
+  expiresAt: string,
+  usedAt: string | null,
+  updatedAt: string,
+  serviceId: number = 1
+): Card {
+  const appointment = mockAppointmentsForCards[appointmentId];
+  return {
+    id,
+    appointmentId,
+    patientId: appointment.patientId,
+    cardNumber,
+    status,
+    issuedAt: createdAt,
+    expiresAt,
+    usedAt,
+    serviceId,
+    createdAt,
+    updatedAt,
+  };
+}
+
+function getAppointmentRef(appointmentId: number | null): AppointmentReference | undefined {
+  if (appointmentId == null) return undefined;
+  return mockAppointmentsForCards[appointmentId];
+}
+
 export class CardRepository extends BaseRepository<Card> {
   private static instance: CardRepository;
   
@@ -51,86 +83,14 @@ export class CardRepository extends BaseRepository<Card> {
 
   private initializeMockData(): void {
     this.items = [
-      {
-        id: 1,
-        appointmentId: 101,
-        cardNumber: '4512-7893-1023-6745',
-        status: 'Active',
-        createdAt: '2026-01-27T09:00:00Z',
-        expiresAt: '2026-01-28T09:00:00Z',
-        usedAt: null,
-        updatedAt: '2026-01-27T09:00:00Z'
-      },
-      {
-        id: 2,
-        appointmentId: 102,
-        cardNumber: '5234-8910-2345-7861',
-        status: 'Used',
-        createdAt: '2026-01-27T08:30:00Z',
-        expiresAt: '2026-01-28T08:30:00Z',
-        usedAt: '2026-01-27T10:15:00Z',
-        updatedAt: '2026-01-27T10:15:00Z'
-      },
-      {
-        id: 3,
-        appointmentId: 103,
-        cardNumber: '6789-0123-4567-8901',
-        status: 'Expired',
-        createdAt: '2026-01-25T14:00:00Z',
-        expiresAt: '2026-01-26T14:00:00Z',
-        usedAt: null,
-        updatedAt: '2026-01-26T14:00:00Z'
-      },
-      {
-        id: 4,
-        appointmentId: 104,
-        cardNumber: '7890-1234-5678-9012',
-        status: 'Active',
-        createdAt: '2026-01-27T10:00:00Z',
-        expiresAt: '2026-01-28T10:00:00Z',
-        usedAt: null,
-        updatedAt: '2026-01-27T10:00:00Z'
-      },
-      {
-        id: 5,
-        appointmentId: 105,
-        cardNumber: '8901-2345-6789-0123',
-        status: 'Used',
-        createdAt: '2026-01-26T11:20:00Z',
-        expiresAt: '2026-01-27T11:20:00Z',
-        usedAt: '2026-01-26T13:45:00Z',
-        updatedAt: '2026-01-26T13:45:00Z'
-      },
-      {
-        id: 6,
-        appointmentId: 106,
-        cardNumber: '9012-3456-7890-1234',
-        status: 'Expired',
-        createdAt: '2026-01-24T16:30:00Z',
-        expiresAt: '2026-01-25T16:30:00Z',
-        usedAt: null,
-        updatedAt: '2026-01-25T16:30:00Z'
-      },
-      {
-        id: 7,
-        appointmentId: 107,
-        cardNumber: '3456-7890-1234-5678',
-        status: 'Active',
-        createdAt: '2026-01-27T07:45:00Z',
-        expiresAt: '2026-01-28T07:45:00Z',
-        usedAt: null,
-        updatedAt: '2026-01-27T07:45:00Z'
-      },
-      {
-        id: 8,
-        appointmentId: 108,
-        cardNumber: '4567-8901-2345-6789',
-        status: 'Used',
-        createdAt: '2026-01-26T09:15:00Z',
-        expiresAt: '2026-01-27T09:15:00Z',
-        usedAt: '2026-01-26T11:30:00Z',
-        updatedAt: '2026-01-26T11:30:00Z'
-      }
+      buildMockCard(1, 101, '4512-7893-1023-6745', 'Active', '2026-01-27T09:00:00Z', '2026-01-28T09:00:00Z', null, '2026-01-27T09:00:00Z'),
+      buildMockCard(2, 102, '5234-8910-2345-7861', 'Used', '2026-01-27T08:30:00Z', '2026-01-28T08:30:00Z', '2026-01-27T10:15:00Z', '2026-01-27T10:15:00Z'),
+      buildMockCard(3, 103, '6789-0123-4567-8901', 'Expired', '2026-01-25T14:00:00Z', '2026-01-26T14:00:00Z', null, '2026-01-26T14:00:00Z'),
+      buildMockCard(4, 104, '7890-1234-5678-9012', 'Active', '2026-01-27T10:00:00Z', '2026-01-28T10:00:00Z', null, '2026-01-27T10:00:00Z'),
+      buildMockCard(5, 105, '8901-2345-6789-0123', 'Used', '2026-01-26T11:20:00Z', '2026-01-27T11:20:00Z', '2026-01-26T13:45:00Z', '2026-01-26T13:45:00Z'),
+      buildMockCard(6, 106, '9012-3456-7890-1234', 'Expired', '2026-01-24T16:30:00Z', '2026-01-25T16:30:00Z', null, '2026-01-25T16:30:00Z'),
+      buildMockCard(7, 107, '3456-7890-1234-5678', 'Active', '2026-01-27T07:45:00Z', '2026-01-28T07:45:00Z', null, '2026-01-27T07:45:00Z'),
+      buildMockCard(8, 108, '4567-8901-2345-6789', 'Used', '2026-01-26T09:15:00Z', '2026-01-27T09:15:00Z', '2026-01-26T11:30:00Z', '2026-01-26T11:30:00Z'),
     ];
   }
 
@@ -144,14 +104,10 @@ export class CardRepository extends BaseRepository<Card> {
 
   create(data: Omit<Card, 'id' | 'createdAt' | 'updatedAt'>): Card {
     const newCard: Card = {
+      ...data,
       id: Date.now(),
-      appointmentId: data.appointmentId,
-      cardNumber: data.cardNumber,
-      status: data.status,
       createdAt: new Date().toISOString(),
-      expiresAt: data.expiresAt,
-      usedAt: data.usedAt || null,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
     this.items.push(newCard);
     return newCard;
@@ -170,13 +126,17 @@ export class CardRepository extends BaseRepository<Card> {
     const cardNumber = this.generateCardNumber();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + (request.validityHours || 24) * 60 * 60 * 1000);
+    const appointment = mockAppointmentsForCards[request.appointmentId];
     
     const newCard = this.create({
       appointmentId: request.appointmentId,
-      cardNumber: cardNumber,
+      patientId: appointment.patientId,
+      serviceId: 1,
+      cardNumber,
       status: 'Active',
+      issuedAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
-      usedAt: null
+      usedAt: null,
     });
     
     return {
@@ -199,10 +159,12 @@ export class CardRepository extends BaseRepository<Card> {
       .filter(([_, appointment]) => appointment.patientId === patientId)
       .map(([id, _]) => parseInt(id));
     
-    const cards = this.items.filter(card => patientAppointmentIds.includes(card.appointmentId));
+    const cards = this.items.filter(
+      card => card.appointmentId != null && patientAppointmentIds.includes(card.appointmentId)
+    );
     
     return cards.map(card => {
-      const appointment = mockAppointmentsForCards[card.appointmentId];
+      const appointment = getAppointmentRef(card.appointmentId);
       return {
         ...card,
         appointment: appointment ? {
@@ -355,11 +317,11 @@ export class CardRepository extends BaseRepository<Card> {
       };
     }
 
-    const appointment = mockAppointmentsForCards[usedCard.appointmentId];
+    const appointment = getAppointmentRef(usedCard.appointmentId);
     
     return {
       success: true,
-      appointmentId: usedCard.appointmentId,
+      appointmentId: usedCard.appointmentId ?? undefined,
       patientId: appointment?.patientId,
       patientName: appointment?.patientName,
       serviceName: appointment?.serviceName,
@@ -372,7 +334,7 @@ export class CardRepository extends BaseRepository<Card> {
     const card = this.findById(cardId);
     if (!card) return undefined;
     
-    const appointment = mockAppointmentsForCards[card.appointmentId];
+    const appointment = getAppointmentRef(card.appointmentId);
     
     return {
       ...card,
@@ -390,7 +352,7 @@ export class CardRepository extends BaseRepository<Card> {
 
   getAllCardsWithAppointments(): CardWithAppointment[] {
     return this.items.map(card => {
-      const appointment = mockAppointmentsForCards[card.appointmentId];
+      const appointment = getAppointmentRef(card.appointmentId);
       return {
         ...card,
         appointment: appointment ? {
@@ -435,7 +397,7 @@ export class CardRepository extends BaseRepository<Card> {
     
     if (filters.patientId || filters.providerId) {
       filtered = filtered.filter(card => {
-        const appointment = mockAppointmentsForCards[card.appointmentId];
+        const appointment = getAppointmentRef(card.appointmentId);
         if (!appointment) return false;
         if (filters.patientId && appointment.patientId !== filters.patientId) return false;
         if (filters.providerId) {
@@ -479,7 +441,16 @@ export class CardRepository extends BaseRepository<Card> {
       averageTimeToUseMinutes = totalMinutes / usedCards.length;
     }
     
-    return { total, active, used, expired, utilizationRate, averageTimeToUseMinutes };
+    return {
+      total,
+      active,
+      used,
+      expired,
+      cancelled: cards.filter(c => c.status === 'Cancelled').length,
+      pending: cards.filter(c => c.status === 'Pending').length,
+      utilizationRate,
+      averageTimeToUseMinutes,
+    };
   }
 
   getRecentCheckIns(limit: number = 5): {
@@ -513,7 +484,7 @@ export class CardRepository extends BaseRepository<Card> {
     const expiringCards = this.findCardsExpiringSoon(hoursThreshold);
     
     return expiringCards.map(card => {
-      const appointment = mockAppointmentsForCards[card.appointmentId];
+      const appointment = getAppointmentRef(card.appointmentId);
       const minutesUntilExpiry = Math.round(
         (new Date(card.expiresAt).getTime() - new Date().getTime()) / (1000 * 60)
       );

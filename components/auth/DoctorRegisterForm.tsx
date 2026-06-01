@@ -493,7 +493,7 @@ export const DoctorRegisterForm = () => {
                   </div>
                   <div className="flex items-start gap-2 text-sm text-gray-600">
                     <Check className="h-4 w-4 text-green-600 mt-0.5" />
-                    <span>Full Name: <strong>{formData.full_name}</strong></span>
+                    <span>Full Name: <strong>{formData.first_name} {formData.last_name}</strong></span>
                   </div>
                   <div className="flex items-start gap-2 text-sm text-gray-600">
                     <Check className="h-4 w-4 text-green-600 mt-0.5" />

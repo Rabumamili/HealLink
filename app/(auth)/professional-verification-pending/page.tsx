@@ -1,7 +1,7 @@
 // app/professional-verification-status/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { 
@@ -21,7 +21,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export default function ProfessionalVerificationStatusPage() {
+function ProfessionalVerificationStatusContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAuthenticated, logout, getCurrentUser, getProfessionalVerificationStatus } = useAuth();
@@ -66,8 +66,6 @@ export default function ProfessionalVerificationStatusPage() {
     if (!isLoading && user && !isProviderUser) {
       if (user.role === 'patient') {
         router.push('/patient/dashboard');
-      } else if (user.role === 'staff') {
-        router.push('/staff/dashboard');
       }
     }
   }, [user, isLoading, router, isProviderUser]);
@@ -367,5 +365,26 @@ export default function ProfessionalVerificationStatusPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ProfessionalVerificationStatusPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#008B8B] via-[#006767] to-[#004f4f] px-4 py-8">
+          <div className="relative z-10 w-full max-w-[480px]">
+            <div className="rounded-2xl border border-white/20 bg-white/90 shadow-2xl backdrop-blur-xl sm:rounded-3xl">
+              <div className="px-6 py-12 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4" />
+                <p className="text-slate-600">Loading...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ProfessionalVerificationStatusContent />
+    </Suspense>
   );
 }

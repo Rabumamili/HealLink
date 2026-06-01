@@ -99,7 +99,7 @@ export default function DiagnosticAppointmentsPage() {
 
   const diagnosticAppointments = useMemo(() => {
     return appointments.filter((apt: EnrichedAppointment) =>
-      apt.providerId === diagnosticId && apt.serviceType === 'Diagnostic'
+      apt.providerId === diagnosticId && apt.serviceType === 'DiagnosticTests'
     );
   }, [appointments, diagnosticId]);
 

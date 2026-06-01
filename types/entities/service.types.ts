@@ -32,8 +32,8 @@ export interface Service {
 // Fixed: Use undefined instead of 'all'
 export interface ServiceFilters {
   searchTerm?: string;
-  status?: ServiceStatus;
-  serviceType?: ServiceType;
+  status?: ServiceStatus | 'all';
+  serviceType?: ServiceType | 'all';
   providerId?: number;
   minFee?: number;
   maxFee?: number;

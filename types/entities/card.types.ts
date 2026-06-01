@@ -41,7 +41,7 @@ export interface CardFilters {
   patientId?: number;
   providerId?: number;
   appointmentId?: number;
-  status?: CardStatus;
+  status?: CardStatus | 'all';
   isExpired?: boolean;
   serviceId?: number;
   dateFrom?: string;

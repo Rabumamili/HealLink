@@ -92,7 +92,7 @@ export const useCard = (options: UseCardOptions = {}) => {
 
   const averageCheckInTime = useMemo((): number | null => {
     if (!cardStats) return null;
-    return cardStats.averageTimeToUseMinutes;
+    return cardStats.averageTimeToUseMinutes ?? null;
   }, [cardStats]);
 
   const getCardWithAppointment = useCallback(async (cardNumber: string): Promise<CardWithAppointment | null> => {
@@ -126,7 +126,6 @@ export const useCard = (options: UseCardOptions = {}) => {
       cardNumber,
       verifiedByStaffId,
       verifiedByType,
-      checkInTime: new Date().toISOString(),
     };
 
     const result = await checkIn(checkInRequest);
@@ -385,7 +384,6 @@ export const useCheckInScreen = () => {
       cardNumber,
       verifiedByStaffId: staffId,
       verifiedByType: staffType,
-      checkInTime: new Date().toISOString(),
     });
     
     if (result.success) {

@@ -66,13 +66,13 @@ export interface BookAppointmentResponse {
 // Fixed: Use undefined instead of 'all' literal
 export interface AppointmentFilters {
   searchTerm?: string;
-  status?: AppointmentStatus;
+  status?: AppointmentStatus | 'all';
   startDate?: string;
   endDate?: string;
   patientId?: number;
   serviceId?: number;
   slotId?: number;
-  type?: ServiceType;
+  type?: ServiceType | 'all';
   hasCard?: boolean;
   cardStatus?: CardStatus;
   providerId?: number;

@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { Suspense, useState, useEffect, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
@@ -186,7 +186,7 @@ function ActiveCardItem({
   )
 }
 
-export default function PatientCardNumbersPage() {
+function PatientCardNumbersContent() {
   const searchParams = useSearchParams()
   const highlightedAppointmentId = searchParams.get("appointment")
 
@@ -295,7 +295,7 @@ export default function PatientCardNumbersPage() {
                     <ActiveCardItem
                       key={card.id}
                       card={card}
-                      isHighlighted={highlightedAppointmentId === card.appointmentId.toString()}
+                      isHighlighted={card.appointmentId !== null && highlightedAppointmentId === card.appointmentId.toString()}
                       copiedId={copiedId}
                       timeRemaining={timeRemaining}
                       onCopy={copyCardNumber}
@@ -336,5 +336,19 @@ export default function PatientCardNumbersPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PatientCardNumbersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
+        </div>
+      }
+    >
+      <PatientCardNumbersContent />
+    </Suspense>
   )
 }

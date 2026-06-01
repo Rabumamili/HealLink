@@ -1,14 +1,14 @@
 // app/professional-verification-submit/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Check, Shield, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export default function ProfessionalVerificationSubmitPage() {
+function ProfessionalVerificationSubmitContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, submitProfessionalVerification, isLoading, getCurrentUser } = useAuth();
@@ -30,8 +30,6 @@ export default function ProfessionalVerificationSubmitPage() {
     if (!isProviderUser) {
       if (user.role === 'patient') {
         router.push('/patient/dashboard');
-      } else if (user.role === 'staff') {
-        router.push('/staff/dashboard');
       }
       return;
     }
@@ -209,5 +207,19 @@ export default function ProfessionalVerificationSubmitPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function ProfessionalVerificationSubmitPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-[#008B8B] via-[#006767] to-[#004f4f] px-4 py-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600" />
+        </div>
+      }
+    >
+      <ProfessionalVerificationSubmitContent />
+    </Suspense>
   );
 }

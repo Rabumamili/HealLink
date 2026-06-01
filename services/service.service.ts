@@ -264,3 +264,5 @@ export class ServiceService {
     return null;
   }
 }
+
+export const serviceService = new ServiceService();

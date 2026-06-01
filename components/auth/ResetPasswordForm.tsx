@@ -22,7 +22,7 @@ type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
 export const ResetPasswordForm = () => {
   const { token } = useParams();
-  const { resetPassword, isResettingPassword } = useAuth();
+  const { resetPassword, isLoading } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,18 +40,19 @@ export const ResetPasswordForm = () => {
     },
   });
 
-  const onSubmit = (data: ResetPasswordFormData) => {
+  const onSubmit = async (data: ResetPasswordFormData) => {
     setError(null);
-    resetPassword({
-      token: token as string,
-      password: data.password,
-      confirmPassword: data.confirmPassword,
-    }, {
-      onSuccess: () => setSuccess(true),
-      onError: (err: any) => {
-        setError(err.response?.data?.message || 'Failed to reset password');
-      },
-    });
+
+    try {
+      await resetPassword({
+        token: token as string,
+        password: data.password,
+        confirm_password: data.confirmPassword,
+      });
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to reset password');
+    }
   };
 
   if (success) {
@@ -173,10 +174,10 @@ export const ResetPasswordForm = () => {
 
               <button
                 type="submit"
-                disabled={isResettingPassword}
+                disabled={isLoading}
                 className="group mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-700 to-cyan-600 py-2 text-xs font-bold tracking-wide text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.98] disabled:opacity-60 sm:mt-2 sm:rounded-xl sm:py-2.5 sm:text-sm"
               >
-                {isResettingPassword ? (
+                {isLoading ? (
                   <>
                     <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent sm:h-3.5 sm:w-3.5" />
                     Resetting...

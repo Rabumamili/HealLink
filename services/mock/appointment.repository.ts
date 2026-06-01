@@ -237,6 +237,22 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
     return slotMap[slotId] || 'Time not specified';
   }
 
+  private getScheduledDateTimeForSlot(slotId: number, date?: string): string {
+    const slotStartTimes: Record<number, string> = {
+      1: '09:00:00',
+      2: '09:30:00',
+      3: '10:00:00',
+      4: '10:30:00',
+      5: '11:00:00',
+      6: '11:30:00',
+      7: '14:00:00',
+      8: '14:30:00',
+    };
+    const day = date ?? new Date().toISOString().split('T')[0];
+    const time = slotStartTimes[slotId] ?? '09:00:00';
+    return `${day} ${time}`;
+  }
+
   // ============= APPOINTMENT LISTING METHODS =============
   
   getAppointmentsForPatient(patientId: number): EnrichedAppointment[] {
@@ -468,10 +484,12 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
    * BOOKING FLOW WITH CHAPA PAYMENT
    */
   async bookAppointment(request: BookAppointmentRequest): Promise<BookAppointmentResponse> {
+    const scheduledDateTime = this.getScheduledDateTimeForSlot(request.slotId);
+
     // Check if slot is available
     const existingAppointment = this.items.find(
       a => a.slotId === request.slotId && 
-           a.scheduledDateTime === request.scheduledDateTime &&
+           a.scheduledDateTime === scheduledDateTime &&
            a.status !== 'Cancelled' && a.status !== 'Completed'
     );
     
@@ -497,7 +515,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       serviceId: request.serviceId,
       providerId: service.providerId,
       slotId: request.slotId,
-      scheduledDateTime: request.scheduledDateTime,
+      scheduledDateTime,
       status: 'Scheduled',
       checkInTime: null,
       startTime: null,
@@ -656,9 +674,11 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
    * Book appointment with pending payment (pay later at clinic)
    */
   async bookAppointmentWithPendingPayment(request: BookAppointmentRequest): Promise<BookAppointmentResponse> {
+    const scheduledDateTime = this.getScheduledDateTimeForSlot(request.slotId);
+
     const existingAppointment = this.items.find(
       a => a.slotId === request.slotId && 
-           a.scheduledDateTime === request.scheduledDateTime &&
+           a.scheduledDateTime === scheduledDateTime &&
            a.status !== 'Cancelled' && a.status !== 'Completed'
     );
     
@@ -682,7 +702,7 @@ export class AppointmentRepository extends BaseRepository<Appointment> {
       serviceId: request.serviceId,
       providerId: service.providerId,
       slotId: request.slotId,
-      scheduledDateTime: request.scheduledDateTime,
+      scheduledDateTime,
       status: 'Scheduled',
       checkInTime: null,
       startTime: null,

@@ -33,7 +33,7 @@ const navLinks = [
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const { user, isAuthenticated, logout, isLoggingOut } = useAuth();
+  const { user, isAuthenticated, logout, isLoading } = useAuth();
 
   const getDashboardLink = () => {
     if (!user) return '/login';
@@ -133,11 +133,11 @@ export function Navbar() {
 
                 <DropdownMenuItem
                   onClick={() => logout()}
-                  disabled={isLoggingOut}
+                  disabled={isLoading}
                   className="text-red-400"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                  {isLoading ? 'Logging out...' : 'Logout'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

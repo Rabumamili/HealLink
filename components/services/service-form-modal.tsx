@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CreateServiceDTO, ServiceType } from '@/types/entities/service.types';
+import { CreateServiceDTO, SERVICE_TYPE, ServiceType } from '@/types/entities/service.types';
 
 interface ServiceFormModalProps {
   open: boolean;
@@ -40,10 +40,9 @@ interface ServiceFormModalProps {
 }
 
 const defaultTypeOptions: { value: ServiceType; label: string }[] = [
-  { value: 'Consultation', label: 'Consultation' },
-  { value: 'Diagnostic', label: 'Diagnostic' },
-  { value: 'Vaccination', label: 'Vaccination' },
-  { value: 'Procedure', label: 'Procedure' },
+  { value: SERVICE_TYPE.CONSULTATION, label: 'Consultation' },
+  { value: SERVICE_TYPE.DIAGNOSTIC, label: 'Diagnostic tests' },
+  { value: SERVICE_TYPE.ClinicServices, label: 'Clinic services' },
 ];
 
 interface FormErrors {

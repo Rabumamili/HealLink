@@ -1,7 +1,7 @@
 // hooks/useServices.ts
 import { useEffect, useCallback, useMemo } from 'react';
 import { useServiceStore } from '@/stores/slices/serviceSlice';
-import { ServiceType, ServiceStatus, CreateServiceDTO, UpdateServiceDTO, ServiceFilters, Service, ServiceStats } from '@/types/entities/service.types';
+import { SERVICE_TYPE, ServiceType, ServiceStatus, CreateServiceDTO, UpdateServiceDTO, ServiceFilters, Service, ServiceStats } from '@/types/entities/service.types';
 import { toast } from 'sonner';
 
 interface UseServicesOptions {
@@ -92,22 +92,22 @@ export const useServices = (options: UseServicesOptions = {}): UseServicesReturn
 
   // Filtered services by type
   const consultationServices = useMemo(() => 
-    getServicesByTypeStore('Consultation'), 
+    getServicesByTypeStore(SERVICE_TYPE.CONSULTATION), 
     [services, getServicesByTypeStore]
   );
   
   const diagnosticServices = useMemo(() => 
-    getServicesByTypeStore('Diagnostic'), 
+    getServicesByTypeStore(SERVICE_TYPE.DIAGNOSTIC), 
     [services, getServicesByTypeStore]
   );
   
   const vaccinationServices = useMemo(() => 
-    getServicesByTypeStore('Vaccination'), 
-    [services, getServicesByTypeStore]
+    [] as Service[], 
+    [services]
   );
   
   const procedureServices = useMemo(() => 
-    getServicesByTypeStore('Procedure'), 
+    getServicesByTypeStore(SERVICE_TYPE.ClinicServices), 
     [services, getServicesByTypeStore]
   );
   

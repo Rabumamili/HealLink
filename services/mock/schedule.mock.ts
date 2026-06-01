@@ -1,7 +1,7 @@
 // services/mock/schedule.repository.ts
 import { BaseRepository } from '.';
 import { 
-  ScheduleSlot, 
+  ScheduleSlotDB, 
   TimeSlot, 
   toTimeSlot,
   CreateSlotDTO, 
@@ -13,7 +13,7 @@ import {
   WeekDay
 } from '@/types/entities/schedule.types';
 
-export class ScheduleRepository extends BaseRepository<ScheduleSlot> {
+export class ScheduleRepository extends BaseRepository<ScheduleSlotDB> {
   private static instance: ScheduleRepository;
   private dayScheduleTemplates: Map<number, DaySchedule[]> = new Map();
   private scheduleSettings: Map<number, ScheduleSettings> = new Map();
@@ -186,23 +186,23 @@ export class ScheduleRepository extends BaseRepository<ScheduleSlot> {
   private initializeTemplates(): void {
     const doctorTemplate: DaySchedule[] = [
       { day: "Monday", isActive: true, slots: [
-        { id: "mon1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 1 },
-        { id: "mon2", startTime: "14:00", endTime: "18:00", shift: "Afternoon", maxCapacity: 1 }
+        { id: "mon1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 1 },
+        { id: "mon2", startTime: "14:00", endTime: "18:00", shift: "afternoon", maxCapacity: 1 }
       ]},
       { day: "Tuesday", isActive: true, slots: [
-        { id: "tue1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 1 },
-        { id: "tue2", startTime: "14:00", endTime: "18:00", shift: "Afternoon", maxCapacity: 1 }
+        { id: "tue1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 1 },
+        { id: "tue2", startTime: "14:00", endTime: "18:00", shift: "afternoon", maxCapacity: 1 }
       ]},
       { day: "Wednesday", isActive: true, slots: [
-        { id: "wed1", startTime: "09:00", endTime: "17:00", shift: "Full Day", maxCapacity: 1 }
+        { id: "wed1", startTime: "09:00", endTime: "17:00", shift: "evening", maxCapacity: 1 }
       ]},
       { day: "Thursday", isActive: true, slots: [
-        { id: "thu1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 1 },
-        { id: "thu2", startTime: "14:00", endTime: "18:00", shift: "Afternoon", maxCapacity: 1 }
+        { id: "thu1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 1 },
+        { id: "thu2", startTime: "14:00", endTime: "18:00", shift: "afternoon", maxCapacity: 1 }
       ]},
       { day: "Friday", isActive: true, slots: [
-        { id: "fri1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 1 },
-        { id: "fri2", startTime: "14:00", endTime: "16:00", shift: "Afternoon", maxCapacity: 1 }
+        { id: "fri1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 1 },
+        { id: "fri2", startTime: "14:00", endTime: "16:00", shift: "afternoon", maxCapacity: 1 }
       ]},
       { day: "Saturday", isActive: false, slots: [], note: "Weekend - Clinic closed" },
       { day: "Sunday", isActive: false, slots: [], note: "Weekend - Clinic closed" }
@@ -210,52 +210,52 @@ export class ScheduleRepository extends BaseRepository<ScheduleSlot> {
 
     const clinicTemplate: DaySchedule[] = [
       { day: "Monday", isActive: true, slots: [
-        { id: "mon1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 20 },
-        { id: "mon2", startTime: "13:00", endTime: "17:00", shift: "Afternoon", maxCapacity: 20 }
+        { id: "mon1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 20 },
+        { id: "mon2", startTime: "13:00", endTime: "17:00", shift: "afternoon", maxCapacity: 20 }
       ]},
       { day: "Tuesday", isActive: true, slots: [
-        { id: "tue1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 20 },
-        { id: "tue2", startTime: "13:00", endTime: "17:00", shift: "Afternoon", maxCapacity: 20 }
+        { id: "tue1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 20 },
+        { id: "tue2", startTime: "13:00", endTime: "17:00", shift: "afternoon", maxCapacity: 20 }
       ]},
       { day: "Wednesday", isActive: true, slots: [
-        { id: "wed1", startTime: "09:00", endTime: "16:00", shift: "Full Day", maxCapacity: 30 }
+        { id: "wed1", startTime: "09:00", endTime: "16:00", shift: "evening", maxCapacity: 30 }
       ]},
       { day: "Thursday", isActive: true, slots: [
-        { id: "thu1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 20 },
-        { id: "thu2", startTime: "13:00", endTime: "17:00", shift: "Afternoon", maxCapacity: 20 }
+        { id: "thu1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 20 },
+        { id: "thu2", startTime: "13:00", endTime: "17:00", shift: "afternoon", maxCapacity: 20 }
       ]},
       { day: "Friday", isActive: true, slots: [
-        { id: "fri1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 20 },
-        { id: "fri2", startTime: "13:00", endTime: "16:00", shift: "Afternoon", maxCapacity: 15 }
+        { id: "fri1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 20 },
+        { id: "fri2", startTime: "13:00", endTime: "16:00", shift: "afternoon", maxCapacity: 15 }
       ]},
       { day: "Saturday", isActive: true, slots: [
-        { id: "sat1", startTime: "09:00", endTime: "13:00", shift: "Morning", maxCapacity: 15 }
+        { id: "sat1", startTime: "09:00", endTime: "13:00", shift: "morning", maxCapacity: 15 }
       ]},
       { day: "Sunday", isActive: false, slots: [], note: "Clinic closed on Sundays" }
     ];
 
     const diagnosticTemplate: DaySchedule[] = [
       { day: "Monday", isActive: true, slots: [
-        { id: "mon1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 30 },
-        { id: "mon2", startTime: "13:00", endTime: "17:00", shift: "Afternoon", maxCapacity: 30 }
+        { id: "mon1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 30 },
+        { id: "mon2", startTime: "13:00", endTime: "17:00", shift: "afternoon", maxCapacity: 30 }
       ]},
       { day: "Tuesday", isActive: true, slots: [
-        { id: "tue1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 30 },
-        { id: "tue2", startTime: "13:00", endTime: "17:00", shift: "Afternoon", maxCapacity: 30 }
+        { id: "tue1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 30 },
+        { id: "tue2", startTime: "13:00", endTime: "17:00", shift: "afternoon", maxCapacity: 30 }
       ]},
       { day: "Wednesday", isActive: true, slots: [
-        { id: "wed1", startTime: "09:00", endTime: "16:00", shift: "Full Day", maxCapacity: 40 }
+        { id: "wed1", startTime: "09:00", endTime: "16:00", shift: "evening", maxCapacity: 40 }
       ]},
       { day: "Thursday", isActive: true, slots: [
-        { id: "thu1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 30 },
-        { id: "thu2", startTime: "13:00", endTime: "17:00", shift: "Afternoon", maxCapacity: 30 }
+        { id: "thu1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 30 },
+        { id: "thu2", startTime: "13:00", endTime: "17:00", shift: "afternoon", maxCapacity: 30 }
       ]},
       { day: "Friday", isActive: true, slots: [
-        { id: "fri1", startTime: "08:00", endTime: "12:00", shift: "Morning", maxCapacity: 30 },
-        { id: "fri2", startTime: "13:00", endTime: "16:00", shift: "Afternoon", maxCapacity: 25 }
+        { id: "fri1", startTime: "08:00", endTime: "12:00", shift: "morning", maxCapacity: 30 },
+        { id: "fri2", startTime: "13:00", endTime: "16:00", shift: "afternoon", maxCapacity: 25 }
       ]},
       { day: "Saturday", isActive: true, slots: [
-        { id: "sat1", startTime: "09:00", endTime: "13:00", shift: "Morning", maxCapacity: 20 }
+        { id: "sat1", startTime: "09:00", endTime: "13:00", shift: "morning", maxCapacity: 20 }
       ]},
       { day: "Sunday", isActive: false, slots: [], note: "Center closed on Sundays" }
     ];
@@ -298,7 +298,7 @@ export class ScheduleRepository extends BaseRepository<ScheduleSlot> {
     return slots.map(toTimeSlot);
   }
 
-findById(id: number): ScheduleSlot | undefined {
+findById(id: number): ScheduleSlotDB | undefined {
   return super.findById(id);
 }
 
@@ -343,7 +343,7 @@ async findTimeSlotById(id: number): Promise<TimeSlot | undefined> {
   }
 
   async updateSlot(data: UpdateSlotDTO): Promise<TimeSlot> {
-    const updates: Partial<ScheduleSlot> = {};
+    const updates: Partial<ScheduleSlotDB> = {};
     if (data.serviceId !== undefined) updates.service_id = data.serviceId;
     if (data.providerId !== undefined) updates.provider_id = data.providerId;
     if (data.date !== undefined) updates.date = data.date;

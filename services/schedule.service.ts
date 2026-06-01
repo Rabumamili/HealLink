@@ -10,13 +10,18 @@ import {
   toTimeSlot,
   isSlotBookable
 } from '../types/entities/schedule.types';
-import { ServiceService } from './service.service';
+import { ServiceService, serviceService as defaultServiceService } from './service.service';
+import { getScheduleRepository } from './mock/schedule.mock';
+import {
+  DaySchedule,
+  ScheduleSettings,
+} from '../types/entities/schedule.types';
 
 export class ScheduleService {
   private slots: Map<number, ScheduleSlotDB> = new Map();
   private currentId: number = 1;
   
-  constructor(private serviceService: ServiceService) {}
+  constructor(private serviceService: ServiceService = defaultServiceService) {}
   
   async createSlot(data: CreateSlotDTO): Promise<TimeSlotWithAvailability> {
     // Validate service exists
@@ -256,4 +261,58 @@ export class ScheduleService {
     
     return schedule;
   }
+
+  private get repo() {
+    return getScheduleRepository();
+  }
+
+  async getSlotsByProviderAndDate(providerId: number, date: string): Promise<TimeSlot[]> {
+    return this.repo.findByProviderAndDate(providerId, date);
+  }
+
+  async getSlotsByDateRange(
+    providerId: number,
+    startDate: string,
+    endDate: string
+  ): Promise<TimeSlot[]> {
+    return this.repo.findByDateRange(providerId, startDate, endDate);
+  }
+
+  async getDayScheduleTemplate(providerType: string, providerId?: number): Promise<DaySchedule[]> {
+    return this.repo.getDayScheduleTemplate(providerType, providerId);
+  }
+
+  async getScheduleSettings(providerId: number): Promise<ScheduleSettings> {
+    return this.repo.getScheduleSettings(providerId);
+  }
+
+  async saveDayScheduleTemplate(providerId: number, schedule: DaySchedule[]): Promise<DaySchedule[]> {
+    return this.repo.saveDayScheduleTemplate(providerId, schedule);
+  }
+
+  async updateScheduleSettings(
+    providerId: number,
+    settings: Partial<ScheduleSettings>
+  ): Promise<ScheduleSettings> {
+    return this.repo.updateScheduleSettings(providerId, settings);
+  }
+
+  async generateSlotsFromTemplate(
+    providerId: number,
+    serviceId: number,
+    startDate: string,
+    endDate: string
+  ): Promise<TimeSlot[]> {
+    return this.repo.generateSlotsFromTemplate(providerId, serviceId, startDate, endDate);
+  }
+
+  async bookSlot(slotId: number): Promise<TimeSlot> {
+    return this.repo.bookSlot(slotId);
+  }
+
+  async cancelSlotBooking(slotId: number): Promise<TimeSlot> {
+    return this.repo.cancelSlotBooking(slotId);
+  }
 }
+
+export const scheduleService = new ScheduleService();

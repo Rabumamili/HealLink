@@ -1,5 +1,5 @@
 import { BaseRepository } from './base.repository';
-import { Service, ServiceStats, ServiceStatus, ServiceType, CreateServiceDTO, UpdateServiceDTO } from '@/types/entities/service.types';
+import { SERVICE_TYPE, Service, ServiceStats, ServiceStatus, ServiceType, CreateServiceDTO, UpdateServiceDTO } from '@/types/entities/service.types';
 
 export class ServiceRepository extends BaseRepository<Service> {
   private static instance: ServiceRepository;
@@ -27,7 +27,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 30,
         standardFee: 500,
         preparationInstructions: "Please arrive 15 minutes early",
-        serviceType: "Consultation",
+        serviceType: SERVICE_TYPE.CONSULTATION,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -40,7 +40,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 45,
         standardFee: 650,
         preparationInstructions: "Bring immunization records",
-        serviceType: "Consultation",
+        serviceType: SERVICE_TYPE.CONSULTATION,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -53,7 +53,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 45,
         standardFee: 850,
         preparationInstructions: "Bring previous medical records",
-        serviceType: "Consultation",
+        serviceType: SERVICE_TYPE.CONSULTATION,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -66,7 +66,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 30,
         standardFee: 550,
         preparationInstructions: "Remove makeup before appointment",
-        serviceType: "Consultation",
+        serviceType: SERVICE_TYPE.CONSULTATION,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -79,7 +79,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 45,
         standardFee: 600,
         preparationInstructions: "Bring medical history",
-        serviceType: "Consultation",
+        serviceType: SERVICE_TYPE.CONSULTATION,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -94,7 +94,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 20,
         standardFee: 600,
         preparationInstructions: null,
-        serviceType: "Vaccination",
+        serviceType: SERVICE_TYPE.ClinicServices,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -107,7 +107,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 30,
         standardFee: 800,
         preparationInstructions: "Clean the area before appointment",
-        serviceType: "Procedure",
+        serviceType: SERVICE_TYPE.ClinicServices,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -120,7 +120,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 30,
         standardFee: 400,
         preparationInstructions: "Fast for 4 hours",
-        serviceType: "Procedure",
+        serviceType: SERVICE_TYPE.ClinicServices,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -133,7 +133,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 45,
         standardFee: 350,
         preparationInstructions: "Bring ID and insurance card",
-        serviceType: "Procedure",
+        serviceType: SERVICE_TYPE.ClinicServices,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -148,7 +148,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 15,
         standardFee: 350,
         preparationInstructions: "No special preparation required",
-        serviceType: "Diagnostic",
+        serviceType: SERVICE_TYPE.DIAGNOSTIC,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -161,7 +161,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 15,
         standardFee: 400,
         preparationInstructions: "Fast for 10-12 hours before the test",
-        serviceType: "Diagnostic",
+        serviceType: SERVICE_TYPE.DIAGNOSTIC,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -174,7 +174,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 20,
         standardFee: 500,
         preparationInstructions: null,
-        serviceType: "Diagnostic",
+        serviceType: SERVICE_TYPE.DIAGNOSTIC,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -187,7 +187,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 15,
         standardFee: 450,
         preparationInstructions: "Fast for 8 hours before the test",
-        serviceType: "Diagnostic",
+        serviceType: SERVICE_TYPE.DIAGNOSTIC,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -200,7 +200,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 15,
         standardFee: 400,
         preparationInstructions: "No special preparation required",
-        serviceType: "Diagnostic",
+        serviceType: SERVICE_TYPE.DIAGNOSTIC,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -213,7 +213,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 10,
         standardFee: 200,
         preparationInstructions: "First morning urine sample preferred",
-        serviceType: "Diagnostic",
+        serviceType: SERVICE_TYPE.DIAGNOSTIC,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -226,7 +226,7 @@ export class ServiceRepository extends BaseRepository<Service> {
         durationMinutes: 10,
         standardFee: 250,
         preparationInstructions: "Fast for 8 hours for fasting test",
-        serviceType: "Diagnostic",
+        serviceType: SERVICE_TYPE.DIAGNOSTIC,
         status: "Active",
         createdAt: "2023-01-01T00:00:00Z",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -294,15 +294,20 @@ export class ServiceRepository extends BaseRepository<Service> {
     const averageFee = total > 0 ? Math.round(totalRevenue / total) : 0;
     
     const byType: Record<ServiceType, number> = {
-      Consultation: 0,
-      Diagnostic: 0,
-      Vaccination: 0,
-      Procedure: 0
+      [SERVICE_TYPE.CONSULTATION]: 0,
+      [SERVICE_TYPE.DIAGNOSTIC]: 0,
+      [SERVICE_TYPE.ClinicServices]: 0,
     };
     
     services.forEach(s => {
       byType[s.serviceType]++;
     });
+
+    const averageDuration = active > 0
+      ? services
+          .filter(s => s.status === 'Active')
+          .reduce((sum, s) => sum + s.durationMinutes, 0) / active
+      : 0;
     
     return {
       total,
@@ -310,7 +315,8 @@ export class ServiceRepository extends BaseRepository<Service> {
       inactive,
       totalRevenue,
       averageFee,
-      byType
+      byType,
+      averageDuration,
     };
   }
 
