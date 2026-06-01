@@ -181,7 +181,7 @@ export function SubmitButton({
 
 export function LoginLink() {
   return (
-    <p className="text-[13px] text-on-surface-variant">
+    <p className="text-[16px] text-on-surface-variant">
       Already have an account?{' '}
       <Link href="/login" className="text-primary font-bold hover:underline">
         Log In

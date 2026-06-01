@@ -63,7 +63,7 @@ export const AuthLayout = ({
 
           {/* Optional Auth Links */}
           {showLoginLink && (
-            <p className="mt-6 text-sm text-center">
+            <p className="mt-6 text-[15px] text-center">
               Already have an account?{' '}
               <Link
                 href="/login"
@@ -75,7 +75,7 @@ export const AuthLayout = ({
           )}
 
           {showRegisterLink && (
-            <p className="mt-6 text-sm text-center">
+            <p className="mt-6 text-[15px] text-center">
               Don&apos;t have an account?{' '}
               <Link
                 href="/register"

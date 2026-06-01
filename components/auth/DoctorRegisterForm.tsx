@@ -32,7 +32,13 @@ const doctorSchema = z
     specialization: z.string().min(1, 'Specialization is required'),
     license_number: z.string().min(1, 'License number is required'),
     location: z.string().min(1, 'Location is required'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number')
+      .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -104,9 +110,23 @@ export const DoctorRegisterForm = () => {
       
       toast.success('Verification code sent to your email');
       setStep(2);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Registration failed';
-      setError(message);
+    } catch (err: any) {
+      // Format error message for better UX
+      let errorMessage = err?.message || 'Registration failed';
+      
+      if (err?.message?.toLowerCase().includes('email')) {
+        errorMessage = 'This email is already registered. Please use a different email or login.';
+      } else if (err?.message?.toLowerCase().includes('phone')) {
+        errorMessage = 'This phone number is already registered. Please use a different number.';
+      } else if (err?.message?.toLowerCase().includes('license')) {
+        errorMessage = 'This license number is already registered. Please verify your license number.';
+      } else if (err?.message?.toLowerCase().includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err?.message?.toLowerCase().includes('server')) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +235,6 @@ export const DoctorRegisterForm = () => {
     >
       {step === 1 && (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 sm:space-y-6 md:space-y-7">
-          {error && <ErrorBanner message={error} />}
 
           {/* Personal Information Section */}
           <div className="space-y-3 sm:space-y-4 md:space-y-5">
@@ -441,6 +460,7 @@ export const DoctorRegisterForm = () => {
 
           {/* Submit Section */}
           <div className="pt-3 sm:pt-4 md:pt-5 flex flex-col items-center gap-3 sm:gap-4">
+            {error && <ErrorBanner message={error} />}
             <SubmitButton
               type="submit"
               label="Register as Doctor"

@@ -13,7 +13,7 @@ import {
   User,
   LogOut,
   Search,
-  ChevronLeft,
+  MenuIcon,
   ChevronRight,
   Menu,
 } from "lucide-react"
@@ -85,7 +85,7 @@ export function CommonTopHeader({
   // Calculate left offset based on sidebar state for desktop
   const getLeftOffset = () => {
     if (isMobile) return 0
-    if (isSidebarOpen) return 256
+    if (isSidebarOpen) return 200
     return 80
   }
 
@@ -119,7 +119,7 @@ export function CommonTopHeader({
         {/* Desktop toggle button */}
         {!isMobile && onSidebarToggle && (
           <Button variant="ghost" size="icon" onClick={onSidebarToggle} className="shrink-0">
-            {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+            {isSidebarOpen ? <MenuIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
           </Button>
         )}
 

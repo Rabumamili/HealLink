@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
-import { 
-  CalendarPlus, 
-  CreditCard, 
-  FileCheck, 
+import { useAuth } from "@/hooks/useAuth"
+import {
+  CalendarPlus,
+  CreditCard,
+  FileCheck,
   Clock,
   MapPin,
   ArrowRight,
@@ -20,6 +21,7 @@ import {
   Stethoscope,
   Activity,
   Heart,
+
   Syringe,
   Pill,
   Sparkles,
@@ -100,6 +102,7 @@ const providerTypeIcons: Record<string, React.ComponentType<{ className?: string
 }
 
 export default function PatientDashboard() {
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
 
   const filteredAppointments = upcomingAppointments.filter(apt =>
@@ -107,33 +110,33 @@ export default function PatientDashboard() {
     apt.specialty.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const displayName = user?.full_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Patient'
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 p-6 md:p-8 shadow-lg">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl -ml-24 -mb-24"></div>
-        
+
         <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Sparkles className="h-5 w-5 text-white/80" />
-              <span className="text-white/80 text-sm font-medium">Patient Portal</span>
+              <span className="text-white/80 text-[20px] font-medium">Selam</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Sarah Johnson</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{displayName}</h2>
             <p className="text-teal-50 text-base">Welcome to your health dashboard</p>
           </div>
-          <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <User className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-white/70 uppercase tracking-wide">Member Since</p>
-                <p className="text-lg font-bold text-white">January 2024</p>
-              </div>
-            </div>
-          </div>
+                      <Calendar className="h-5 w-5 text-white" />
+                </div>
+                  <div>
+                      <p className="text-xs font-semibold text-white/70 uppercase tracking-wide">Today's Date</p>
+                      <p className="text-lg font-bold text-white">October 24, 2026</p>
+                   </div>
+                 </div>
         </div>
       </div>
 
@@ -197,64 +200,68 @@ export default function PatientDashboard() {
             </div>
           </div>
           <CardContent className="p-6">
-            <div className="space-y-4">
+            <div className="space-y-5">
               {filteredAppointments.map((apt) => {
                 const ProviderIcon = providerTypeIcons[apt.providerType] || Stethoscope
                 return (
                   <div
                     key={apt.id}
-                    className="group bg-white rounded-xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition-all duration-300 overflow-hidden"
+                    className="group bg-white rounded-xl border-2 border-gray-200 hover:border-teal-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
                   >
                     <div className="p-5">
-                      <div className="flex flex-col lg:flex-row lg:items-center gap-5">
-                        <div className="flex items-center gap-4 flex-1">
-                          <Avatar className="h-14 w-14 rounded-xl">
-                            <AvatarFallback className="bg-teal-50 text-teal-600 text-lg font-bold">
-                              <ProviderIcon className="h-5 w-5" />
+                      <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+                        <div className="flex items-start gap-4 flex-1">
+                          <Avatar className="h-16 w-16 rounded-xl shrink-0">
+                            <AvatarFallback className="bg-teal-50 text-teal-600 text-xl font-bold">
+                              <ProviderIcon className="h-6 w-6" />
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="font-bold text-gray-800 text-lg">{apt.providerName}</h4>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
+                              <h4 className="font-bold text-gray-900 text-lg">{apt.providerName}</h4>
                               <Badge className={statusColors[apt.status]}>
                                 {apt.status}
                               </Badge>
                               {apt.queueNumber && (
-                                <Badge variant="outline" className="border-teal-200 text-teal-600">
+                                <Badge variant="outline" className="border-teal-300 text-teal-700 font-semibold">
                                   Queue #{apt.queueNumber}
                                 </Badge>
                               )}
                             </div>
-                            <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Stethoscope className="h-3.5 w-3.5 text-teal-600" />
+                            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
+                              <span className="flex items-center gap-1.5">
+                                <Stethoscope className="h-4 w-4 text-teal-600" />
                                 {apt.specialty}
                               </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3.5 w-3.5 text-teal-600" />
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="h-4 w-4 text-teal-600" />
                                 {apt.date} at {apt.time}
                               </span>
-                              <span className="flex items-center gap-1">
-                                <MapPin className="h-3.5 w-3.5 text-teal-600" />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
+                              <span className="flex items-center gap-1.5">
+                                <MapPin className="h-4 w-4 text-teal-600" />
                                 {apt.location}
                               </span>
                             </div>
                           </div>
                         </div>
-                        <Button variant="outline" size="sm" className="rounded-lg border-teal-200 text-teal-600 hover:bg-teal-50">
-                          View Details
-                        </Button>
+                        <div className="flex lg:flex-col gap-2 shrink-0">
+                          <Button variant="outline" size="sm" className="rounded-lg border-teal-300 text-teal-700 hover:bg-teal-50 font-medium">
+                            View Details
+                          </Button>
+                        </div>
                       </div>
-                      
-                      {/* Additional Info - Visible on hover */}
-                      <div className="mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Clipboard className="h-3 w-3 text-teal-600" />
-                            Appointment Type: {apt.type}
+
+                      {/* Additional Info - Always visible */}
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                          <span className="flex items-center gap-1.5">
+                            <Clipboard className="h-4 w-4 text-teal-600" />
+                            <span className="font-medium">Type:</span> {apt.type}
                           </span>
-                          <button className="text-teal-600 hover:text-teal-700 flex items-center gap-1 ml-auto">
-                            <Phone className="h-3 w-3" />
+                          <button className="text-teal-600 hover:text-teal-700 flex items-center gap-1.5 font-medium ml-auto">
+                            <Phone className="h-4 w-4" />
                             Contact Provider
                           </button>
                         </div>

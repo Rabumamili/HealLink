@@ -165,7 +165,7 @@ export default function DoctorDashboard() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-white/70 uppercase tracking-wide">Today's Date</p>
-                <p className="text-lg font-bold text-white">October 24, 2024</p>
+                <p className="text-lg font-bold text-white">October 24, 2026</p>
               </div>
             </div>
           </div>

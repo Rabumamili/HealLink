@@ -29,7 +29,13 @@ const patientSchema = z
     gender: z.string().optional(),
     emergency_contact: z.string().optional(),
     address: z.string().optional(),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number')
+      .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -67,7 +73,20 @@ export const PatientRegisterForm = () => {
       toast.success('Registration successful!');
       router.push('/patient/dashboard');
     } catch (err: any) {
-      setError(err?.message || 'Registration failed');
+      // Format error message for better UX
+      let errorMessage = err?.message || 'Registration failed';
+      
+      if (err?.message?.toLowerCase().includes('email')) {
+        errorMessage = 'This email is already registered. Please use a different email or login.';
+      } else if (err?.message?.toLowerCase().includes('phone')) {
+        errorMessage = 'This phone number is already registered. Please use a different number.';
+      } else if (err?.message?.toLowerCase().includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err?.message?.toLowerCase().includes('server')) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
+      setError(errorMessage);
     }
   };
 
@@ -84,7 +103,6 @@ export const PatientRegisterForm = () => {
       subtitle="Create your account to access quality healthcare services."
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {error && <ErrorBanner message={error} />}
 
         <div className="space-y-4">
           <SectionHeader icon="person" title="Personal Information" />
@@ -248,6 +266,7 @@ export const PatientRegisterForm = () => {
         </div>
 
         <div className="pt-2 flex flex-col items-center gap-3">
+          {error && <ErrorBanner message={error} />}
           <SubmitButton
             label="Create Patient Account"
             loadingLabel="Creating..."

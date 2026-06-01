@@ -11,7 +11,7 @@ import { Eye, EyeOff, ArrowRight, Mail, ShieldPlus, CheckCircle2, AlertCircle } 
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -103,7 +103,7 @@ export const LoginForm = () => {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="relative z-10 w-full max-w-[900px]"
+        className="relative z-10 w-full max-w-[750px]"
       >
         <div className="overflow-hidden rounded-2xl border border-white/20 bg-white/90 shadow-xl backdrop-blur-xl">
 
@@ -121,20 +121,20 @@ export const LoginForm = () => {
                   <ShieldPlus className="h-5 w-5" />
                 </div>
 
-                <h2 className="text-xl font-bold">Welcome Back</h2>
+                <h2 className="text-[25px] font-bold">Welcome Back</h2>
 
-                <p className="mt-2 text-xs text-white/80 leading-relaxed">
+                <p className="mt-2 text-xs text-white/80 text-[19px] leading-relaxed">
                   Sign in to your secure healthcare dashboard and continue managing care workflows seamlessly.
                 </p>
 
                 <div className="mt-3 rounded-lg bg-white/10 p-3">
-                  <p className="text-[11px] text-white/80">
+                  <p className="text-[17px] text-white/80">
                     Unified platform for doctors, clinics, and patients with secure access.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs text-white/80">
+              <div className="space-y-2 text-[15px] text-white/80">
                 <div className="flex gap-2">
                   <CheckCircle2 className="h-3.5 w-3.5 mt-0.5" />
                   Enterprise-grade authentication
@@ -156,8 +156,8 @@ export const LoginForm = () => {
                 transition={{ duration: 0.4 }}
                 className="mb-5 text-center md:hidden"
               >
-                <h2 className="text-xl font-bold text-slate-900">Welcome Back</h2>
-                <p className="mt-2 text-xs text-slate-500">
+                <h2 className="text-25 font-bold text-slate-900">Welcome Back</h2>
+                <p className="mt-2 text-[17px] text-slate-500">
                   Sign in to your secure healthcare dashboard.
                 </p>
               </motion.div>
@@ -169,10 +169,10 @@ export const LoginForm = () => {
                 transition={{ duration: 0.4 }}
                 className="mb-5 hidden md:block"
               >
-                <h1 className="text-2xl font-semibold text-slate-900">
+                <h1 className="text-[17] font-semibold text-slate-900">
                   Sign in
                 </h1>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-[16] text-slate-500">
                   Access your account securely
                 </p>
               </motion.div>
@@ -225,7 +225,7 @@ export const LoginForm = () => {
                       type="email"
                       {...register('email')}
                       aria-invalid={!!errors.email}
-                      className={`h-11 w-full rounded-xl bg-slate-100/70 px-4 text-sm outline-none transition focus:bg-white focus:ring-2 ${
+                      className={`h-11 w-full rounded-xl bg-slate-100/70 px-4 text-[17px] outline-none transition focus:bg-white focus:ring-2 ${
                         errors.email 
                           ? 'border-red-500 ring-2 ring-red-500/20' 
                           : 'focus:ring-teal-500/20'
@@ -304,7 +304,7 @@ export const LoginForm = () => {
 
                 {/* REMEMBER ME & FORGOT PASSWORD */}
                 <motion.div variants={item} className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <label className="flex items-center gap-2 text-[13] text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={rememberMe}
@@ -316,7 +316,7 @@ export const LoginForm = () => {
 
                   <Link
                     href="/forgot-password"
-                    className="text-xs font-medium text-teal-700 hover:text-teal-800 hover:underline transition"
+                    className="text-[15px] font-medium text-teal-700 hover:text-teal-800 hover:underline transition"
                   >
                     Forgot password?
                   </Link>
@@ -353,7 +353,7 @@ export const LoginForm = () => {
                 transition={{ delay: 0.4 }}
                 className="mt-5 border-t pt-4 text-center"
               >
-                <p className="text-sm text-slate-500">
+                <p className="text-[14px] text-slate-500">
                   Don&apos;t have an account?{' '}
                   <Link className="font-medium text-teal-700 hover:text-teal-800 hover:underline transition" href="/register">
                     Create an account

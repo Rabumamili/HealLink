@@ -107,7 +107,7 @@ export function CommonSidebar({
   const items = getSidebarItems(role)
 
   // Determine width classes based on open state and device
-  const widthClass = isOpen ? "w-64" : "w-20"
+  const widthClass = isOpen ? "w-50" : "w-20"
 
   return (
     <aside
@@ -121,8 +121,8 @@ export function CommonSidebar({
         {isOpen ? (
           <>
             <div>
-              <h1 className="font-bold text-teal-600">{portalName}</h1>
-              <p className="text-xs text-gray-500">{portalSubtitle}</p>
+              <h1 className="font-bold text-[18px] text-teal-600">{portalName}</h1>
+              <p className="text-[14px] text-gray-500">{portalSubtitle}</p>
             </div>
             {isMobile && onCloseMobile && (
               <Button variant="ghost" size="icon" onClick={onCloseMobile} className="h-8 w-8">
