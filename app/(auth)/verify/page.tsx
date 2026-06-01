@@ -11,11 +11,46 @@ import { toast } from 'sonner';
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, isAuthenticated, getCurrentUser } = useAuth();
-  const [showVerification, setShowVerification] = useState(true);
+  const { user, isAuthenticated, getCurrentUser, verifyEmail, isVerifyingEmail } = useAuth();
   
+  const token = searchParams.get('token') || '';
   const email = searchParams.get('email') || '';
   const role = searchParams.get('role') || '';
+  
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'manual'>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [showManualVerification, setShowManualVerification] = useState(false);
+
+  // Handle token-based verification from email link
+  useEffect(() => {
+    const handleTokenVerification = async () => {
+      if (!token) {
+        setStatus('manual');
+        return;
+      }
+
+      try {
+        await verifyEmail({ code: token });
+        setStatus('success');
+        
+        // Refresh user data after verification
+        setTimeout(async () => {
+          await getCurrentUser();
+          
+          if (role === 'patient') {
+            router.push('/login?verified=true');
+          } else {
+            router.push('/professional-verification-submit');
+          }
+        }, 2000);
+      } catch (error: any) {
+        setErrorMessage(error?.message || 'Verification failed. The link may have expired.');
+        setStatus('error');
+      }
+    };
+
+    handleTokenVerification();
+  }, [token, verifyEmail, getCurrentUser, router, role]);
 
   // If already authenticated, redirect appropriately
   useEffect(() => {
@@ -41,31 +76,21 @@ function VerifyEmailContent() {
           router.push('/professional-verification-status?status=rejected');
         }
         else {
-          // Not yet submitted - go to submission page
           router.push('/professional-verification-submit');
         }
       }
     }
   }, [isAuthenticated, user, router]);
 
-  // Redirect if no email provided
-  useEffect(() => {
-    if (!email && typeof window !== 'undefined') {
-      router.push('/register');
-    }
-  }, [email, router]);
-
   const handleVerificationComplete = async () => {
-    setShowVerification(false);
+    setShowManualVerification(false);
     
-    // Refresh user data
     await getCurrentUser();
     
     if (role === 'patient') {
       toast.success('Email verified successfully! Please login.');
       router.push('/login?verified=true');
     } else {
-      // For providers: after email verification, redirect to professional verification submission
       toast.success('Email verified! Please complete professional verification.');
       router.push('/professional-verification-submit');
     }
@@ -75,25 +100,137 @@ function VerifyEmailContent() {
     router.push('/register');
   };
 
-  if (!email) {
-    return null;
+  // Show loading state
+  if (status === 'loading') {
+    return (
+      <AuthLayout 
+        title="Verifying Your Email" 
+        description="Please wait while we verify your email address"
+        showLoginLink={false}
+      >
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-teal-600 mb-4" />
+          <p className="text-slate-600">Verifying email...</p>
+        </div>
+      </AuthLayout>
+    );
   }
 
-  return (
-    <AuthLayout 
-      title="Verify Your Email" 
-      description="Enter the verification code sent to your email"
-      showLoginLink={true}
-    >
-      <EmailVerificationDialog
-        open={showVerification}
-        onOpenChange={setShowVerification}
-        email={email}
-        role={role}
-        onVerificationComplete={handleVerificationComplete}
-        onCancel={handleCancel} tempUserId={''}      />
-    </AuthLayout>
-  );
+  // Show success state
+  if (status === 'success') {
+    return (
+      <AuthLayout 
+        title="Email Verified!" 
+        description="Your email has been successfully verified"
+        showLoginLink={false}
+      >
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="h-20 w-20 rounded-full bg-green-100 flex items-center justify-center mb-6">
+            <svg className="h-10 w-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Email Verified Successfully!</h2>
+          <p className="text-slate-600 text-center mb-6">
+            {role === 'patient' 
+              ? 'You can now log in to your account.'
+              : 'You will be redirected to complete your professional verification.'}
+          </p>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-600" />
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  // Show error state
+  if (status === 'error') {
+    return (
+      <AuthLayout 
+        title="Verification Failed" 
+        description="We couldn't verify your email"
+        showLoginLink={true}
+      >
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="h-20 w-20 rounded-full bg-red-100 flex items-center justify-center mb-6">
+            <svg className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Verification Failed</h2>
+          <p className="text-slate-600 text-center mb-6">{errorMessage}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/login')}
+              className="px-6 py-2.5 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 transition-colors"
+            >
+              Go to Login
+            </button>
+            <button
+              onClick={() => router.push('/register')}
+              className="px-6 py-2.5 border border-slate-300 text-slate-700 rounded-xl font-semibold hover:bg-slate-50 transition-colors"
+            >
+              Register Again
+            </button>
+          </div>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  // Show manual verification (no token in URL)
+  if (status === 'manual' && !showManualVerification) {
+    return (
+      <AuthLayout 
+        title="Verify Your Email" 
+        description="Enter the verification code sent to your email"
+        showLoginLink={true}
+      >
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="h-16 w-16 rounded-full bg-teal-100 flex items-center justify-center mb-6">
+            <svg className="h-8 w-8 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Enter Verification Code</h2>
+          <p className="text-slate-600 text-center mb-6">
+            We've sent a 6-digit verification code to your email
+          </p>
+          {email && (
+            <p className="text-sm text-teal-600 font-semibold mb-6">{email}</p>
+          )}
+          <button
+            onClick={() => setShowManualVerification(true)}
+            className="px-6 py-2.5 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 transition-colors"
+          >
+            Enter Code
+          </button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  // Show manual verification dialog
+  if (showManualVerification && email) {
+    return (
+      <AuthLayout 
+        title="Verify Your Email" 
+        description="Enter the verification code sent to your email"
+        showLoginLink={true}
+      >
+        <EmailVerificationDialog
+          open={showManualVerification}
+          onOpenChange={setShowManualVerification}
+          email={email}
+          role={role}
+          tempUserId={''}
+          onVerificationComplete={handleVerificationComplete}
+          onCancel={handleCancel}
+        />
+      </AuthLayout>
+    );
+  }
+
+  return null;
 }
 
 export default function VerifyEmailPage() {

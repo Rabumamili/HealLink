@@ -37,20 +37,6 @@ export const AuthLayout = ({
             HealLink
           </Link>
         </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-surface-container/50 border border-outline-variant/20 scale-90 md:scale-100">
-            <img
-              alt="EN"
-              className="w-4 h-3 rounded-sm"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYGRKv5WeozOM7zHKHZBNiUFU6jqH-RPBOIAzTzMDp0AT9gQXgYkxfR85WMqojgJF9dnWGgS32Zv4TUwmL-o0e-NL01-3nDmbeLgkInepcY-JVLPZxBHRchD_WGP1Kboqy1LYELcMV_srq93VzLaYYjwSqCRL98aGoy8FjKtn3hrdV7Fe9rorjcFobAc3dM3utVco0nGW1D064a-VC3Q5NWFI_eKbwjk3Z2R72IZ1rwQA-rqjljvqEWYPYjhaQ9a2qiN3wvm_CzYw"
-            />
-            <span className="text-[12px] text-on-surface font-semibold">
-              En
-            </span>
-            <HealLinkIcon name="expand_more" size={14} />
-          </div>
-        </div>
       </header>
 
       {/* Main */}
