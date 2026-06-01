@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
-import { Eye, EyeOff, ArrowRight, Mail, ShieldPlus, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Mail, ShieldPlus, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -22,11 +22,13 @@ export const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isCapsLock, setIsCapsLock] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showError, setShowError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     setFocus,
+    reset,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -37,8 +39,43 @@ export const LoginForm = () => {
     setFocus('email');
   }, [setFocus]);
 
+  // Handle auth errors
+  useEffect(() => {
+    if (authError) {
+      // Format error message for better UX
+      let errorMessage = authError;
+      
+      if (authError.toLowerCase().includes('invalid') || 
+          authError.toLowerCase().includes('credentials')) {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (authError.toLowerCase().includes('network')) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else if (authError.toLowerCase().includes('too many')) {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      }
+      
+      setShowError(errorMessage);
+      
+      // Auto-hide error after 5 seconds
+      const timer = setTimeout(() => setShowError(null), 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowError(null);
+    }
+  }, [authError]);
+
   const onSubmit = async (data: LoginFormData) => {
-    await login(data);
+    // Clear previous errors
+    setShowError(null);
+    
+    try {
+      await login(data);
+      // Reset form on successful login (optional)
+      // reset();
+    } catch (err) {
+      // Error is handled by the useAuth hook and authError state
+      console.error('Login submission error:', err);
+    }
   };
 
   const container = {
@@ -140,6 +177,34 @@ export const LoginForm = () => {
                 </p>
               </motion.div>
 
+              {/* ERROR DISPLAY */}
+              <AnimatePresence mode="wait">
+                {showError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="mb-4 rounded-lg bg-red-50 p-3 border border-red-200"
+                    role="alert"
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm text-red-700">{showError}</p>
+                      </div>
+                      <button
+                        onClick={() => setShowError(null)}
+                        className="text-red-500 hover:text-red-700"
+                        aria-label="Close error"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* FORM */}
               <motion.form
                 variants={container}
@@ -159,16 +224,25 @@ export const LoginForm = () => {
                     <input
                       type="email"
                       {...register('email')}
-                      className="h-11 w-full rounded-xl bg-slate-100/70 px-4 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-teal-500/20"
+                      aria-invalid={!!errors.email}
+                      className={`h-11 w-full rounded-xl bg-slate-100/70 px-4 text-sm outline-none transition focus:bg-white focus:ring-2 ${
+                        errors.email 
+                          ? 'border-red-500 ring-2 ring-red-500/20' 
+                          : 'focus:ring-teal-500/20'
+                      }`}
                       placeholder="name@example.com"
                     />
                     <Mail className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   </div>
 
                   {errors.email && (
-                    <p className="mt-1 text-xs text-red-500">
+                    <motion.p 
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-1 text-xs text-red-500"
+                    >
                       {errors.email.message}
-                    </p>
+                    </motion.p>
                   )}
                 </motion.div>
 
@@ -185,60 +259,77 @@ export const LoginForm = () => {
                       onKeyUp={(e) =>
                         setIsCapsLock(e.getModifierState('CapsLock'))
                       }
-                      className="h-11 w-full rounded-xl bg-slate-100/70 px-4 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-teal-500/20"
+                      aria-invalid={!!errors.password}
+                      className={`h-11 w-full rounded-xl bg-slate-100/70 px-4 text-sm outline-none transition focus:bg-white focus:ring-2 ${
+                        errors.password 
+                          ? 'border-red-500 ring-2 ring-red-500/20' 
+                          : 'focus:ring-teal-500/20'
+                      }`}
                       placeholder="••••••••"
                     />
 
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
 
                   {errors.password && (
-                    <p className="mt-1 text-xs text-red-500">
+                    <motion.p 
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-1 text-xs text-red-500"
+                    >
                       {errors.password.message}
-                    </p>
+                    </motion.p>
                   )}
 
-                  {isCapsLock && (
-                    <p className="mt-1 text-xs text-amber-600">
-                      Caps Lock is ON
-                    </p>
-                  )}
+                  <AnimatePresence>
+                    {isCapsLock && (
+                      <motion.p 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -5 }}
+                        className="mt-1 text-xs text-amber-600"
+                      >
+                        ⚠️ Caps Lock is ON
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
 
-                {/* REMEMBER */}
+                {/* REMEMBER ME & FORGOT PASSWORD */}
                 <motion.div variants={item} className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm text-slate-600">
+                  <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-4 w-4 accent-teal-600"
+                      className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                     />
-                    Remember me
+                    <span>Remember me</span>
                   </label>
 
                   <Link
                     href="/forgot-password"
-                    className="text-xs font-medium text-teal-700 hover:underline"
+                    className="text-xs font-medium text-teal-700 hover:text-teal-800 hover:underline transition"
                   >
                     Forgot password?
                   </Link>
                 </motion.div>
 
-                {/* BUTTON */}
+                {/* SUBMIT BUTTON */}
                 <motion.button
                   variants={item}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: isLoggingIn ? 1 : 1.02 }}
+                  whileTap={{ scale: isLoggingIn ? 1 : 0.98 }}
                   type="submit"
                   disabled={isLoggingIn}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-700 to-cyan-600 text-sm font-semibold text-white shadow-md disabled:opacity-60"
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-700 to-cyan-600 text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isLoggingIn ? (
                     <>
@@ -255,7 +346,7 @@ export const LoginForm = () => {
 
               </motion.form>
 
-              {/* FOOTER */}
+              {/* REGISTER FOOTER */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -264,8 +355,8 @@ export const LoginForm = () => {
               >
                 <p className="text-sm text-slate-500">
                   Don&apos;t have an account?{' '}
-                  <Link className="font-medium text-teal-700 hover:underline" href="/register">
-                    Register
+                  <Link className="font-medium text-teal-700 hover:text-teal-800 hover:underline transition" href="/register">
+                    Create an account
                   </Link>
                 </p>
               </motion.div>
