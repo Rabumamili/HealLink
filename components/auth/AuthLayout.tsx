@@ -92,7 +92,7 @@ export const AuthLayout = ({
       <footer className="relative z-10 w-full py-3 flex flex-col items-center justify-center bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-lg shrink-0">
         <div className="container mx-auto px-4 flex items-center justify-between w-full max-w-4xl">
           <p className="text-xs text-gray-700 font-medium">
-            © 2024 HealLink. All rights reserved.
+            © 2026 HealLink. All rights reserved.
           </p>
 
           <div className="flex gap-6">

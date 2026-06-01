@@ -8,7 +8,7 @@ export function Footer() {
         <div className="space-y-4 text-center md:text-left">
           <div className="font-headline-md text-[24px] font-bold text-primary-fixed">HealLink</div>
           <p className="text-inverse-on-surface/80 font-body-md text-[16px] max-w-xs">
-            © 2024 HealLink Ethiopia. Clinical precision, modern care.
+            © 2026 HealLink Ethiopia. Clinical precision, modern care.
           </p>
         </div>
 

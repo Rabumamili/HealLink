@@ -11,13 +11,13 @@ import { Eye, EyeOff, ArrowRight, Mail, ShieldPlus, CheckCircle2 } from 'lucide-
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export const LoginForm = () => {
-  const { login, isLoggingIn } = useAuth();
+  const { login, isLoggingIn, error: authError } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [isCapsLock, setIsCapsLock] = useState(false);
@@ -197,6 +197,12 @@ export const LoginForm = () => {
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
+
+                  {errors.password && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.password.message}
+                    </p>
+                  )}
 
                   {isCapsLock && (
                     <p className="mt-1 text-xs text-amber-600">
