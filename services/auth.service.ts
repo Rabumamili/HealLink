@@ -453,6 +453,28 @@ class AuthService extends ApiService {
     }
   }
 
+  async deleteAccount(): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated');
+    }
+
+    const user = this.getCurrentUserSync();
+    if (!user) {
+      throw new Error('No user found');
+    }
+
+    if (user.role === 'patient') {
+      await this.delete('/patients/me', undefined);
+    } else {
+      notImplemented('Provider account deletion');
+    }
+
+    // Clear local storage after successful deletion
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+  }
+
   // ===============================
   // HELPER METHODS
   // ===============================

@@ -281,6 +281,43 @@ class AppointmentService extends ApiService {
     }
     return this.get<EnrichedAppointment[]>(`/providers/${providerId}/appointments`);
   }
+
+  // ===============================
+  // PROVIDER APPOINTMENT ACTIONS
+  // ===============================
+
+  async markVisitCompleted(providerId: number, appointmentId: number): Promise<EnrichedAppointment> {
+    if (this.useMock) {
+      const updated = this.repository.updateStatus(appointmentId, 'Completed');
+      if (!updated) {
+        throw new Error('Appointment not found');
+      }
+      return updated;
+    }
+    return this.post<EnrichedAppointment>(`/providers/${providerId}/appointments/${appointmentId}/complete`, {}, undefined, false);
+  }
+
+  async markNeedsRecheck(providerId: number, appointmentId: number, reason: string): Promise<EnrichedAppointment> {
+    if (this.useMock) {
+      const updated = this.repository.updateStatus(appointmentId, 'needs_recheck' as AppointmentStatus);
+      if (!updated) {
+        throw new Error('Appointment not found');
+      }
+      return updated;
+    }
+    return this.post<EnrichedAppointment>(`/providers/${providerId}/appointments/${appointmentId}/needs-recheck`, { reason }, undefined, false);
+  }
+
+  async bookRecheckVisit(providerId: number, appointmentId: number, slotId: number): Promise<EnrichedAppointment> {
+    if (this.useMock) {
+      const updated = this.repository.updateStatus(appointmentId, 'Scheduled');
+      if (!updated) {
+        throw new Error('Appointment not found');
+      }
+      return updated;
+    }
+    return this.post<EnrichedAppointment>(`/providers/${providerId}/appointments/${appointmentId}/book-recheck`, { slot_id: slotId }, undefined, false);
+  }
 }
 
 export const appointmentService = new AppointmentService();
