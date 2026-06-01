@@ -11,6 +11,29 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { NotificationBellBadge } from "@/components/notifications/NotificationBellBadge"
 import { useNotificationStore } from "@/stores/slices/notificationSlice"
+import { useAuth } from "@/hooks/useAuth"
+import { AuthUser } from "@/types/entities/auth.types"
+
+function getUserDisplayFromAuth(user: AuthUser) {
+  const userName =
+    user.full_name ||
+    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+    user.email
+
+  const userInitials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
+
+  return {
+    userName,
+    userEmail: user.email,
+    userInitials,
+  }
+}
 
 interface LayoutWrapperProps {
   children: React.ReactNode
@@ -92,6 +115,12 @@ export function LayoutWrapper({
   userName = "User",
   userEmail = "user@heallink.com",
 }: LayoutWrapperProps) {
+  const { user } = useAuth()
+  const authDisplay = user ? getUserDisplayFromAuth(user) : null
+  const displayName = authDisplay?.userName ?? userName
+  const displayEmail = authDisplay?.userEmail ?? userEmail
+  const displayInitials = authDisplay?.userInitials ?? userInitials
+
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
@@ -196,9 +225,9 @@ export function LayoutWrapper({
           searchPlaceholder={searchPlaceholder}
           isSidebarOpen={showSidebarInline}
           onSidebarToggle={toggleSidebar}
-          userInitials={userInitials}
-          userName={userName}
-          userEmail={userEmail}
+          userInitials={displayInitials}
+          userName={displayName}
+          userEmail={displayEmail}
           role={role}
           profileLink={`/${role}/profile`}
           notificationsLink={`/${role}/notifications`}

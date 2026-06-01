@@ -1,5 +1,7 @@
 // services/auth.service.ts
 import { ApiService } from './api.service';
+import { notImplemented } from '@/lib/api-error';
+import { BackendProvider } from '@/types/entities/provider.types';
 import {
   LoginCredentials,
   LoginResponse,
@@ -7,8 +9,6 @@ import {
   DoctorRegisterData,
   ClinicRegisterData,
   DiagnosticCenterRegisterData,
-  StaffRegisterData,
-  StaffSubRole,
   ProviderType,
   UserRole,
   VerifyEmailData,
@@ -18,57 +18,158 @@ import {
   RefreshTokenResponse,
   AuthUser,
   ProfessionalVerificationSubmitData,
+  BackendPatient,
+  BackendPatientRegisterRequest,
+  BackendProviderRegisterPayload,
+  BackendTokenResponse,
 } from '@/types/entities/auth.types';
 
-// Mock user data for development
-const MOCK_USER: AuthUser = {
-  id: 1,
-  email: 'demo@heallink.com',
-  phone_number: '+1234567890',
-  role: 'staff', // Change this to 'patient', 'doctor', 'clinic', 'diagnostic_center' as needed
-  is_active: true,
-  is_verified: true,
-  verification_status: 'verified',
-  created_at: new Date().toISOString(),
-  first_name: 'Demo',
-  last_name: 'User',
-  staff_sub_role: 'lab assistant', // For staff role
-  employer_id: 1,
-  employer_type: 'clinic',
-  professional_verification_status: 'approved',
-};
+function buildFullName(firstName?: string | null, lastName?: string | null, fallback = ''): string {
+  const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+  return fullName || fallback;
+}
+
+function mapPatientToAuthUser(patient: BackendPatient): AuthUser {
+  const first_name = patient.first_name ?? undefined;
+  const last_name = patient.last_name ?? undefined;
+
+  return {
+    id: patient.id,
+    email: patient.email,
+    phone_number: patient.phone_number ?? '',
+    role: 'patient',
+    is_active: patient.is_active,
+    is_verified: patient.is_verified,
+    verification_status: patient.verification_status,
+    created_at: patient.created_at,
+    updated_at: patient.updated_at ?? undefined,
+    first_name,
+    last_name,
+    full_name: buildFullName(first_name, last_name, patient.email),
+    date_of_birth: patient.date_of_birth ?? undefined,
+    gender: patient.gender ?? undefined,
+  };
+}
+
+function mapProviderTypeToRole(providerType: string): UserRole {
+  const normalized = providerType.toLowerCase().replace(/-/g, '_');
+
+  if (normalized === 'doctor') return 'doctor';
+  if (normalized === 'clinic') return 'clinic';
+  if (normalized === 'diagnostic_center' || normalized === 'diagnostic') {
+    return 'diagnostic_center';
+  }
+
+  return 'doctor';
+}
+
+function mapProviderToAuthUser(provider: BackendProvider): AuthUser {
+  const role = mapProviderTypeToRole(provider.provider_type);
+
+  return {
+    id: provider.id,
+    email: provider.email,
+    phone_number: provider.phone ?? '',
+    role,
+    is_active: true,
+    is_verified: false,
+    verification_status: 'pending',
+    professional_verification_status: 'pending',
+    created_at: provider.created_at,
+    full_name: provider.name,
+    provider_id: provider.id,
+    provider_type: role as ProviderType,
+    specialization: provider.specialization ?? undefined,
+    license_number: provider.license_number ?? undefined,
+    tin_number: provider.tin_number ?? undefined,
+    location: provider.location,
+    address: provider.address ?? undefined,
+    description: provider.description ?? undefined,
+  };
+}
+
+function buildRegisterPayload(data: UserRegisterData): BackendPatientRegisterRequest {
+  const payload: BackendPatientRegisterRequest = {
+    email: data.email,
+    password: data.password,
+    role: 'patient',
+    first_name: data.first_name,
+    last_name: data.last_name,
+    phone_number: data.phone_number,
+  };
+
+  if (data.date_of_birth) payload.date_of_birth = data.date_of_birth;
+  if (data.gender) payload.gender = data.gender;
+
+  return payload;
+}
+
+function persistAuthSession(response: BackendTokenResponse): LoginResponse {
+  const user = mapPatientToAuthUser(response.patient);
+
+  localStorage.setItem('token', response.access_token);
+  localStorage.setItem('refreshToken', response.refresh_token);
+  localStorage.setItem('user', JSON.stringify(user));
+
+  return {
+    token: response.access_token,
+    refreshToken: response.refresh_token,
+    user,
+  };
+}
+
+function persistUserWithoutSession(user: AuthUser): LoginResponse {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.setItem('user', JSON.stringify(user));
+
+  return {
+    token: '',
+    refreshToken: '',
+    user,
+  };
+}
 
 class AuthService extends ApiService {
   private readonly basePath = '/auth';
 
   // ===============================
-  // AUTHENTICATION
+  // AUTHENTICATION (live API)
   // ===============================
 
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    // Bypass actual login and return mock data
-    console.log('Login attempt (bypassed):', credentials);
-    
-    const mockResponse: LoginResponse = {
-      token: 'mock-jwt-token',
-      refreshToken: 'mock-refresh-token',
-      user: { ...MOCK_USER, email: credentials.email },
-    };
-    
-    if (mockResponse.token) {
-      localStorage.setItem('token', mockResponse.token);
-      localStorage.setItem('refreshToken', mockResponse.refreshToken);
-      localStorage.setItem('user', JSON.stringify(mockResponse.user));
-    }
-    
-    return mockResponse;
+    const response = await this.post<BackendTokenResponse>(
+      `${this.basePath}/login`,
+      {
+        email: credentials.email,
+        password: credentials.password,
+      },
+      undefined,
+      false
+    );
+
+    return persistAuthSession(response);
   }
 
   async logout(): Promise<void> {
-    console.log('Logout (bypassed)');
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    const refreshToken = this.getRefreshToken();
+
+    try {
+      if (refreshToken) {
+        await this.post(
+          `${this.basePath}/logout`,
+          { refresh_token: refreshToken },
+          undefined,
+          false
+        );
+      }
+    } catch (error) {
+      console.error('Logout request failed:', error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+    }
   }
 
   // ===============================
@@ -76,159 +177,118 @@ class AuthService extends ApiService {
   // ===============================
 
   async registerUser(data: UserRegisterData): Promise<LoginResponse> {
-    console.log('User registration (bypassed):', data);
-    
-    const mockResponse: LoginResponse = {
-      token: 'mock-jwt-token',
-      refreshToken: 'mock-refresh-token',
-      user: {
-        ...MOCK_USER,
-        email: data.email,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone_number: data.phone_number,
-        role: 'patient',
-      },
-    };
-    
-    if (mockResponse.token) {
-      localStorage.setItem('token', mockResponse.token);
-      localStorage.setItem('refreshToken', mockResponse.refreshToken);
-      localStorage.setItem('user', JSON.stringify(mockResponse.user));
-    }
-    
-    return mockResponse;
+    const response = await this.post<BackendTokenResponse>(
+      `${this.basePath}/register`,
+      buildRegisterPayload(data),
+      undefined,
+      false
+    );
+
+    return persistAuthSession(response);
   }
 
   async registerDoctor(data: DoctorRegisterData): Promise<LoginResponse> {
-    console.log('Doctor registration (bypassed):', data);
-    
-    const mockResponse: LoginResponse = {
-      token: 'mock-jwt-token',
-      refreshToken: 'mock-refresh-token',
-      user: {
-        ...MOCK_USER,
-        email: data.email,
-        full_name: data.full_name,
-        phone_number: data.phone_number,
-        role: 'doctor',
-        specialization: data.specialization,
-        license_number: data.license_number,
-        location: data.location,
-      },
-    };
-    
-    if (mockResponse.token) {
-      localStorage.setItem('token', mockResponse.token);
-      localStorage.setItem('refreshToken', mockResponse.refreshToken);
-      localStorage.setItem('user', JSON.stringify(mockResponse.user));
-    }
-    
-    return mockResponse;
+    const user = await this.registerProvider({
+      provider_type: 'doctor',
+      email: data.email,
+      password: data.password,
+      name: data.full_name,
+      phone_number: data.phone_number,
+      specialization: data.specialization,
+      license_number: data.license_number,
+      location: data.location,
+      license_file: data.license_document,
+    });
+
+    return this.tryProviderLogin(data.email, data.password, user);
   }
 
   async registerClinic(data: ClinicRegisterData): Promise<LoginResponse> {
-    console.log('Clinic registration (bypassed):', data);
-    
-    const mockResponse: LoginResponse = {
-      token: 'mock-jwt-token',
-      refreshToken: 'mock-refresh-token',
-      user: {
-        ...MOCK_USER,
-        email: data.email,
-        full_name: data.full_name,
-        phone_number: data.phone_number,
-        role: 'clinic',
-        license_number: data.license_number,
-        tin_number: data.tin_number,
-        address: data.address,
-      },
-    };
-    
-    if (mockResponse.token) {
-      localStorage.setItem('token', mockResponse.token);
-      localStorage.setItem('refreshToken', mockResponse.refreshToken);
-      localStorage.setItem('user', JSON.stringify(mockResponse.user));
-    }
-    
-    return mockResponse;
+    const user = await this.registerProvider({
+      provider_type: 'clinic',
+      email: data.email,
+      password: data.password,
+      name: data.full_name,
+      phone_number: data.phone_number,
+      address: data.address,
+      license_number: data.license_number,
+      tin_number: data.tin_number,
+      license_file: data.license_document,
+    });
+
+    return this.tryProviderLogin(data.email, data.password, user);
   }
 
   async registerDiagnosticCenter(data: DiagnosticCenterRegisterData): Promise<LoginResponse> {
-    console.log('Diagnostic center registration (bypassed):', data);
-    
-    const mockResponse: LoginResponse = {
-      token: 'mock-jwt-token',
-      refreshToken: 'mock-refresh-token',
-      user: {
-        ...MOCK_USER,
-        email: data.email,
-        full_name: data.full_name,
-        phone_number: data.phone_number,
-        role: 'diagnostic_center',
-        license_number: data.license_number,
-        tin_number: data.tin_number,
-        address: data.address,
-      },
-    };
-    
-    if (mockResponse.token) {
-      localStorage.setItem('token', mockResponse.token);
-      localStorage.setItem('refreshToken', mockResponse.refreshToken);
-      localStorage.setItem('user', JSON.stringify(mockResponse.user));
-    }
-    
-    return mockResponse;
-  }
-
-  async registerStaff(data: StaffRegisterData): Promise<{ message: string; staff_id: number; email: string }> {
-    console.log('Staff registration (bypassed):', data);
-    
-    return {
-      message: 'Staff registered successfully',
-      staff_id: Math.floor(Math.random() * 1000),
+    const user = await this.registerProvider({
+      provider_type: 'diagnostic_center',
       email: data.email,
-    };
+      password: data.password,
+      name: data.full_name,
+      phone_number: data.phone_number,
+      address: data.address,
+      license_number: data.license_number,
+      tin_number: data.tin_number,
+      description: data.description,
+      license_file: data.license_document,
+    });
+
+    return this.tryProviderLogin(data.email, data.password, user);
   }
 
-  async completeStaffRegistration(token: string, password: string, confirmPassword: string): Promise<LoginResponse> {
-    console.log('Complete staff registration (bypassed):', { token, password, confirmPassword });
-    
-    const mockResponse: LoginResponse = {
-      token: 'mock-jwt-token',
-      refreshToken: 'mock-refresh-token',
-      user: {
-        ...MOCK_USER,
-        role: 'staff',
-      },
-    };
-    
-    if (mockResponse.token) {
-      localStorage.setItem('token', mockResponse.token);
-      localStorage.setItem('refreshToken', mockResponse.refreshToken);
-      localStorage.setItem('user', JSON.stringify(mockResponse.user));
+  private async registerProvider(payload: BackendProviderRegisterPayload): Promise<AuthUser> {
+    const formData = new FormData();
+    formData.append('provider_type', payload.provider_type);
+    formData.append('email', payload.email);
+    formData.append('license_file', payload.license_file);
+
+    if (payload.password) formData.append('password', payload.password);
+    if (payload.name) formData.append('name', payload.name);
+    if (payload.phone_number) formData.append('phone_number', payload.phone_number);
+    if (payload.location) formData.append('location', payload.location);
+    if (payload.address) formData.append('address', payload.address);
+    if (payload.specialization) formData.append('specialization', payload.specialization);
+    if (payload.license_number) formData.append('license_number', payload.license_number);
+    if (payload.tin_number) formData.append('tin_number', payload.tin_number);
+    if (payload.description) formData.append('description', payload.description);
+
+    const provider = await this.postFormData<BackendProvider>('/providers', formData, undefined);
+    return mapProviderToAuthUser(provider);
+  }
+
+  private async tryProviderLogin(
+    email: string,
+    password: string,
+    registeredUser: AuthUser
+  ): Promise<LoginResponse> {
+    try {
+      const session = await this.login({ email, password });
+      return {
+        ...session,
+        user: {
+          ...registeredUser,
+          ...session.user,
+          role: registeredUser.role,
+          provider_id: registeredUser.provider_id,
+          provider_type: registeredUser.provider_type,
+          professional_verification_status: registeredUser.professional_verification_status,
+        },
+      };
+    } catch {
+      return persistUserWithoutSession(registeredUser);
     }
-    
-    return mockResponse;
-  }
-
-  async resendStaffInvitation(email: string): Promise<{ message: string }> {
-    console.log('Resend staff invitation (bypassed):', email);
-    return { message: 'Invitation resent successfully' };
   }
 
   // ===============================
   // PROFESSIONAL VERIFICATION
   // ===============================
 
-  async submitProfessionalVerification(data: ProfessionalVerificationSubmitData): Promise<{ message: string }> {
-    console.log('Submit professional verification (bypassed):', data);
-    return { message: 'Verification submitted successfully' };
+  async submitProfessionalVerification(_data: ProfessionalVerificationSubmitData): Promise<{ message: string }> {
+    notImplemented('Professional verification submission');
   }
 
   async getProfessionalVerificationStatus(): Promise<{ status: string; rejection_reason?: string }> {
-    console.log('Get professional verification status (bypassed)');
-    return { status: 'approved' };
+    notImplemented('Professional verification status');
   }
 
   // ===============================
@@ -236,13 +296,17 @@ class AuthService extends ApiService {
   // ===============================
 
   async verifyEmail(data: VerifyEmailData): Promise<{ message: string }> {
-    console.log('Verify email (bypassed):', data);
-    return { message: 'Email verified successfully' };
+    const response = await this.post<{ message: string }>(
+      `${this.basePath}/verify-email`,
+      { token: data.code },
+      undefined,
+      false
+    );
+    return response;
   }
 
-  async resendVerificationCode(data: ResendVerificationData): Promise<{ message: string }> {
-    console.log('Resend verification code (bypassed):', data);
-    return { message: 'Verification code sent' };
+  async resendVerificationCode(_data: ResendVerificationData): Promise<{ message: string }> {
+    notImplemented('Verification code resend');
   }
 
   // ===============================
@@ -250,29 +314,50 @@ class AuthService extends ApiService {
   // ===============================
 
   async forgotPassword(data: ForgotPasswordData): Promise<{ message: string }> {
-    console.log('Forgot password (bypassed):', data);
-    return { message: 'Password reset link sent to your email' };
+    const response = await this.post<{ message: string }>(
+      `${this.basePath}/forgot-password`,
+      { email: data.email },
+      undefined,
+      false
+    );
+    return response;
   }
 
   async resetPassword(data: ResetPasswordData): Promise<{ message: string }> {
-    console.log('Reset password (bypassed):', data);
-    return { message: 'Password reset successfully' };
+    const response = await this.post<{ message: string }>(
+      `${this.basePath}/reset-password`,
+      { token: data.token, new_password: data.password },
+      undefined,
+      false
+    );
+    return response;
   }
 
-  async changePassword(oldPassword: string, newPassword: string): Promise<{ message: string }> {
-    console.log('Change password (bypassed):', { oldPassword, newPassword });
-    return { message: 'Password changed successfully' };
+  async changePassword(_oldPassword: string, _newPassword: string): Promise<{ message: string }> {
+    notImplemented('Password change');
   }
 
   // ===============================
-  // TOKEN MANAGEMENT
+  // TOKEN MANAGEMENT (live API)
   // ===============================
 
   async refreshToken(): Promise<RefreshTokenResponse> {
-    console.log('Refresh token (bypassed)');
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await this.post<BackendTokenResponse>(
+      `${this.basePath}/refresh`,
+      { refresh_token: refreshToken },
+      undefined,
+      false
+    );
+
+    const session = persistAuthSession(response);
     return {
-      token: 'mock-refreshed-jwt-token',
-      refreshToken: 'mock-refreshed-refresh-token',
+      token: session.token,
+      refreshToken: session.refreshToken,
     };
   }
 
@@ -281,77 +366,49 @@ class AuthService extends ApiService {
   // ===============================
 
   async getCurrentUser(): Promise<AuthUser> {
-    console.log('Get current user (bypassed)');
-    const cachedUser = localStorage.getItem('user');
-    if (cachedUser) {
-      try {
-        return JSON.parse(cachedUser);
-      } catch (e) {
-        // Invalid JSON, return mock user
-      }
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated');
     }
-    return MOCK_USER;
+
+    const cachedUser = this.getCurrentUserSync();
+    if (cachedUser && cachedUser.role !== 'patient') {
+      return cachedUser;
+    }
+
+    const patient = await this.get<BackendPatient>('/patients/me');
+    const user = mapPatientToAuthUser(patient);
+    localStorage.setItem('user', JSON.stringify(user));
+    return user;
   }
 
   async updateProfile(data: Partial<AuthUser>): Promise<AuthUser> {
-    console.log('Update profile (bypassed):', data);
-    const currentUser = this.getCurrentUserSync() || MOCK_USER;
-    const updatedUser = { ...currentUser, ...data };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    return updatedUser;
-  }
+    if (!this.isAuthenticated()) {
+      throw new Error('Not authenticated');
+    }
 
-  // ===============================
-  // STAFF MANAGEMENT
-  // ===============================
+    const user = this.getCurrentUserSync();
+    if (!user) {
+      throw new Error('No user found');
+    }
 
-  async getStaffMembers(employerId: number, employerType: string): Promise<AuthUser[]> {
-    console.log('Get staff members (bypassed):', { employerId, employerType });
-    return [
-      {
-        ...MOCK_USER,
-        id: 1,
-        first_name: 'John',
-        last_name: 'Doe',
-        email: 'john.doe@example.com',
-        role: 'staff',
-        staff_sub_role: 'lab assistant',
-      },
-      {
-        ...MOCK_USER,
-        id: 2,
-        first_name: 'Jane',
-        last_name: 'Smith',
-        email: 'jane.smith@example.com',
-        role: 'staff',
-        staff_sub_role: 'card_checker',
-      },
-    ];
-  }
+    // Build update payload based on user role
+    if (user.role === 'patient') {
+      const payload: any = {};
+      if (data.email) payload.email = data.email;
+      if (data.first_name) payload.first_name = data.first_name;
+      if (data.last_name) payload.last_name = data.last_name;
+      if (data.phone_number) payload.phone_number = data.phone_number;
+      if (data.date_of_birth) payload.date_of_birth = data.date_of_birth;
+      if (data.gender) payload.gender = data.gender;
 
-  async updateStaffRole(staffId: number, role: StaffSubRole): Promise<AuthUser> {
-    console.log('Update staff role (bypassed):', { staffId, role });
-    return {
-      ...MOCK_USER,
-      id: staffId,
-      role: 'staff',
-      staff_sub_role: role,
-    };
-  }
-
-  async deactivateStaff(staffId: number): Promise<{ message: string }> {
-    console.log('Deactivate staff (bypassed):', staffId);
-    return { message: 'Staff deactivated successfully' };
-  }
-
-  async activateStaff(staffId: number): Promise<{ message: string }> {
-    console.log('Activate staff (bypassed):', staffId);
-    return { message: 'Staff activated successfully' };
-  }
-
-  async deleteStaff(staffId: number): Promise<{ message: string }> {
-    console.log('Delete staff (bypassed):', staffId);
-    return { message: 'Staff deleted successfully' };
+      const updatedPatient = await this.patch<BackendPatient>('/patients/me', payload, undefined);
+      const updatedUser = mapPatientToAuthUser(updatedPatient);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      return updatedUser;
+    } else {
+      // Provider profile update would go here
+      notImplemented('Provider profile update');
+    }
   }
 
   // ===============================
@@ -359,66 +416,47 @@ class AuthService extends ApiService {
   // ===============================
 
   isAuthenticated(): boolean {
-    // Always return true for development
-    return true;
+    const token = localStorage.getItem('token');
+    return !!token && !token.startsWith('mock-');
   }
 
   getToken(): string | null {
-    return localStorage.getItem('token') || 'mock-jwt-token';
+    return localStorage.getItem('token');
   }
 
   getRefreshToken(): string | null {
-    return localStorage.getItem('refreshToken') || 'mock-refresh-token';
+    return localStorage.getItem('refreshToken');
   }
 
   getCurrentUserSync(): AuthUser | null {
     const user = localStorage.getItem('user');
-    if (user) {
-      try {
-        return JSON.parse(user);
-      } catch (e) {
-        return MOCK_USER;
-      }
+    if (!user) return null;
+
+    try {
+      return JSON.parse(user) as AuthUser;
+    } catch {
+      return null;
     }
-    return MOCK_USER;
   }
 
   hasRole(role: UserRole | UserRole[]): boolean {
     const user = this.getCurrentUserSync();
     if (!user) return false;
-    
+
     if (Array.isArray(role)) {
       return role.includes(user.role);
     }
     return user.role === role;
   }
 
-  isStaffWithRole(subRole?: StaffSubRole | StaffSubRole[]): boolean {
-    const user = this.getCurrentUserSync();
-    if (!user || user.role !== 'staff') return false;
-    
-    if (!subRole) return true;
-    
-    if (Array.isArray(subRole)) {
-      return subRole.includes(user.staff_sub_role!);
-    }
-    return user.staff_sub_role === subRole;
-  }
-
-  getEmployerInfo(): { id: number; type: ProviderType } | null {
-    const user = this.getCurrentUserSync();
-    if (user?.role !== 'staff' || !user.employer_id || !user.employer_type) {
-      // Return mock employer info for development
-      return { id: 1, type: 'clinic' };
-    }
-    return {
-      id: user.employer_id,
-      type: user.employer_type
-    };
-  }
-
   shouldRedirectToProfessionalVerification(): boolean {
-    // Always return false for development
+    const user = this.getCurrentUserSync();
+    if (!user) return false;
+
+    if (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center') {
+      return user.professional_verification_status !== 'approved';
+    }
+
     return false;
   }
 }

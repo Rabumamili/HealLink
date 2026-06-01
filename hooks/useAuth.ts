@@ -10,8 +10,6 @@ import {
   DoctorRegisterData,
   ClinicRegisterData,
   DiagnosticCenterRegisterData,
-  StaffRegisterData,
-  StaffSubRole,
   VerifyEmailData,
   ResendVerificationData,
   ForgotPasswordData,
@@ -50,11 +48,6 @@ const isPatient = (
 ): user is AuthUser & { role: 'patient' } =>
   user !== null && user.role === 'patient';
 
-const isStaffUser = (
-  user: AuthUser | null
-): user is AuthUser & { role: 'staff' } =>
-  user !== null && user.role === 'staff';
-
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export const useAuth = (options: UseAuthOptions = {}) => {
@@ -80,9 +73,6 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     registerDoctor,
     registerClinic,
     registerDiagnosticCenter,
-    registerStaff,
-    completeStaffRegistration,
-    resendStaffInvitation,
     verifyEmail,
     resendVerificationCode,
     forgotPassword,
@@ -91,11 +81,6 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     updateProfile,
     changePassword,
     clearError,
-    getStaffMembers,
-    updateStaffRole,
-    deactivateStaff,
-    activateStaff,
-    deleteStaff,
     submitProfessionalVerification,
     getProfessionalVerificationStatus,
   } = store;
@@ -152,14 +137,6 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     return roles.includes(user.role);
   };
 
-  const checkIsStaff = (): boolean => isStaffUser(user);
-
-  const hasStaffRole = (subRole: StaffSubRole | StaffSubRole[]): boolean => {
-    if (!isStaffUser(user)) return false;
-    const roles = Array.isArray(subRole) ? subRole : [subRole];
-    return roles.includes(user.staff_sub_role!);
-  };
-
   const isVerified = (): boolean => user?.is_verified || false;
 
   const isProfessionalVerified = (): boolean => {
@@ -196,9 +173,6 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     return s === 'pending' || s === 'rejected' || !s;
   };
 
-  const getEmployerInfo = (): { id: number; type: ProviderType } | null =>
-    authService.getEmployerInfo();
-
   // ── Login (with post-login routing) ──────────────────────────────────────
   const login = async (
     credentials: LoginCredentials,
@@ -212,14 +186,6 @@ export const useAuth = (options: UseAuthOptions = {}) => {
       if (!redirectPath && currentUser) {
         if (isPatient(currentUser)) {
           redirectPath = '/patient/dashboard';
-        } else if (isStaffUser(currentUser)) {
-          if (currentUser.staff_sub_role === 'lab assistant') {
-            redirectPath = '/staff/lab-dashboard';
-          } else if (currentUser.staff_sub_role === 'card_checker') {
-            redirectPath = '/staff/card-checker-dashboard';
-          } else {
-            redirectPath = '/staff/dashboard';
-          }
         } else if (isProvider(currentUser)) {
           const status = currentUser.professional_verification_status;
           if (status === 'approved') {
@@ -252,16 +218,6 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     router.push('/login');
   };
 
-  // ── Staff registration wrapper ────────────────────────────────────────────
-  const registerStaffWrapper = async (data: StaffRegisterData) => {
-    try {
-      const response = await registerStaff(data);
-      return { success: true, data: response };
-    } catch (error) {
-      return { success: false, error };
-    }
-  };
-
   // ── Return surface ────────────────────────────────────────────────────────
   return {
     // State
@@ -273,15 +229,12 @@ export const useAuth = (options: UseAuthOptions = {}) => {
 
     // Role helpers
     hasRole,
-    isStaff: checkIsStaff,
-    hasStaffRole,
     isVerified,
     isProfessionalVerified,
     hasSubmittedProfessionalVerification,
     isProfessionalVerificationPending,
     getProfessionalStatus,
     needsProfessionalVerification,
-    getEmployerInfo,
 
     // Auth actions
     login,
@@ -292,9 +245,6 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     registerDoctor,
     registerClinic,
     registerDiagnosticCenter,
-    registerStaff: registerStaffWrapper,
-    completeStaffRegistration,
-    resendStaffInvitation,
 
     // Verification
     verifyEmail,
@@ -311,17 +261,11 @@ export const useAuth = (options: UseAuthOptions = {}) => {
     getCurrentUser,
     updateProfile,
 
-    // Staff management
-    getStaffMembers,
-    updateStaffRole,
-    deactivateStaff,
-    activateStaff,
-    deleteStaff,
-
     // Utils
     clearError,
 
     // Loading aliases
+    isLoggingIn: isLoading,
     isRegistering: isLoading,
     isVerifyingEmail: isLoading,
     isSendingResetLink: isLoading,
