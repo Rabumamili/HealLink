@@ -1,15 +1,10 @@
 // types/entities/auth.types.ts
 
-export type UserRole = 
-  | 'patient' 
-  | 'doctor' 
-  | 'clinic' 
-  | 'diagnostic_center' 
-  | 'staff';
-
-export type StaffSubRole =  
-  | 'lab assistant' 
-  | 'card_checker';
+export type UserRole =
+  | 'patient'
+  | 'doctor'
+  | 'clinic'
+  | 'diagnostic_center';
 
 export type ProviderType = 'doctor' | 'clinic' | 'diagnostic_center';
 
@@ -26,32 +21,24 @@ export interface AuthUser {
   verification_status: VerificationStatus;
   created_at: string;
   updated_at?: string;
-  
-  // For Users (patients) and Staff
   first_name?: string;
   last_name?: string;
-  
-  // For Providers (doctors, clinics, diagnostic centers)
   full_name?: string;
-  
-  // Staff specific
-  staff_sub_role?: StaffSubRole;
-  employer_id?: number;
-  employer_type?: ProviderType;
-  
-  // Provider specific
+  date_of_birth?: string;
+  gender?: string;
+
   provider_id?: number;
   provider_type?: ProviderType;
   professional_verification_status?: ProfessionalVerificationStatus;
   rejection_reason?: string;
-  
-  // Provider fields
   specialization?: string;
+
   license_number?: string;
   tin_number?: string;
   license_document?: string;
   location?: string;
   address?: string;
+  description?: string;
 }
 
 export interface LoginCredentials {
@@ -69,7 +56,6 @@ export interface LoginResponse {
 // REGISTRATION
 // ===============================
 
-// USER (PATIENT) REGISTRATION
 export interface UserRegisterData {
   email: string;
   password: string;
@@ -81,7 +67,6 @@ export interface UserRegisterData {
   role: 'patient';
 }
 
-// PROVIDER REGISTRATION TYPES
 export interface DoctorRegisterData {
   email: string;
   password: string;
@@ -91,7 +76,7 @@ export interface DoctorRegisterData {
   specialization: string;
   license_number: string;
   location: string;
-  license_document?: File;
+  license_document: File;
 }
 
 export interface ClinicRegisterData {
@@ -103,7 +88,7 @@ export interface ClinicRegisterData {
   phone_number: string;
   license_number: string;
   tin_number: string;
-  license_document?: File;
+  license_document: File;
 }
 
 export interface DiagnosticCenterRegisterData {
@@ -115,18 +100,8 @@ export interface DiagnosticCenterRegisterData {
   phone_number: string;
   license_number: string;
   tin_number: string;
-  license_document?: File;
-}
-
-export interface StaffRegisterData {
-  employer_id: number;
-  employer_type: ProviderType;
-  email: string;
-  first_name: string;
-  last_name: string;
-  phone_number: string;
-  role: StaffSubRole;
-  send_invitation?: boolean;
+  license_document: File;
+  description?: string;
 }
 
 export interface ProfessionalVerificationSubmitData {
@@ -135,12 +110,11 @@ export interface ProfessionalVerificationSubmitData {
   tin_number?: string;
 }
 
-export type RegisterData = 
-  | UserRegisterData 
-  | DoctorRegisterData 
-  | ClinicRegisterData 
-  | DiagnosticCenterRegisterData
-  | StaffRegisterData;
+export type RegisterData =
+  | UserRegisterData
+  | DoctorRegisterData
+  | ClinicRegisterData
+  | DiagnosticCenterRegisterData;
 
 // ===============================
 // EMAIL VERIFICATION
@@ -176,6 +150,63 @@ export interface ResetPasswordData {
 export interface RefreshTokenResponse {
   token: string;
   refreshToken: string;
+}
+
+// ===============================
+// BACKEND API (snake_case)
+// ===============================
+
+export interface BackendPatient {
+  id: number;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone_number: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  role: string;
+  is_active: boolean;
+  is_verified: boolean;
+  verification_status: VerificationStatus;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface BackendPatientRegisterRequest {
+  email: string;
+  password: string;
+  role: 'patient';
+  first_name?: string;
+  last_name?: string;
+  phone_number?: string;
+  date_of_birth?: string;
+  gender?: string;
+}
+
+export interface BackendTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  patient: BackendPatient;
+}
+
+export interface BackendRefreshTokenRequest {
+  refresh_token: string;
+}
+
+export interface BackendProviderRegisterPayload {
+  provider_type: ProviderType;
+  email: string;
+  license_file: File;
+  password?: string;
+  name?: string;
+  phone_number?: string;
+  location?: string;
+  address?: string;
+  specialization?: string;
+  license_number?: string;
+  tin_number?: string;
+  description?: string;
 }
 
 // ===============================

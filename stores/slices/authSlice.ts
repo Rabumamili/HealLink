@@ -116,6 +116,15 @@ export const useAuthStore = create<AuthState>()(
           
           set({ isLoading: true });
           try {
+            const token = localStorage.getItem('token');
+            if (token?.startsWith('mock-')) {
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('user');
+              set({ user: null, isInitialized: true, error: null });
+              return;
+            }
+
             if (authService.isAuthenticated()) {
               const user = await authService.getCurrentUser();
               set({ user, isInitialized: true, error: null });

@@ -29,7 +29,7 @@ const patientSchema = z
     gender: z.string().optional(),
     emergency_contact: z.string().optional(),
     address: z.string().optional(),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -54,25 +54,22 @@ export const PatientRegisterForm = () => {
     resolver: zodResolver(patientSchema),
   });
 
-const onSubmit = async (data: PatientFormData) => {
-  setError(null);
-  try {
-    const { confirmPassword, ...submitData } = data;
-    
-    await registerUser({
-      ...submitData,
-      role: 'patient',
-    });
+  const onSubmit = async (data: PatientFormData) => {
+    setError(null);
+    try {
+      const { confirmPassword, ...rest } = data;
 
-    toast.success('Registration successful! Please verify your email.');
-    
-    router.push(
-      `/verify-email?email=${encodeURIComponent(data.email)}&role=patient`
-    );
-  } catch (err: any) {
-    setError(err?.message || 'Registration failed');
-  }
-};
+      await registerUser({
+        ...rest,
+        role: 'patient',
+      });
+
+      toast.success('Registration successful!');
+      router.push('/patient/dashboard');
+    } catch (err: any) {
+      setError(err?.message || 'Registration failed');
+    }
+  };
 
   return (
     <RegisterFormShell
@@ -96,7 +93,12 @@ const onSubmit = async (data: PatientFormData) => {
             <div className="space-y-1">
               <label className={labelClass}>First Name *</label>
               <div className="relative group">
-                <input className={inputClass} placeholder="John" type="text" {...register('first_name')} />
+                <input 
+                  className={inputClass} 
+                  placeholder="John" 
+                  type="text" 
+                  {...register('first_name')} 
+                />
                 <InputFieldIcon name="badge" />
               </div>
               {errors.first_name && (
@@ -107,7 +109,12 @@ const onSubmit = async (data: PatientFormData) => {
             <div className="space-y-1">
               <label className={labelClass}>Last Name *</label>
               <div className="relative group">
-                <input className={inputClass} placeholder="Doe" type="text" {...register('last_name')} />
+                <input 
+                  className={inputClass} 
+                  placeholder="Doe" 
+                  type="text" 
+                  {...register('last_name')} 
+                />
                 <InputFieldIcon name="badge" />
               </div>
               {errors.last_name && (
@@ -174,7 +181,7 @@ const onSubmit = async (data: PatientFormData) => {
                   type="tel"
                   {...register('emergency_contact')}
                 />
-               <InputFieldIcon name="health_and_safety" />
+                <InputFieldIcon name="health_and_safety" />
               </div>
             </div>
 

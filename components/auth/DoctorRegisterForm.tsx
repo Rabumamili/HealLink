@@ -26,12 +26,13 @@ import {
 const doctorSchema = z
   .object({
     email: z.string().email('Invalid email address'),
-    full_name: z.string().min(1, 'Full name is required'),
+    first_name: z.string().min(1, 'First name is required'),
+    last_name: z.string().min(1, 'Last name is required'),
     phone_number: z.string().min(10, 'Valid phone number is required'),
     specialization: z.string().min(1, 'Specialization is required'),
     license_number: z.string().min(1, 'License number is required'),
     location: z.string().min(1, 'Location is required'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -84,10 +85,12 @@ export const DoctorRegisterForm = () => {
     setIsSubmitting(true);
 
     try {
+      const full_name = `${data.first_name} ${data.last_name}`.trim();
+      
       await registerDoctor({
         email: data.email,
         password: data.password,
-        full_name: data.full_name,
+        full_name: full_name,
         phone_number: data.phone_number,
         role: 'doctor',
         specialization: data.specialization,
@@ -219,21 +222,39 @@ export const DoctorRegisterForm = () => {
             <SectionHeader icon="person" title="Personal Information" />
             
             <div className="space-y-3 sm:space-y-4">
-              {/* Full Name - Full width */}
-              <div className="space-y-1.5">
-                <label className={labelClass}>Full Name *</label>
-                <div className="relative group">
-                  <input 
-                    className={inputClass} 
-                    placeholder="Dr. John Doe" 
-                    type="text" 
-                    {...register('full_name')} 
-                  />
-                  <InputFieldIcon name="badge" />
+              {/* First Name and Last Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>First Name *</label>
+                  <div className="relative group">
+                    <input 
+                      className={inputClass} 
+                      placeholder="John" 
+                      type="text" 
+                      {...register('first_name')} 
+                    />
+                    <InputFieldIcon name="badge" />
+                  </div>
+                  {errors.first_name && (
+                    <p className="text-xs text-red-500 mt-1">{errors.first_name.message}</p>
+                  )}
                 </div>
-                {errors.full_name && (
-                  <p className="text-xs text-red-500 mt-1">{errors.full_name.message}</p>
-                )}
+
+                <div className="space-y-1.5">
+                  <label className={labelClass}>Last Name *</label>
+                  <div className="relative group">
+                    <input 
+                      className={inputClass} 
+                      placeholder="Doe" 
+                      type="text" 
+                      {...register('last_name')} 
+                    />
+                    <InputFieldIcon name="badge" />
+                  </div>
+                  {errors.last_name && (
+                    <p className="text-xs text-red-500 mt-1">{errors.last_name.message}</p>
+                  )}
+                </div>
               </div>
 
               {/* Contact info row */}
