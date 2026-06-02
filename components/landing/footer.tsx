@@ -4,10 +4,10 @@ import { HealLinkIcon } from '@/components/icons/healink-icon';
 export function Footer() {
   return (
     <footer className="bg-on-background border-t border-outline-variant">
-      <div className="flex flex-col md:flex-row justify-between items-center px-4 md:px-container-padding max-w-[1440px] mx-auto py-margin-lg gap-base">
-        <div className="space-y-4 text-center md:text-left">
+      <div className="flex flex-col md:flex-row justify-between items-center px-4 md:px-container-padding max-w-[1440px] mx-auto py-4 gap-base">
+        <div className="space-y-2 text-center md:text-left">
           <div className="font-headline-md text-[24px] font-bold text-primary-fixed">HealLink</div>
-          <p className="text-inverse-on-surface/80 font-body-md text-[16px] max-w-xs">
+          <p className="text-inverse-on-surface/80 font-body-md text-[16px] max-w-xs whitespace-nowrap">
             © 2026 HealLink Ethiopia. Clinical precision, modern care.
           </p>
         </div>

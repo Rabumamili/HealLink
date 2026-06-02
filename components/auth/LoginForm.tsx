@@ -355,7 +355,7 @@ export const LoginForm = () => {
               >
                 <p className="text-[14px] text-slate-500">
                   Don&apos;t have an account?{' '}
-                  <Link className="font-medium text-teal-700 hover:text-teal-800 hover:underline transition" href="/register">
+                  <Link className="font-medium text-teal-700 hover:text-teal-800 hover:underline transition" href="/register/select-role">
                     Create an account
                   </Link>
                 </p>

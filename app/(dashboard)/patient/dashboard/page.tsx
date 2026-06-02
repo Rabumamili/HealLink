@@ -100,6 +100,7 @@ export default function PatientDashboard() {
   )
 
   const displayName = user?.full_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Patient'
+  const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
   return (
     <div className="space-y-6">
@@ -123,7 +124,7 @@ export default function PatientDashboard() {
                 </div>
                   <div>
                       <p className="text-xs font-semibold text-white/70 uppercase tracking-wide">Today's Date</p>
-                      <p className="text-lg font-bold text-white">October 24, 2026</p>
+                      <p className="text-lg font-bold text-white">{currentDate}</p>
                    </div>
                  </div>
         </div>
