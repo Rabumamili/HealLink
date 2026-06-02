@@ -17,17 +17,9 @@ export default function DiagnosticServicesPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [open, setOpen] = useState(false);
-  const [edit, setEdit] = useState<any>(null);
 
-  if (isAuthLoading || !user?.provider_id) {
-    return <div className="flex items-center justify-center min-h-screen">
-      <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
-    </div>;
-  }
-
-  const providerId = user.provider_id;
-  const { services, stats, createService, updateService, deleteService, isLoading } =
-    useServices({ providerId, autoFetch: true });
+  const { services, stats, createService, isLoading } =
+    useServices({ autoFetch: true });
 
   const filtered = useMemo(() => {
     return services.filter(s =>
@@ -38,10 +30,16 @@ export default function DiagnosticServicesPage() {
 
   const activeCount = services.filter(s => s.status === 'Active').length;
 
+  if (isAuthLoading || !user?.provider_id) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
+    </div>;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white pb-10">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        
+
         {/* Header */}
         <ServicePageHeader
           title="Diagnostic Tests"
@@ -95,10 +93,6 @@ export default function DiagnosticServicesPage() {
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
           <ServiceTable
             services={filtered}
-            onEdit={setEdit}
-            onDelete={(id, name) => {
-              if (confirm(`Delete "${name}"? This action cannot be undone.`)) deleteService(id);
-            }}
           />
         </div>
 
@@ -111,18 +105,6 @@ export default function DiagnosticServicesPage() {
           description="Create a new diagnostic test"
           isLoading={isLoading}
         />
-
-        {/* Edit Modal */}
-        {edit && (
-          <ServiceFormModal
-            open={!!edit}
-            onOpenChange={() => setEdit(null)}
-            onSave={(d) => updateService(edit.id, d)}
-            initialData={edit}
-            title="Edit Test"
-            description="Update test details"
-          />
-        )}
       </div>
     </div>
   );

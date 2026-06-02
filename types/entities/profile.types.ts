@@ -20,18 +20,19 @@ export interface PatientProfile {
   is_verified: boolean;
   verification_status: string;
   profile_photo?: string;
+  profile_picture?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface PatientProfileUpdate {
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  phone_number?: string;
-  date_of_birth?: string;
-  gender?: string;
-  profile_photo?: string;
+  email?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone_number?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  profile_picture?: string;
 }
 
 // ===============================
@@ -40,32 +41,26 @@ export interface PatientProfileUpdate {
 
 export interface BaseProviderProfile {
   id: number;
-  user_id: number;
+  name: string;
+  provider_type: string;
   email: string;
-  phone_number: string;
-  full_name: string;
-  profile_photo?: string;
-  
-  // Provider type
-  provider_type: ProviderType;
-  
-  // Business/License info
+  phone: string;
+  specialization: string;
   license_number: string;
-  tin_number?: string;
-  license_document: string;
-  
-  // Location
-  location?: string;
-  address?: string;
-  
-  // Status
-  verification_status: VerificationStatus;
-  professional_verification_status: ProfessionalVerificationStatus;
-  is_active: boolean;
-  joined_date: string;
-  
+  tin_number: string;
+  location: string;
+  address: string;
+  description: string;
+  profile_picture: string;
+  is_verified: boolean;
+  verification_status: string;
   created_at: string;
-  updated_at?: string;
+  // Legacy fields for backward compatibility
+  full_name?: string;
+  profile_photo?: string;
+  is_active?: boolean;
+  license_document?: string;
+  joined_date?: string;
 }
 
 // ===============================
@@ -75,16 +70,14 @@ export interface BaseProviderProfile {
 export interface DoctorProfile extends BaseProviderProfile {
   role: 'doctor';
   provider_type: 'doctor';
-  
+
   // Professional details
-  specialization: string;
   years_of_experience?: number;
   consultation_fee?: number | string;
   qualifications?: string;
   bio?: string;
   education?: string;
-  description?: string;
-  
+
   // Statistics
   total_appointments?: number;
   total_patients?: number;
@@ -112,12 +105,11 @@ export interface DoctorProfileUpdate {
 export interface ClinicProfile extends BaseProviderProfile {
   role: 'clinic';
   provider_type: 'clinic';
-  
+
   // Clinic specific
   operating_hours?: string;
-  description?: string;
   established_year?: string;
-  
+
   // Statistics
   total_doctors?: number;
   total_staff?: number;
@@ -145,16 +137,16 @@ export interface ClinicProfileUpdate {
 export interface DiagnosticCenterProfile extends BaseProviderProfile {
   role: 'diagnostic_center';
   provider_type: 'diagnostic_center';
-  
+
   // Diagnostic center specific
   accreditation?: string;
   services_description?: string;
   operating_hours?: string;
   established_year?: string;
-  
+
   // Services offered
   services_offered?: string[];
-  
+
   // Statistics
   total_tests_performed?: number;
   total_patients_served?: number;
@@ -328,17 +320,19 @@ export function getDisplayName(profile: Profile): string {
   if (isPatient(profile)) {
     return `${profile.first_name} ${profile.last_name}`.trim();
   }
-  
+
   if (isProvider(profile)) {
-    return profile.full_name;
+    return profile.full_name || profile.name || 'Provider';
   }
-  
+
   return 'User';
 }
 
 export function getProfilePhoto(profile: Profile | null): string | undefined {
   if (!profile) return undefined;
-  return profile.profile_photo;
+  if ('profile_picture' in profile) return profile.profile_picture;
+  if ('profile_photo' in profile) return profile.profile_photo;
+  return undefined;
 }
 
 export function getProfileRole(profile: Profile): string {

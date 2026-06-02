@@ -26,6 +26,34 @@ export interface SlotCreatePayload {
   ends_at: string;
 }
 
+export interface ProviderProfile {
+  id: number;
+  name: string;
+  provider_type: string;
+  email: string;
+  phone: string;
+  specialization: string;
+  license_number: string;
+  tin_number: string;
+  location: string;
+  address: string;
+  description: string;
+  profile_picture: string;
+  is_verified: boolean;
+  verification_status: string;
+  created_at: string;
+}
+
+export interface ProviderProfileUpdate {
+  name?: string | null;
+  phone?: string | null;
+  specialization?: string | null;
+  location?: string | null;
+  address?: string | null;
+  description?: string | null;
+  profile_picture?: string;
+}
+
 class ServiceService extends ApiService {
   private readonly basePath = '/providers';
 
@@ -33,33 +61,24 @@ class ServiceService extends ApiService {
     return this.post(`${this.basePath}/services`, payload);
   }
 
-  async updateProviderService(providerId: number, serviceId: number, payload: Partial<ProviderServiceCreatePayload>) {
-    return this.patch(`${this.basePath}/${providerId}/services/${serviceId}`, payload);
-  }
-
-  async deleteProviderService(providerId: number, serviceId: number) {
-    return this.delete(`${this.basePath}/${providerId}/services/${serviceId}`);
+  async deleteProviderService(serviceId: number): Promise<any> {
+    return this.delete<any>(`${this.basePath}/services/${serviceId}`);
   }
 
   async createServiceSlot(serviceId: number, payload: SlotCreatePayload): Promise<ServiceSlot> {
     return this.post<ServiceSlot>(`${this.basePath}/services/${serviceId}/slots`, payload);
   }
 
+  async deleteServiceSlot(serviceId: number, slotId: number): Promise<any> {
+    return this.delete<any>(`${this.basePath}/services/${serviceId}/slots/${slotId}`);
+  }
+
   async listServiceSlots(serviceId: number, onlyAvailable: boolean = true): Promise<ServiceSlot[]> {
     return this.get<ServiceSlot[]>(`${this.basePath}/services/${serviceId}/slots?only_available=${onlyAvailable}`, undefined, false);
   }
 
-  async listServices(serviceType?: string | null, location?: string | null): Promise<Service[]> {
-    const queryParams = new URLSearchParams();
-    if (serviceType !== undefined && serviceType !== null) {
-      queryParams.append('service_type', serviceType);
-    }
-    if (location !== undefined && location !== null) {
-      queryParams.append('location', location);
-    }
-
-    const query = queryParams.toString();
-    const apiServices = await this.get<any[]>(`${this.basePath}/services${query ? `?${query}` : ''}`, undefined, false);
+  async listServices(): Promise<Service[]> {
+    const apiServices = await this.get<any[]>(`${this.basePath}/services`, undefined, false);
 
     // Transform API response (snake_case) to internal format (camelCase)
     return apiServices.map(apiService => ({
@@ -76,6 +95,14 @@ class ServiceService extends ApiService {
       updatedAt: apiService.updated_at || new Date().toISOString(),
       preparationInstructions: null,
     }));
+  }
+
+  async getMyProfile(): Promise<ProviderProfile> {
+    return this.get<ProviderProfile>(`${this.basePath}/me`);
+  }
+
+  async updateMyProfile(formData: FormData): Promise<ProviderProfile> {
+    return this.patch<ProviderProfile>(`${this.basePath}/me/profile`, formData);
   }
 }
 

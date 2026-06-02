@@ -87,7 +87,7 @@ export default function ClinicProfilePage() {
       setFormData({
         full_name: p.full_name,
         address: p.address,
-        phone_number: p.phone_number,
+        phone_number: p.phone,
         license_number: p.license_number,
         tin_number: p.tin_number,
         operating_hours: p.operating_hours,
@@ -188,7 +188,7 @@ export default function ClinicProfilePage() {
       icon: BadgeCheck,
       label: "Patients Served",
       value: (statistics as any)?.total_patients_served ?? 0,
-      detail: clinicProfile?.verification_status ?? "Pending",
+      detail: "Total patients served",
     },
   ];
 
@@ -260,32 +260,6 @@ export default function ClinicProfilePage() {
                     }`}
                   >
                     {clinicProfile?.is_active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#3d4949] text-sm font-medium">Verification</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      clinicProfile?.verification_status === "verified"
-                        ? "bg-green-100 text-green-700"
-                        : clinicProfile?.verification_status === "rejected"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {clinicProfile?.verification_status === "verified" 
-                      ? "Verified" 
-                      : clinicProfile?.verification_status === "rejected"
-                      ? "Rejected"
-                      : "Pending"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#3d4949] text-sm font-medium">Joined</span>
-                  <span className="text-[#0b1c30] text-sm">
-                    {clinicProfile?.joined_date
-                      ? new Date(clinicProfile.joined_date).toLocaleDateString()
-                      : "N/A"}
                   </span>
                 </div>
               </div>

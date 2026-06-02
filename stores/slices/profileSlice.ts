@@ -57,10 +57,11 @@ interface ProfileState {
   // Actions
   fetchMyProfile: () => Promise<void>;
   fetchProfileById: (userId: number, role: ProfileRoleType) => Promise<void>;
-  
+  updateMyProfile: (formData: FormData) => Promise<void>;
+
   // Patient actions
   fetchPatientProfile: () => Promise<void>;
-  updatePatientProfile: (data: PatientProfileUpdate) => Promise<void>;
+  updatePatientProfile: (formData: FormData) => Promise<void>;
   
   // Doctor actions
   fetchDoctorProfile: (userId: number) => Promise<void>;
@@ -214,10 +215,35 @@ export const useProfileStore = create<ProfileState>()(
         }
       },
 
-      updatePatientProfile: async (data: PatientProfileUpdate) => {
+      updateMyProfile: async (formData: FormData) => {
         set({ isUpdating: true, error: null });
         try {
-          const profile = await profileService.updatePatientProfile(data);
+          const { serviceService } = await import('@/services/service.service');
+          const profile = await serviceService.updateMyProfile(formData);
+          // Update the appropriate profile state based on user role
+          const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+          const user = userStr ? JSON.parse(userStr) : null;
+          if (user) {
+            if (user.role === 'doctor') {
+              set({ doctorProfile: profile as any });
+            } else if (user.role === 'clinic') {
+              set({ clinicProfile: profile as any });
+            } else if (user.role === 'diagnostic_center') {
+              set({ diagnosticCenterProfile: profile as any });
+            }
+          }
+        } catch (error: any) {
+          set({ error: error.message || 'An error occurred' });
+          throw error;
+        } finally {
+          set({ isUpdating: false });
+        }
+      },
+
+      updatePatientProfile: async (formData: FormData) => {
+        set({ isUpdating: true, error: null });
+        try {
+          const profile = await profileService.updatePatientProfile(formData);
           set({ patientProfile: profile });
         } catch (error: any) {
           set({ error: error.message || 'An error occurred' });

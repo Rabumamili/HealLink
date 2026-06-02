@@ -24,8 +24,8 @@ import {
 
 interface ServiceTableProps {
   services: Service[];
-  onEdit: (service: Service) => void;
-  onDelete: (id: number, name: string) => void;
+  onEdit?: (service: Service) => void;
+  onDelete?: (id: number, name: string) => void;
 }
 
 export function ServiceTable({ services, onEdit, onDelete }: ServiceTableProps) {
@@ -79,24 +79,28 @@ export function ServiceTable({ services, onEdit, onDelete }: ServiceTableProps) 
 
                 <TableCell>
                   <div className="flex justify-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onEdit(service)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
+                    {onEdit && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onEdit(service)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    )}
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-red-600"
-                      onClick={() => onDelete(service.id, service.name)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
+                    {onDelete && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600"
+                        onClick={() => onDelete(service.id, service.name)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
@@ -126,18 +130,22 @@ export function ServiceTable({ services, onEdit, onDelete }: ServiceTableProps) 
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit(service)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
-                  </DropdownMenuItem>
+                  {onEdit && (
+                    <DropdownMenuItem onClick={() => onEdit?.(service)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                  )}
 
-                  <DropdownMenuItem
-                    className="text-red-600"
-                    onClick={() => onDelete(service.id, service.name)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
+                  {onDelete && (
+                    <DropdownMenuItem
+                      className="text-red-600"
+                      onClick={() => onDelete?.(service.id, service.name)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

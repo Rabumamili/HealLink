@@ -91,7 +91,7 @@ export default function DiagnosticProfilePage() {
       setFormData({
         full_name: p.full_name,
         address: p.address,
-        phone_number: p.phone_number,
+        phone_number: p.phone,
         license_number: p.license_number,
         tin_number: p.tin_number,
         accreditation: p.accreditation,
@@ -208,7 +208,7 @@ export default function DiagnosticProfilePage() {
       icon: BadgeCheck,
       label: "Satisfaction",
       value: `${(statistics as any)?.patient_satisfaction_rate ?? 0}%`,
-      detail: diagnosticProfile?.verification_status ?? "Pending",
+      detail: "Patient satisfaction rate",
     },
   ];
 
@@ -287,32 +287,6 @@ export default function DiagnosticProfilePage() {
                     }`}
                   >
                     {diagnosticProfile?.is_active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#3d4949] text-sm font-medium">Verification</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      diagnosticProfile?.verification_status === "verified"
-                        ? "bg-green-100 text-green-700"
-                        : diagnosticProfile?.verification_status === "rejected"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {diagnosticProfile?.verification_status === "verified" 
-                      ? "Verified" 
-                      : diagnosticProfile?.verification_status === "rejected"
-                      ? "Rejected"
-                      : "Pending"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#3d4949] text-sm font-medium">Joined</span>
-                  <span className="text-[#0b1c30] text-sm">
-                    {diagnosticProfile?.joined_date
-                      ? new Date(diagnosticProfile.joined_date).toLocaleDateString()
-                      : "N/A"}
                   </span>
                 </div>
               </div>

@@ -126,6 +126,10 @@ class AppointmentService extends ApiService {
     return this.transformToEnrichedAppointment(apiAppointment);
   }
 
+  async deleteAppointment(appointmentId: number): Promise<any> {
+    return this.delete<any>(`${this.basePath}/${appointmentId}`);
+  }
+
   // Provider appointment actions
   async markVisitCompleted(providerId: number, appointmentId: number): Promise<EnrichedAppointment> {
     const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/complete`, {});
@@ -145,6 +149,10 @@ class AppointmentService extends ApiService {
   async rescheduleAppointment(providerId: number, appointmentId: number, slotId: number): Promise<EnrichedAppointment> {
     const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/reschedule`, { slot_id: slotId });
     return this.transformToEnrichedAppointment(apiAppointment);
+  }
+
+  async deleteProviderAppointment(providerId: number, appointmentId: number): Promise<any> {
+    return this.delete<any>(`/providers/${providerId}/appointments/${appointmentId}`);
   }
 
   private transformToEnrichedAppointment(apiAppointment: ApiAppointment): EnrichedAppointment {

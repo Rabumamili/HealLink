@@ -9,8 +9,6 @@ interface ServiceStats {
 }
 
 interface UseServicesOptions {
-  serviceType?: string | null;
-  location?: string | null;
   autoFetch?: boolean;
   providerId?: number;
 }
@@ -31,18 +29,16 @@ export const useServices = (options: UseServicesOptions = {}) => {
     error,
     fetchServices,
     createService,
-    updateService,
-    deleteService,
     clearError,
   } = useServiceStore();
 
-  const { serviceType, location, autoFetch = true, providerId } = options;
+  const { autoFetch = true, providerId } = options;
 
   useEffect(() => {
     if (autoFetch) {
-      fetchServices(serviceType, location);
+      fetchServices();
     }
-  }, [autoFetch, serviceType, location, fetchServices]);
+  }, [autoFetch, fetchServices]);
 
   const getServiceById = useCallback((id: number): Service | undefined => {
     return services.find((s) => s.id === id);
@@ -61,21 +57,6 @@ export const useServices = (options: UseServicesOptions = {}) => {
     await createService(apiData);
   }, [createService]);
 
-  const handleUpdateService = useCallback(async (serviceId: number, data: CreateServiceDTO) => {
-    if (!providerId) {
-      throw new Error('Provider ID is required to update a service');
-    }
-    const apiData = transformToApiFormat(data);
-    await updateService(providerId, serviceId, apiData);
-  }, [providerId, updateService]);
-
-  const handleDeleteService = useCallback(async (serviceId: number) => {
-    if (!providerId) {
-      throw new Error('Provider ID is required to delete a service');
-    }
-    await deleteService(providerId, serviceId);
-  }, [providerId, deleteService]);
-
   const stats = useMemo<ServiceStats>(() => {
     const activeServices = services.filter(s => s.status === 'Active');
     const totalRevenue = activeServices.reduce((sum, s) => sum + s.standardFee, 0);
@@ -93,8 +74,6 @@ export const useServices = (options: UseServicesOptions = {}) => {
     stats,
     fetchServices,
     createService: handleCreateService,
-    updateService: handleUpdateService,
-    deleteService: handleDeleteService,
     clearError,
     getServiceById,
     searchServices,

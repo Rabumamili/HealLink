@@ -56,6 +56,7 @@ export const useProfile = (options: UseProfileOptions = {}) => {
     isDeleting,
     fetchMyProfile,
     fetchProfileById,
+    updateMyProfile,
     fetchPatientProfile,
     fetchDoctorProfile,
     fetchClinicProfile,
@@ -131,10 +132,10 @@ export const useProfile = (options: UseProfileOptions = {}) => {
     return patientProfile;
   }, [user, fetchPatientProfile, patientProfile]);
 
-  const updatePatient = useCallback(async (data: PatientProfileUpdate) => {
+  const updatePatient = useCallback(async (formData: FormData) => {
     if (!user || user.role !== 'patient') return false;
     try {
-      await updatePatientProfile(data);
+      await updatePatientProfile(formData);
       return true;
     } catch {
       return false;

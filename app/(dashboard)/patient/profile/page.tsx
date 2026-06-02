@@ -71,6 +71,7 @@ export default function PatientProfilePage() {
   const { logout } = useAuth();
 
   const [formData, setFormData] = useState<PatientProfileUpdate>({});
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [passwordData, setPasswordData] = useState({
     current_password: "",
     new_password: "",
@@ -95,9 +96,18 @@ export default function PatientProfilePage() {
   }, [profile]);
 
   const handleSave = async () => {
-    const updated = await updatePatient(formData);
+    const formDataToSend = new FormData();
+    if (formData.first_name !== undefined && formData.first_name !== null) formDataToSend.append('first_name', formData.first_name);
+    if (formData.last_name !== undefined && formData.last_name !== null) formDataToSend.append('last_name', formData.last_name);
+    if (formData.phone_number !== undefined && formData.phone_number !== null) formDataToSend.append('phone_number', formData.phone_number);
+    if (formData.date_of_birth !== undefined && formData.date_of_birth !== null) formDataToSend.append('date_of_birth', formData.date_of_birth);
+    if (formData.gender !== undefined && formData.gender !== null) formDataToSend.append('gender', formData.gender);
+    if (profilePicture) formDataToSend.append('profile_picture', profilePicture);
+
+    const updated = await updatePatient(formDataToSend);
     if (updated) {
       setIsEditing(false);
+      setProfilePicture(null);
       toast.success("Profile updated successfully");
     }
   };
@@ -312,7 +322,7 @@ export default function PatientProfilePage() {
                 <div className="space-y-2">
                   <Label className="text-[#3d4949] text-sm font-medium ml-1">Gender</Label>
                   <Select
-                    value={formData.gender}
+                    value={formData.gender || undefined}
                     onValueChange={(value) => setFormData({ ...formData, gender: value })}
                     disabled={!isEditing}
                   >

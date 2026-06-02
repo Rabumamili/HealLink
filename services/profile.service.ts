@@ -56,22 +56,10 @@ class ProfileService {
   }
 
   async updatePatientProfile(
-    data: PatientProfileUpdate
+    formData: FormData
   ): Promise<PatientProfile> {
-    const response = await axios.patch(`${API_BASE_URL}/patients/me`, data);
-    return response.data;
-  }
-
-  async deletePatientAccount(): Promise<void> {
-    await axios.delete(`${API_BASE_URL}/patients/me`);
-  }
-
-  async uploadPatientProfilePhoto(file: File): Promise<ProfileUploadResponse> {
-    const formData = new FormData();
-    formData.append('profile_photo', file);
-    
-    const response = await axios.post(
-      `${API_BASE_URL}/patients/me/profile-photo`,
+    const response = await axios.patch(
+      `${API_BASE_URL}/patients/me/profile`,
       formData,
       {
         headers: {
@@ -80,6 +68,10 @@ class ProfileService {
       }
     );
     return response.data;
+  }
+
+  async deletePatientAccount(): Promise<void> {
+    await axios.delete(`${API_BASE_URL}/patients/me`);
   }
 
   // ===============================

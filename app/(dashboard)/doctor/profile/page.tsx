@@ -85,7 +85,7 @@ export default function DoctorProfilePage() {
       const p = profile as DoctorProfile;
       setFormData({
         full_name: p.full_name,
-        phone_number: p.phone_number,
+        phone_number: p.phone,
         location: p.location,
         description: p.description,
         specialization: p.specialization,
@@ -185,12 +185,6 @@ export default function DoctorProfilePage() {
       value: (statistics as any)?.total_patients ?? 0,
       detail: `Completed: ${(statistics as any)?.completed_appointments ?? 0}`,
     },
-    {
-      icon: BadgeCheck,
-      label: "Verified",
-      value: doctorProfile?.verification_status === "verified" ? "Yes" : "No",
-      detail: doctorProfile?.professional_verification_status ?? "Pending",
-    },
   ];
 
   if (loading) {
@@ -262,32 +256,6 @@ export default function DoctorProfilePage() {
                     }`}
                   >
                     {doctorProfile?.is_active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#3d4949] text-sm font-medium">Verification</span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      doctorProfile?.verification_status === "verified"
-                        ? "bg-green-100 text-green-700"
-                        : doctorProfile?.verification_status === "rejected"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {doctorProfile?.verification_status === "verified" 
-                      ? "Verified" 
-                      : doctorProfile?.verification_status === "rejected"
-                      ? "Rejected"
-                      : "Pending"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[#3d4949] text-sm font-medium">Joined</span>
-                  <span className="text-[#0b1c30] text-sm">
-                    {doctorProfile?.joined_date
-                      ? new Date(doctorProfile.joined_date).toLocaleDateString()
-                      : "N/A"}
                   </span>
                 </div>
               </div>

@@ -14,7 +14,7 @@ interface ServiceState {
   isLoading: boolean;
   error: string | null;
 
-  fetchServices: (serviceType?: string | null, location?: string | null) => Promise<void>;
+  fetchServices: () => Promise<void>;
   createService: (data: {
     name: string;
     service_type: string;
@@ -23,15 +23,6 @@ interface ServiceState {
     duration_minutes: number;
     description: string;
   }) => Promise<void>;
-  updateService: (providerId: number, serviceId: number, data: {
-    name: string;
-    service_type: string;
-    location: string;
-    price: number;
-    duration_minutes: number;
-    description: string;
-  }) => Promise<void>;
-  deleteService: (providerId: number, serviceId: number) => Promise<void>;
   clearError: () => void;
 }
 
@@ -40,10 +31,10 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchServices: async (serviceType?: string | null, location?: string | null) => {
+  fetchServices: async () => {
     set({ isLoading: true, error: null });
     try {
-      const services = await serviceService.listServices(serviceType, location);
+      const services = await serviceService.listServices();
       set({ services, isLoading: false });
     } catch (error) {
       set({ error: 'Failed to fetch services', isLoading: false });
@@ -61,32 +52,6 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
     } catch (error) {
       set({ error: 'Failed to create service', isLoading: false });
       toast.error('Failed to create service');
-    }
-  },
-
-  updateService: async (providerId: number, serviceId: number, data) => {
-    set({ isLoading: true, error: null });
-    try {
-      await serviceService.updateProviderService(providerId, serviceId, data);
-      // Refetch services after update
-      await get().fetchServices();
-      toast.success('Service updated successfully');
-    } catch (error) {
-      set({ error: 'Failed to update service', isLoading: false });
-      toast.error('Failed to update service');
-    }
-  },
-
-  deleteService: async (providerId: number, serviceId: number) => {
-    set({ isLoading: true, error: null });
-    try {
-      await serviceService.deleteProviderService(providerId, serviceId);
-      // Refetch services after deletion
-      await get().fetchServices();
-      toast.success('Service deleted successfully');
-    } catch (error) {
-      set({ error: 'Failed to delete service', isLoading: false });
-      toast.error('Failed to delete service');
     }
   },
 
