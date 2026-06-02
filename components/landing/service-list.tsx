@@ -54,7 +54,7 @@ export function ServiceBadges({ items }: { items: ServiceItem[] }) {
       {items.slice(0, 2).map((item) => (
         <span
           key={item.name}
-          className="px-3 py-1 rounded-lg bg-primary/10 text-primary text-[11px] font-medium uppercase tracking-wider"
+          className="rounded-lg bg-primary/10 px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-primary transition-all duration-300 group-hover:bg-primary/15 group-hover:shadow-sm group-hover:shadow-primary/10"
         >
           {item.name}
         </span>
