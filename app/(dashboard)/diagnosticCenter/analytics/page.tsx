@@ -66,11 +66,11 @@ export default function DiagnosticAnalyticsPage() {
     }
   }, [diagnosticData])
   
-  // Calculate turnaround time (mock calculation - in real app, this comes from API)
+  // Calculate turnaround time
   const turnaroundTime = useMemo(() => {
     if (!diagnosticData?.appointments) return 0
-    // Mock calculation - average of 3-5 hours
-    return (3.4).toFixed(1)
+    // This should come from API in real implementation
+    return 0
   }, [diagnosticData])
   
   // Prepare weekly revenue data
@@ -82,8 +82,8 @@ export default function DiagnosticAnalyticsPage() {
       }
     }
     return {
-      data: [185000, 195000, 225000, 245000],
-      labels: ["Week 1", "Week 2", "Week 3", "Week 4"],
+      data: [],
+      labels: [],
     }
   }, [revenueData])
   

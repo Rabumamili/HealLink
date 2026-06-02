@@ -100,7 +100,7 @@ export default function ClinicServicesPage() {
         <ServiceFormModal
           open={open}
           onOpenChange={setOpen}
-          onSave={(d) => createService({ ...d, providerId: PROVIDER_ID })}
+          onSave={(d) => createService(d)}
           providerId={PROVIDER_ID}
           title="Add Service"
           description="Create a new clinic service"

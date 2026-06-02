@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatsCard } from "@/components/common/StatsCard"
 import { CheckinHeader } from "@/components/checkin/CheckinHeader"
-import { useCard, useCardCheckIn, useCardValidation, useCardStats } from "@/hooks/useCard"
+import { useQr, useQrCheckIn, useQrValidation, useQrStats } from "@/hooks/useQr"
 import { useAppointments } from "@/hooks/useAppointments"
 import { Search, CheckCircle, AlertCircle, Loader2, Calendar, Users, Clock, Stethoscope } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -17,11 +17,11 @@ import { toast } from "sonner"
 
 interface CardWithAppointment {
   id: number
-  cardNumber: string
+  card_number: string
   status: string
-  appointmentId: number
-  expiresAt: string
-  usedAt: string | null
+  appointment_id: number
+  expires_at: string
+  used_at: string | null
   appointment?: {
     patientName: string
     patientId: number
@@ -38,21 +38,42 @@ export default function DoctorCheckinPage() {
   const [checkInSuccess, setCheckInSuccess] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const { cards, fetchCards, isLoading: cardsLoading } = useCard({ autoFetch: true })
-  const { validateCard, validationResult, clearValidationResult } = useCardValidation()
-  const { checkIn, checkInResult, clearCheckInResult } = useCardCheckIn()
-  const { cardStats, refresh: refreshStats } = useCardStats()
-  const { updateStatus, refreshData } = useAppointments()
+  const { qrCodes, fetchQrCodes, isLoading: qrCodesLoading } = useQr({ autoFetch: true })
+  const { validateQr, validationResult, clearValidationResult } = useQrValidation()
+  const { checkIn, checkInResult, clearCheckInResult } = useQrCheckIn()
+  const { qrStats, refresh: refreshStats } = useQrStats()
+  const { updateStatus, refreshData, appointments } = useAppointments()
 
-  const staffId = 3
+  const getCurrentDoctorId = (): number | null => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('currentDoctorId');
+      if (stored) {
+        const parsed = parseInt(stored, 10);
+        if (!isNaN(parsed)) return parsed;
+      }
+    }
+    return null;
+  };
+
+  const staffId = getCurrentDoctorId()
+
+  if (staffId === null) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
+    </div>
+  }
   const staffType = "doctor" as const
 
-  const doctorCards = (cards as CardWithAppointment[]).filter(card => card.status === 'Active')
+  const qrCodesWithAppointments = qrCodes.map((qr) => ({
+    ...qr,
+    appointment: appointments.find((apt) => apt.id === qr.appointment_id)
+  }))
+  const doctorCards = (qrCodesWithAppointments as CardWithAppointment[]).filter(card => card.status === 'active')
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      await fetchCards()
+      await fetchQrCodes()
       await refreshStats()
       toast.success("Data refreshed")
     } catch {
@@ -60,7 +81,7 @@ export default function DoctorCheckinPage() {
     } finally {
       setIsRefreshing(false)
     }
-  }, [fetchCards, refreshStats])
+  }, [fetchQrCodes, refreshStats])
 
   const handleVerify = async () => {
     if (!cardNumber.trim()) {
@@ -72,15 +93,14 @@ export default function DoctorCheckinPage() {
     setFoundCard(null)
     clearValidationResult()
     
-    const result = await validateCard(cardNumber)
-    
-    if (result.isValid && result.card) {
-      const fullCard = (cards as CardWithAppointment[]).find(c => c.cardNumber === cardNumber)
+    try {
+      await validateQr({ card_number: cardNumber })
+      const fullCard = (qrCodesWithAppointments as CardWithAppointment[]).find(c => c.card_number === cardNumber)
       setFoundCard(fullCard || null)
       toast.success("Patient found")
-    } else {
+    } catch (error) {
       setFoundCard(null)
-      toast.error(result.message || "Invalid card number")
+      toast.error(error instanceof Error ? error.message : "Invalid card number")
     }
     
     setIsVerifying(false)
@@ -90,22 +110,20 @@ export default function DoctorCheckinPage() {
     if (!foundCard) return
 
     const result = await checkIn({
-      cardNumber: foundCard.cardNumber,
-      verifiedByStaffId: staffId,
-      verifiedByType: staffType,
+      card_number: foundCard.card_number,
     })
 
-    if (result.success) {
-      if (result.appointmentId) {
-        await updateStatus(result.appointmentId, "Checked-in")
+    if (result) {
+      if (result.appointment_id) {
+        await updateStatus(result.appointment_id, "Checked-in")
         await refreshData()
       }
       
       setCheckInSuccess(true)
-      toast.success(`${result.patientName || foundCard.appointment?.patientName} checked in successfully`)
+      toast.success(`${result.patient_name || foundCard.appointment?.patientName} checked in successfully`)
       
       await refreshStats()
-      await fetchCards()
+      await fetchQrCodes()
       
       setTimeout(() => {
         setCardNumber("")
@@ -115,7 +133,7 @@ export default function DoctorCheckinPage() {
         clearCheckInResult()
       }, 2000)
     } else {
-      toast.error(result.message || "Check-in failed")
+      toast.error("Check-in failed")
     }
   }
 
@@ -130,10 +148,10 @@ export default function DoctorCheckinPage() {
   }
 
   const today = new Date().toDateString()
-  const todayCheckIns = (cards as CardWithAppointment[]).filter(card => 
-    card.status === 'Used' && 
-    card.usedAt && 
-    new Date(card.usedAt).toDateString() === today
+  const todayCheckIns = (qrCodesWithAppointments as CardWithAppointment[]).filter(card => 
+    card.status === 'used' && 
+    card.used_at && 
+    new Date(card.used_at).toDateString() === today
   )
 
   return (
@@ -150,7 +168,7 @@ export default function DoctorCheckinPage() {
         <div className="grid gap-4 md:grid-cols-4 mb-8">
           <StatsCard
             title="Total Active Cards"
-            value={cardStats?.active || 0}
+            value={qrStats?.active || 0}
             icon={<Users className="h-5 w-5" />}
             variant="default"
           />
@@ -162,13 +180,13 @@ export default function DoctorCheckinPage() {
           />
           <StatsCard
             title="Total Used"
-            value={cardStats?.used || 0}
+            value={qrStats?.used || 0}
             icon={<Clock className="h-5 w-5" />}
             variant="info"
           />
           <StatsCard
             title="Utilization Rate"
-            value={`${cardStats?.utilizationRate || 0}%`}
+            value={`${qrStats?.utilizationRate || 0}%`}
             icon={<Calendar className="h-5 w-5" />}
             variant="primary"
           />
@@ -215,27 +233,25 @@ export default function DoctorCheckinPage() {
                 {(validationResult || foundCard || checkInResult) && (
                   <div className={cn(
                     "p-4 rounded-xl border transition-all",
-                    checkInSuccess || checkInResult?.success 
+                    checkInSuccess || checkInResult 
                       ? "bg-emerald-50 border-emerald-200" 
-                      : validationResult && !validationResult.isValid
-                      ? "bg-red-50 border-red-200"
                       : "bg-[#008282]/5 border-[#008282]/10"
                   )}>
-                    {checkInSuccess || checkInResult?.success ? (
+                    {checkInSuccess || checkInResult ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-emerald-700">
                           <CheckCircle className="h-5 w-5" />
                           <span className="font-semibold">Check-in Successful!</span>
                         </div>
                         <p className="text-emerald-600">
-                          Welcome, {checkInResult?.patientName || foundCard?.appointment?.patientName || "Patient"}
+                          Welcome, {checkInResult?.patient_name || foundCard?.appointment?.patientName || "Patient"}
                         </p>
                         <p className="text-sm text-emerald-600">
-                          Service: {checkInResult?.serviceName || foundCard?.appointment?.serviceName || "N/A"}
+                          Service: {checkInResult?.service_name || foundCard?.appointment?.serviceName || "N/A"}
                         </p>
                         <p className="text-sm text-emerald-600">Please proceed to the consultation room</p>
                       </div>
-                    ) : foundCard && validationResult?.isValid ? (
+                    ) : foundCard ? (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
@@ -247,7 +263,7 @@ export default function DoctorCheckinPage() {
                             <div>
                               <p className="font-semibold text-slate-800">{foundCard.appointment?.patientName || "Unknown Patient"}</p>
                               <p className="text-sm text-slate-500">
-                                ID: {foundCard.appointment?.patientId || `APT-${foundCard.appointmentId}`}
+                                ID: {foundCard.appointment?.patientId || `APT-${foundCard.appointment_id}`}
                               </p>
                             </div>
                           </div>
@@ -279,13 +295,55 @@ export default function DoctorCheckinPage() {
                           Confirm Check-in
                         </Button>
                       </div>
-                    ) : validationResult && !validationResult.isValid && (
+                    ) : validationResult ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-12 w-12 rounded-xl">
+                              <AvatarFallback className="bg-[#008282]/10 text-[#008282] text-base">
+                                {getInitials(validationResult.patient_name || "Patient")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold text-slate-800">{validationResult.patient_name || "Unknown Patient"}</p>
+                              <p className="text-sm text-slate-500">
+                                ID: APT-{validationResult.appointment_id}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="bg-emerald-100 text-emerald-700 border-0">Verified</Badge>
+                        </div>
+                        <div className="grid gap-2 text-sm border-t border-slate-100 pt-3">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Service</span>
+                            <span className="font-medium text-slate-700">{validationResult.service_name || "N/A"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Checked In At</span>
+                            <span className="font-medium text-slate-700">
+                              {validationResult.checked_in_at 
+                                ? new Date(validationResult.checked_in_at).toLocaleString()
+                                : "N/A"}
+                            </span>
+                          </div>
+                        </div>
+                        <Button 
+                          className="w-full bg-[#008282] hover:bg-[#00a0a0] rounded-xl" 
+                          onClick={() => {
+                            setCardNumber("")
+                            clearValidationResult()
+                          }}
+                        >
+                          Done
+                        </Button>
+                      </div>
+                    ) : (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-red-700">
                           <AlertCircle className="h-5 w-5" />
                           <span className="font-semibold">Invalid Card</span>
                         </div>
-                        <p className="text-red-600">{validationResult.message}</p>
+                        <p className="text-red-600">Card verification failed</p>
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -313,7 +371,7 @@ export default function DoctorCheckinPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              {cardsLoading ? (
+              {qrCodesLoading ? (
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-6 w-6 animate-spin text-[#008282]" />
                 </div>
@@ -323,7 +381,7 @@ export default function DoctorCheckinPage() {
                     <div key={card.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
                       <div className="flex-1">
                         <p className="font-medium text-slate-800">
-                          {card.appointment?.patientName || `Appointment #${card.appointmentId}`}
+                          {card.appointment?.patientName || `Appointment #${card.appointment_id}`}
                         </p>
                         <p className="text-sm text-slate-500">
                           {card.appointment?.serviceName || "Consultation"}
@@ -335,7 +393,7 @@ export default function DoctorCheckinPage() {
                         variant="outline"
                         className="ml-3 rounded-xl border-[#008282] text-[#008282] hover:bg-[#008282]/10"
                         onClick={() => {
-                          setCardNumber(card.cardNumber)
+                          setCardNumber(card.card_number)
                           setTimeout(() => handleVerify(), 100)
                         }}
                       >

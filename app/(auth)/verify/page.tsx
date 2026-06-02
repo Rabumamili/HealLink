@@ -19,7 +19,8 @@ function VerifyEmailContent() {
   
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'manual'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [showManualVerification, setShowManualVerification] = useState(false);
+  const [showManualVerification, setShowManualVerification] = useState(true);
+  const [hasJustVerified, setHasJustVerified] = useState(false);
 
   // Handle token-based verification from email link
   useEffect(() => {
@@ -30,13 +31,15 @@ function VerifyEmailContent() {
       }
 
       try {
+        console.log('Verifying email with token:', { email, token: token.substring(0, 10) + '...' });
         await verifyEmail({ email, code: token });
+        console.log('Email verification successful');
         setStatus('success');
-        
+
         // Refresh user data after verification
         setTimeout(async () => {
           await getCurrentUser();
-          
+
           if (role === 'patient') {
             router.push('/login?verified=true');
           } else {
@@ -44,6 +47,7 @@ function VerifyEmailContent() {
           }
         }, 2000);
       } catch (error: any) {
+        console.error('Email verification failed:', error?.message || error);
         setErrorMessage(error?.message || 'Verification failed. The link may have expired.');
         setStatus('error');
       }
@@ -52,15 +56,16 @@ function VerifyEmailContent() {
     handleTokenVerification();
   }, [token, verifyEmail, getCurrentUser, router, role]);
 
-  // If already authenticated, redirect appropriately
+  // If already authenticated (has token) AND verified, redirect appropriately
   useEffect(() => {
-    if (isAuthenticated && user) {
+    const hasToken = localStorage.getItem('token');
+    if (hasToken && isAuthenticated && user && user.is_verified) {
       if (user.role === 'patient') {
         router.push('/patient/dashboard');
-      } 
+      }
       else if (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center') {
         const verificationStatus = user.professional_verification_status;
-        
+
         if (verificationStatus === 'approved') {
           const roleRoutes: Record<string, string> = {
             doctor: '/doctor/dashboard',
@@ -68,7 +73,7 @@ function VerifyEmailContent() {
             diagnostic_center: '/diagnostic/dashboard',
           };
           router.push(roleRoutes[user.role]);
-        } 
+        }
         else if (verificationStatus === 'submitted') {
           router.push('/professional-verification-status');
         }
@@ -83,10 +88,12 @@ function VerifyEmailContent() {
   }, [isAuthenticated, user, router]);
 
   const handleVerificationComplete = async () => {
+    console.log('Verification complete, redirecting based on role:', role);
+    setHasJustVerified(true); // Prevent auto-redirect to dashboard
     setShowManualVerification(false);
-    
+
     await getCurrentUser();
-    
+
     if (role === 'patient') {
       toast.success('Email verified successfully! Please login.');
       router.push('/login?verified=true');

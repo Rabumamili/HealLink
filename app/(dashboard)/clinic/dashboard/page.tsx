@@ -1,4 +1,4 @@
-// app/clinic-admin/dashboard/page.tsx
+// app/clinic/dashboard/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -67,7 +67,7 @@ import { cn } from "@/lib/utils"
 
 // Types
 interface Clinic {
-  id: number
+  id?: number
   name: string
   address: string
   location: string
@@ -115,149 +115,6 @@ interface Appointment {
   phone?: string
 }
 
-// Mock data - NO card numbers or patient IDs
-const mockClinic: Clinic = {
-  id: 1,
-  name: "Hayat General Clinic",
-  address: "Bole Road, Near Megenagna",
-  location: "Addis Ababa",
-  contactPhone: "+251 911 223 344",
-  email: "hayat.clinic@healink.com",
-  operatingHours: "Monday - Friday: 8:00 AM - 6:00 PM, Saturday: 9:00 AM - 2:00 PM",
-  status: "Active",
-  verificationStatus: "Approved",
-  licenseNumber: "CLN-88921",
-  tinNumber: "TIN-123456",
-}
-
-const mockStaff: Staff[] = [
-  {
-    id: 1,
-    fullName: "Abebe Kebede",
-    email: "abebe.k@healink.et",
-    phoneNumber: "+251 911 223 344",
-    role: "Check-in Officer",
-    status: "Active",
-    addedDate: "2023-10-12",
-    avatar: "AK",
-  },
-  {
-    id: 2,
-    fullName: "Sara Tadesse",
-    email: "sara.t@healink.et",
-    phoneNumber: "+251 922 556 677",
-    role: "Check-in Officer",
-    status: "Active",
-    addedDate: "2024-03-05",
-    avatar: "ST",
-  },
-  {
-    id: 3,
-    fullName: "Samuel Bekele",
-    email: "samuel.b@healink.et",
-    phoneNumber: "+251 933 889 900",
-    role: "Receptionist",
-    status: "Invited",
-    addedDate: "2024-01-20",
-    avatar: "SB",
-  },
-]
-
-const mockServices: Service[] = [
-  {
-    id: 1,
-    name: "General Consultation",
-    description: "Standard medical consultation with a general practitioner",
-    durationMinutes: 30,
-    standardFee: 850,
-    status: "Active",
-    serviceType: "Consultation",
-  },
-  {
-    id: 2,
-    name: "Pediatric Checkup",
-    description: "Comprehensive health checkup for children",
-    durationMinutes: 45,
-    standardFee: 650,
-    status: "Active",
-    serviceType: "Consultation",
-  },
-  {
-    id: 3,
-    name: "Vaccination Service",
-    description: "Childhood and adult vaccination services",
-    durationMinutes: 20,
-    standardFee: 400,
-    status: "Inactive",
-    serviceType: "Medical Service",
-  },
-  {
-    id: 4,
-    name: "Minor Procedure",
-    description: "Minor surgical procedures and wound care",
-    durationMinutes: 60,
-    standardFee: 1500,
-    status: "Active",
-    serviceType: "Procedure",
-  },
-]
-
-// Ordered appointments - NO card numbers or patient IDs
-const mockAppointments: Appointment[] = [
-  {
-    id: 1,
-    patientName: "Tigist Haile",
-    service: "General Consultation",
-    date: "2024-05-20",
-    time: "09:00 AM",
-    status: "Checked-in",
-    fee: 850,
-    queueNumber: 1,
-    age: 32,
-    condition: "Regular Checkup",
-    phone: "+251 911 223 344"
-  },
-  {
-    id: 2,
-    patientName: "Mekdes Alemu",
-    service: "Pediatric Checkup",
-    date: "2024-05-20",
-    time: "10:30 AM",
-    status: "Scheduled",
-    fee: 650,
-    queueNumber: 2,
-    age: 28,
-    condition: "Child Vaccination",
-    phone: "+251 922 556 677"
-  },
-  {
-    id: 3,
-    patientName: "Yonas Desta",
-    service: "Minor Procedure",
-    date: "2024-05-20",
-    time: "02:00 PM",
-    status: "Scheduled",
-    fee: 1500,
-    queueNumber: 3,
-    age: 52,
-    condition: "Wound Care",
-    phone: "+251 933 889 900"
-  },
-  {
-    id: 4,
-    patientName: "Helen Tsegaye",
-    service: "General Consultation",
-    date: "2024-05-20",
-    time: "03:30 PM",
-    status: "Scheduled",
-    fee: 850,
-    queueNumber: 4,
-    age: 45,
-    condition: "Hypertension Follow-up",
-    phone: "+251 944 112 233"
-  }
-]
-
 const statusColors: Record<string, string> = {
   "Active": "bg-teal-100 text-teal-700",
   "Inactive": "bg-gray-100 text-gray-700",
@@ -273,12 +130,12 @@ const statusColors: Record<string, string> = {
   "Rejected": "bg-red-100 text-red-700",
 }
 
-export default function ClinicAdminDashboard() {
+export default function ClinicDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
-  const [clinic, setClinic] = useState<Clinic>(mockClinic)
-  const [staff, setStaff] = useState<Staff[]>(mockStaff)
-  const [services, setServices] = useState<Service[]>(mockServices)
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments)
+  const [clinic, setClinic] = useState<Clinic | null>(null)
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [services, setServices] = useState<Service[]>([])
+  const [appointments, setAppointments] = useState<Appointment[]>([])
   const [isEditingClinic, setIsEditingClinic] = useState(false)
   const [isAddingStaff, setIsAddingStaff] = useState(false)
   const [isAddingService, setIsAddingService] = useState(false)
@@ -324,7 +181,7 @@ export default function ClinicAdminDashboard() {
               <Sparkles className="h-5 w-5 text-white/80" />
               <span className="text-white/80 text-sm font-medium">Clinic Dashboard</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{clinic.name}</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{clinic?.name || 'Clinic'}</h2>
             <p className="text-teal-50 text-base">{checkedInCount} patients checked in, {todayCount - checkedInCount} waiting</p>
           </div>
           <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
@@ -336,7 +193,7 @@ export default function ClinicAdminDashboard() {
                 <p className="text-xs font-semibold text-white/70 uppercase tracking-wide">Verification Status</p>
                 <Badge className="mt-1 bg-green-500/20 text-white border-0">
                   <CheckCircle className="mr-1 h-3 w-3" />
-                  {clinic.verificationStatus}
+                  {clinic?.verificationStatus || 'Pending'}
                 </Badge>
               </div>
             </div>
@@ -560,36 +417,36 @@ export default function ClinicAdminDashboard() {
                     <Building className="h-5 w-5 text-teal-600 mt-0.5" />
                     <div>
                       <p className="text-xs text-gray-500">Clinic Name</p>
-                      <p className="text-sm font-medium text-gray-800">{clinic.name}</p>
+                      <p className="text-sm font-medium text-gray-800">{clinic?.name}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-teal-50/30 transition-colors">
                     <MapPin className="h-5 w-5 text-teal-600 mt-0.5" />
                     <div>
                       <p className="text-xs text-gray-500">Location</p>
-                      <p className="text-sm font-medium text-gray-800">{clinic.location}</p>
-                      <p className="text-xs text-gray-500">{clinic.address}</p>
+                      <p className="text-sm font-medium text-gray-800">{clinic?.location || 'N/A'}</p>
+                      <p className="text-xs text-gray-500">{clinic?.address || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-teal-50/30 transition-colors">
                     <Phone className="h-5 w-5 text-teal-600 mt-0.5" />
                     <div>
                       <p className="text-xs text-gray-500">Contact Phone</p>
-                      <p className="text-sm font-medium text-gray-800">{clinic.contactPhone}</p>
+                      <p className="text-sm font-medium text-gray-800">{clinic?.contactPhone || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-teal-50/30 transition-colors">
                     <Mail className="h-5 w-5 text-teal-600 mt-0.5" />
                     <div>
                       <p className="text-xs text-gray-500">Email</p>
-                      <p className="text-sm font-medium text-gray-800">{clinic.email}</p>
+                      <p className="text-sm font-medium text-gray-800">{clinic?.email || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-teal-50/30 transition-colors md:col-span-2">
                     <ClockIcon className="h-5 w-5 text-teal-600 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-xs text-gray-500">Operating Hours</p>
-                      <p className="text-sm font-medium text-gray-800 whitespace-pre-line">{clinic.operatingHours}</p>
+                      <p className="text-sm font-medium text-gray-800 whitespace-pre-line">{clinic?.operatingHours || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -597,24 +454,24 @@ export default function ClinicAdminDashboard() {
                 <div className="flex flex-wrap gap-6 pt-4 border-t">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Clinic Status</p>
-                    <Badge className={statusColors[clinic.status]}>{clinic.status}</Badge>
+                    <Badge className={statusColors[clinic?.status || 'Inactive']}>{clinic?.status || 'Inactive'}</Badge>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Verification Status</p>
-                    <Badge className={statusColors[clinic.verificationStatus]}>
-                      {clinic.verificationStatus === "Approved" && <CheckCircle className="mr-1 h-3 w-3" />}
-                      {clinic.verificationStatus === "Pending" && <ClockIcon className="mr-1 h-3 w-3" />}
-                      {clinic.verificationStatus === "Rejected" && <XCircle className="mr-1 h-3 w-3" />}
-                      {clinic.verificationStatus}
+                    <Badge className={statusColors[clinic?.verificationStatus || 'Pending']}>
+                      {clinic?.verificationStatus === "Approved" && <CheckCircle className="mr-1 h-3 w-3" />}
+                      {clinic?.verificationStatus === "Pending" && <ClockIcon className="mr-1 h-3 w-3" />}
+                      {clinic?.verificationStatus === "Rejected" && <XCircle className="mr-1 h-3 w-3" />}
+                      {clinic?.verificationStatus || 'Pending'}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">License Number</p>
-                    <p className="text-sm font-mono font-medium text-gray-800">{clinic.licenseNumber}</p>
+                    <p className="text-sm font-mono font-medium text-gray-800">{clinic?.licenseNumber || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">TIN Number</p>
-                    <p className="text-sm font-mono font-medium text-gray-800">{clinic.tinNumber}</p>
+                    <p className="text-sm font-mono font-medium text-gray-800">{clinic?.tinNumber || 'N/A'}</p>
                   </div>
                 </div>
               </div>
@@ -776,29 +633,29 @@ export default function ClinicAdminDashboard() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label className="text-gray-700">Clinic Name</Label>
-                <Input value={clinic.name} onChange={(e) => setClinic({...clinic, name: e.target.value})} className="rounded-lg" />
+                <Input value={clinic?.name || ''} onChange={(e) => clinic && setClinic({...clinic, name: e.target.value})} className="rounded-lg" />
               </div>
               <div>
                 <Label className="text-gray-700">Location</Label>
-                <Input value={clinic.location} onChange={(e) => setClinic({...clinic, location: e.target.value})} className="rounded-lg" />
+                <Input value={clinic?.location || ''} onChange={(e) => clinic && setClinic({...clinic, location: e.target.value})} className="rounded-lg" />
               </div>
               <div className="md:col-span-2">
                 <Label className="text-gray-700">Address</Label>
-                <Input value={clinic.address} onChange={(e) => setClinic({...clinic, address: e.target.value})} className="rounded-lg" />
+                <Input value={clinic?.address || ''} onChange={(e) => clinic && setClinic({...clinic, address: e.target.value})} className="rounded-lg" />
               </div>
               <div>
                 <Label className="text-gray-700">Contact Phone</Label>
-                <Input value={clinic.contactPhone} onChange={(e) => setClinic({...clinic, contactPhone: e.target.value})} className="rounded-lg" />
+                <Input value={clinic?.contactPhone || ''} onChange={(e) => clinic && setClinic({...clinic, contactPhone: e.target.value})} className="rounded-lg" />
               </div>
               <div>
                 <Label className="text-gray-700">Email</Label>
-                <Input value={clinic.email} onChange={(e) => setClinic({...clinic, email: e.target.value})} className="rounded-lg" />
+                <Input value={clinic?.email || ''} onChange={(e) => clinic && setClinic({...clinic, email: e.target.value})} className="rounded-lg" />
               </div>
               <div className="md:col-span-2">
                 <Label className="text-gray-700">Operating Hours</Label>
                 <Textarea 
-                  value={clinic.operatingHours} 
-                  onChange={(e) => setClinic({...clinic, operatingHours: e.target.value})}
+                  value={clinic?.operatingHours || ''} 
+                  onChange={(e) => clinic && setClinic({...clinic, operatingHours: e.target.value})}
                   placeholder="e.g., Monday - Friday: 8:00 AM - 6:00 PM, Saturday: 9:00 AM - 2:00 PM"
                   rows={3}
                   className="rounded-lg"

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Edit, Trash2, Clock, MoreVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Service } from '@/types/entities/service.types';
+import { Service } from '@/services/service.service';
 
 import {
   DropdownMenu,

@@ -65,17 +65,19 @@ export const EmailVerificationDialog = ({
     setError(null);
 
     try {
+      console.log('Submitting verification code:', { email, code: verificationCodeString });
       // This will verify email AND submit professional verification documents
       // (since documents were already sent during registration)
       await verifyEmail({
         email,
         code: verificationCodeString,
-      
+
       });
-      
+      console.log('Verification code submission successful');
       toast.success('Email verified successfully! Professional verification submitted.');
       onVerificationComplete();
     } catch (err: any) {
+      console.error('Verification code submission failed:', err?.message || err);
       setError(err?.message || 'Verification failed');
     }
   };

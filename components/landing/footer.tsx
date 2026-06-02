@@ -22,9 +22,6 @@ export function Footer() {
           <Link href="#" className="text-inverse-on-surface/80 hover:text-inverse-on-surface hover:underline transition-all text-[14px]">
             Contact Us
           </Link>
-          <Link href="#" className="text-inverse-on-surface/80 hover:text-inverse-on-surface hover:underline transition-all text-[14px]">
-            Careers
-          </Link>
         </div>
 
         <div className="flex gap-4">

@@ -27,11 +27,10 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { EnrichedAppointment } from '@/types/entities/appointment.types';
 import Link from 'next/link';
 
 // Card number IS included for clinic view (for check-in purposes)
-const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCardData => ({
+const toAppointmentCardData = (appointment: any): AppointmentCardData => ({
   id: appointment.id,
   patientName: appointment.patientName,
   patientId: appointment.patientId,
@@ -48,7 +47,7 @@ const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCar
   notes: appointment.notes,
   fee: appointment.fee,
   paymentStatus: appointment.paymentStatus,
-  cardNumber: appointment.cardNumber,
+  cardNumber: appointment.qrNumber,
   location: appointment.location,
   locationDetail: appointment.locationDetail,
   patientEmail: appointment.patientEmail,
@@ -59,7 +58,7 @@ const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCar
   providerPhone: appointment.providerPhone,
 });
 
-const getCurrentClinicId = (): number => {
+const getCurrentClinicId = (): number | null => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('currentClinicId');
     if (stored) {
@@ -67,12 +66,12 @@ const getCurrentClinicId = (): number => {
       if (!isNaN(parsed)) return parsed;
     }
   }
-  return 1;
+  return null;
 };
 
 export default function ClinicAppointmentsPage() {
   const router = useRouter();
-  const [clinicId, setClinicId] = useState<number>(1);
+  const [clinicId, setClinicId] = useState<number | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentCardData | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
@@ -93,16 +92,18 @@ export default function ClinicAppointmentsPage() {
 
   useEffect(() => {
     const id = getCurrentClinicId();
-    setClinicId(id);
-    fetchProviderAppointments(id);
+    if (id !== null) {
+      setClinicId(id);
+      fetchProviderAppointments(id);
+    }
   }, [fetchProviderAppointments]);
 
   const clinicAppointments = useMemo(() => {
-    return appointments.filter((apt: EnrichedAppointment) => apt.providerId === clinicId);
+    return appointments.filter((apt) => (apt as any).providerId === clinicId);
   }, [appointments, clinicId]);
 
   const filteredAppointments = useMemo(() => {
-    return clinicAppointments.filter((apt: EnrichedAppointment) => {
+    return clinicAppointments.filter((apt: any) => {
       const matchesSearch =
         !filters.searchTerm ||
         apt.patientName?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
@@ -121,13 +122,13 @@ export default function ClinicAppointmentsPage() {
   const today = new Date().toISOString().split('T')[0];
 
   const todayAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) =>
-      apt.scheduledDateTime.startsWith(today)
+    return filteredAppointments.filter((apt: any) =>
+      apt.scheduledDateTime?.startsWith(today)
     );
   }, [filteredAppointments, today]);
 
   const upcomingAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) =>
+    return filteredAppointments.filter((apt: any) =>
       apt.scheduledDateTime > today &&
       apt.status !== 'Completed' &&
       apt.status !== 'Cancelled' &&
@@ -136,7 +137,7 @@ export default function ClinicAppointmentsPage() {
   }, [filteredAppointments, today]);
 
   const pastAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) =>
+    return filteredAppointments.filter((apt: any) =>
       apt.status === 'Completed' ||
       apt.status === 'Cancelled' ||
       apt.status === 'No-show' ||
@@ -145,6 +146,7 @@ export default function ClinicAppointmentsPage() {
   }, [filteredAppointments, today]);
 
   const handleRefresh = useCallback(async () => {
+    if (!clinicId) return;
     setIsRefreshing(true);
     try {
       await refreshData();
@@ -159,7 +161,7 @@ export default function ClinicAppointmentsPage() {
   }, [refreshData, fetchProviderAppointments, clinicId]);
 
   const statsCards = useMemo(() => {
-    if (!stats) return [];
+    if (!stats || !clinicId) return [];
     return [
       { title: "Total Appointments", value: clinicAppointments.length.toString(), icon: Users, description: "All appointments" },
       { title: "Today's Appointments", value: todayAppointments.length.toString(), icon: CalendarIcon, description: "Scheduled today" },
@@ -168,7 +170,7 @@ export default function ClinicAppointmentsPage() {
       { title: "Cards Issued", value: stats.cardsIssued?.toString() || "0", icon: ClipboardCheck, description: "Cards generated" },
       { title: "Cards Utilized", value: stats.cardsUtilized?.toString() || "0", icon: Users, description: "Cards used for check-in" },
     ];
-  }, [stats, clinicAppointments.length, todayAppointments.length, pastAppointments]);
+  }, [stats, clinicAppointments.length, todayAppointments.length, pastAppointments, clinicId]);
 
   const tabs: TabOption[] = useMemo(() => [
     { id: "today", label: "Today", icon: <Bell className="h-4 w-4" />, count: todayAppointments.length },
@@ -187,6 +189,7 @@ export default function ClinicAppointmentsPage() {
   }, []);
 
   const handleStartConsultation = useCallback(async (appointment: AppointmentCardData) => {
+    if (!clinicId) return;
     try {
       await updateStatus(appointment.id, "In Progress");
       await fetchProviderAppointments(clinicId);
@@ -198,6 +201,7 @@ export default function ClinicAppointmentsPage() {
   }, [updateStatus, fetchProviderAppointments, clinicId]);
 
   const handleCompleteConsultation = useCallback(async (appointment: AppointmentCardData) => {
+    if (!clinicId) return;
     try {
       await updateStatus(appointment.id, "Completed");
       await fetchProviderAppointments(clinicId);
@@ -213,6 +217,7 @@ export default function ClinicAppointmentsPage() {
     date: string,
     time: string
   ) => {
+    if (!clinicId) return;
     try {
       const startDateTime = new Date(`${date}T${time}:00`);
       const endDateTime = new Date(startDateTime.getTime() + 60 * 60000);
@@ -226,6 +231,7 @@ export default function ClinicAppointmentsPage() {
   }, [updateTiming, fetchProviderAppointments, clinicId]);
 
   const handleConfirmAppointment = useCallback(async (appointment: AppointmentCardData) => {
+    if (!clinicId) return;
     try {
       await updateStatus(appointment.id, "Confirmed");
       await fetchProviderAppointments(clinicId);
@@ -241,6 +247,7 @@ export default function ClinicAppointmentsPage() {
   }, [router]);
 
   const handleCancel = useCallback(async (appointment: AppointmentCardData) => {
+    if (!clinicId) return;
     try {
       await updateStatus(appointment.id, "Cancelled");
       await fetchProviderAppointments(clinicId);
@@ -251,7 +258,7 @@ export default function ClinicAppointmentsPage() {
     }
   }, [updateStatus, fetchProviderAppointments, clinicId]);
 
-  const getCurrentAppointments = useCallback((): EnrichedAppointment[] => {
+  const getCurrentAppointments = useCallback((): any[] => {
     switch (activeTab) {
       case "today": return todayAppointments;
       case "upcoming": return upcomingAppointments;

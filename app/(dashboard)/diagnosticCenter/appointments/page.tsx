@@ -27,11 +27,10 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { LoadingState } from '@/components/common/LoadingState';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { EnrichedAppointment } from '@/types/entities/appointment.types';
 import Link from 'next/link';
 
 // Card number IS included for diagnostic center view
-const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCardData => ({
+const toAppointmentCardData = (appointment: any): AppointmentCardData => ({
   id: appointment.id,
   patientName: appointment.patientName,
   patientId: appointment.patientId,
@@ -59,7 +58,7 @@ const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCar
   providerPhone: appointment.providerPhone,
 });
 
-const getCurrentDiagnosticCenterId = (): number => {
+const getCurrentDiagnosticCenterId = (): number | null => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('currentDiagnosticCenterId');
     if (stored) {
@@ -67,12 +66,12 @@ const getCurrentDiagnosticCenterId = (): number => {
       if (!isNaN(parsed)) return parsed;
     }
   }
-  return 1;
+  return null;
 };
 
 export default function DiagnosticAppointmentsPage() {
   const router = useRouter();
-  const [diagnosticId, setDiagnosticId] = useState<number>(1);
+  const [diagnosticId, setDiagnosticId] = useState<number | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentCardData | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
@@ -93,18 +92,20 @@ export default function DiagnosticAppointmentsPage() {
 
   useEffect(() => {
     const id = getCurrentDiagnosticCenterId();
-    setDiagnosticId(id);
-    fetchProviderAppointments(id);
+    if (id !== null) {
+      setDiagnosticId(id);
+      fetchProviderAppointments(id);
+    }
   }, [fetchProviderAppointments]);
 
   const diagnosticAppointments = useMemo(() => {
-    return appointments.filter((apt: EnrichedAppointment) =>
-      apt.providerId === diagnosticId && apt.serviceType === 'DiagnosticTests'
+    return appointments.filter((apt: any) =>
+      (apt as any).providerId === diagnosticId && (apt as any).serviceType === 'DiagnosticTests'
     );
   }, [appointments, diagnosticId]);
 
   const filteredAppointments = useMemo(() => {
-    return diagnosticAppointments.filter((apt: EnrichedAppointment) => {
+    return diagnosticAppointments.filter((apt: any) => {
       const matchesSearch =
         !filters.searchTerm ||
         apt.patientName?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
@@ -123,14 +124,14 @@ export default function DiagnosticAppointmentsPage() {
   const today = new Date().toISOString().split('T')[0];
 
   const todayAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) =>
-      apt.scheduledDateTime.startsWith(today)
+    return filteredAppointments.filter((apt: any) =>
+      (apt as any).scheduledDateTime?.startsWith(today)
     );
   }, [filteredAppointments, today]);
 
   const upcomingAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) =>
-      apt.scheduledDateTime > today &&
+    return filteredAppointments.filter((apt: any) =>
+      (apt as any).scheduledDateTime > today &&
       apt.status !== 'Completed' &&
       apt.status !== 'Cancelled' &&
       apt.status !== 'No-show'
@@ -138,15 +139,16 @@ export default function DiagnosticAppointmentsPage() {
   }, [filteredAppointments, today]);
 
   const pastAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) =>
+    return filteredAppointments.filter((apt: any) =>
       apt.status === 'Completed' ||
       apt.status === 'Cancelled' ||
       apt.status === 'No-show' ||
-      (apt.scheduledDateTime < today && apt.status !== 'Scheduled' && apt.status !== 'Confirmed')
+      ((apt as any).scheduledDateTime < today && apt.status !== 'Scheduled' && apt.status !== 'Confirmed')
     );
   }, [filteredAppointments, today]);
 
   const handleRefresh = useCallback(async () => {
+    if (!diagnosticId) return;
     setIsRefreshing(true);
     try {
       await refreshData();
@@ -161,7 +163,7 @@ export default function DiagnosticAppointmentsPage() {
   }, [refreshData, fetchProviderAppointments, diagnosticId]);
 
   const statsCards = useMemo(() => {
-    if (!stats) return [];
+    if (!stats || !diagnosticId) return [];
     return [
       { title: "Total Tests", value: diagnosticAppointments.length.toString(), icon: FlaskConical, description: "All test appointments" },
       { title: "Today's Tests", value: todayAppointments.length.toString(), icon: CalendarIcon, description: "Scheduled today" },
@@ -170,7 +172,7 @@ export default function DiagnosticAppointmentsPage() {
       { title: "Cards Issued", value: stats.cardsIssued?.toString() || "0", icon: ClipboardCheck, description: "Cards generated" },
       { title: "Cards Utilized", value: stats.cardsUtilized?.toString() || "0", icon: Users, description: "Cards used for check-in" },
     ];
-  }, [stats, diagnosticAppointments.length, todayAppointments.length, pastAppointments]);
+  }, [stats, diagnosticAppointments.length, todayAppointments.length, pastAppointments, diagnosticId]);
 
   const tabs: TabOption[] = useMemo(() => [
     { id: "today", label: "Today", icon: <Bell className="h-4 w-4" />, count: todayAppointments.length },
@@ -189,6 +191,7 @@ export default function DiagnosticAppointmentsPage() {
   }, []);
 
   const handleStartTest = useCallback(async (appointment: AppointmentCardData) => {
+    if (!diagnosticId) return;
     try {
       await updateStatus(appointment.id, "In Progress");
       await fetchProviderAppointments(diagnosticId);
@@ -200,6 +203,7 @@ export default function DiagnosticAppointmentsPage() {
   }, [updateStatus, fetchProviderAppointments, diagnosticId]);
 
   const handleCompleteTest = useCallback(async (appointment: AppointmentCardData) => {
+    if (!diagnosticId) return;
     try {
       await updateStatus(appointment.id, "Completed");
       await fetchProviderAppointments(diagnosticId);
@@ -215,6 +219,7 @@ export default function DiagnosticAppointmentsPage() {
     date: string,
     time: string
   ) => {
+    if (!diagnosticId) return;
     try {
       const startDateTime = new Date(`${date}T${time}:00`);
       const endDateTime = new Date(startDateTime.getTime() + 60 * 60000);
@@ -228,6 +233,7 @@ export default function DiagnosticAppointmentsPage() {
   }, [updateTiming, fetchProviderAppointments, diagnosticId]);
 
   const handleConfirmAppointment = useCallback(async (appointment: AppointmentCardData) => {
+    if (!diagnosticId) return;
     try {
       await updateStatus(appointment.id, "Confirmed");
       await fetchProviderAppointments(diagnosticId);
@@ -243,6 +249,7 @@ export default function DiagnosticAppointmentsPage() {
   }, [router]);
 
   const handleCancel = useCallback(async (appointment: AppointmentCardData) => {
+    if (!diagnosticId) return;
     try {
       await updateStatus(appointment.id, "Cancelled");
       await fetchProviderAppointments(diagnosticId);
@@ -253,7 +260,7 @@ export default function DiagnosticAppointmentsPage() {
     }
   }, [updateStatus, fetchProviderAppointments, diagnosticId]);
 
-  const getCurrentAppointments = useCallback((): EnrichedAppointment[] => {
+  const getCurrentAppointments = useCallback((): any[] => {
     switch (activeTab) {
       case "today": return todayAppointments;
       case "upcoming": return upcomingAppointments;

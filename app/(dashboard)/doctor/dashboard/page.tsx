@@ -1,13 +1,15 @@
 // app/doctor/dashboard/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
-import { 
+import { useAuth } from "@/hooks/useAuth"
+import { useAppointments } from "@/hooks/useAppointments"
+import {
   Calendar,
   Clock,
   Users,
@@ -134,12 +136,17 @@ const stats = [
 ]
 
 export default function DoctorDashboard() {
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
-  const checkedInCount = todayAppointments.filter(a => a.status === "checked-in").length
-  
-  const filteredAppointments = todayAppointments.filter(apt =>
-    apt.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    apt.condition.toLowerCase().includes(searchQuery.toLowerCase())
+  const { appointments, isLoading } = useAppointments()
+
+  const displayName = user?.full_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Doctor'
+
+  const checkedInCount = appointments.filter(a => a.status === "Checked-in").length
+
+  const filteredAppointments = appointments.filter(apt =>
+    apt.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.serviceName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
@@ -155,8 +162,8 @@ export default function DoctorDashboard() {
               <Sparkles className="h-5 w-5 text-white/80" />
               <span className="text-white/80 text-sm font-medium">Welcome back</span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Dr. Abebe Bekele</h2>
-            <p className="text-teal-50 text-base">You have {todayAppointments.length} patients scheduled for today</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">{displayName}</h2>
+            <p className="text-teal-50 text-base">You have {appointments.length} patients scheduled for today</p>
           </div>
           <div className="bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
             <div className="flex items-center gap-3">
@@ -253,112 +260,118 @@ export default function DoctorDashboard() {
         </div>
         
         <CardContent className="p-6">
-          <div className="space-y-4">
-            {filteredAppointments.map((apt, index) => (
-              <div
-                key={apt.id}
-                className="group bg-white rounded-xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition-all duration-300 overflow-hidden"
-              >
-                <div className="p-5">
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-5">
-                    {/* Queue Number */}
-                    <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-teal-50 text-teal-600 font-bold text-lg">
-                      #{apt.queueNumber}
-                    </div>
-                    
-                    {/* Patient Avatar & Info */}
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="relative">
-                        <Avatar className="h-14 w-14 rounded-xl">
-                          <AvatarFallback className={cn(
-                            "text-lg font-bold",
-                            apt.status === "checked-in" 
-                              ? "bg-teal-100 text-teal-600"
-                              : "bg-gray-100 text-gray-600"
-                          )}>
-                            {apt.avatar}
-                          </AvatarFallback>
-                        </Avatar>
-                        {apt.status === "checked-in" && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h4 className="font-bold text-gray-800 text-lg">{apt.patientName}</h4>
-                          <Badge className={cn(
-                            "text-xs",
-                            apt.status === "checked-in" 
-                              ? "bg-green-100 text-green-700"
-                              : "bg-yellow-100 text-yellow-700"
-                          )}>
-                            {apt.status === "checked-in" ? "Checked In" : "Scheduled"}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
-                          <span className="flex items-center gap-1">
-                            <Activity className="h-3.5 w-3.5 text-teal-600" />
-                            {apt.type}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5 text-teal-600" />
-                            {apt.time}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Heart className="h-3.5 w-3.5 text-teal-600" />
-                            {apt.condition}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3.5 w-3.5 text-teal-600" />
-                            Age: {apt.age}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      {apt.status === "checked-in" ? (
-                        <Button className="bg-teal-600 hover:bg-teal-700 rounded-lg px-6 shadow-sm hover:shadow transition-all">
-                          <Stethoscope className="mr-2 h-4 w-4" />
-                          Start Consultation
-                        </Button>
-                      ) : (
-                        <>
-                          <Button variant="outline" size="sm" className="rounded-lg border-gray-200 hover:border-teal-200">
-                            <Calendar className="mr-2 h-4 w-4" />
-                            Reschedule
-                          </Button>
-                          <Button variant="outline" size="sm" className="rounded-lg border-teal-200 text-teal-600 hover:bg-teal-50">
-                            View Details
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Additional Patient Info - Visible on hover */}
-                  <div className="mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Clipboard className="h-3 w-3 text-teal-600" />
-                        Last Visit: {apt.lastVisit}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Phone className="h-3 w-3 text-teal-600" />
-                        {apt.phone}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <CalendarDays className="h-3 w-3 text-teal-600" />
-                        Follow-up in 2 weeks
-                      </span>
-                    </div>
-                  </div>
+          {isLoading ? (
+            <div className="text-center py-12 text-gray-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-3"></div>
+              <p>Loading appointments...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredAppointments.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50 text-teal-600" />
+                  <p>No appointments scheduled for today</p>
                 </div>
-              </div>
-            ))}
-          </div>
+              ) : (
+                filteredAppointments.map((apt, index) => (
+                  <div
+                    key={apt.id}
+                    className="group bg-white rounded-xl border border-gray-100 hover:border-teal-200 hover:shadow-md transition-all duration-300 overflow-hidden"
+                  >
+                    <div className="p-5">
+                      <div className="flex flex-col lg:flex-row lg:items-center gap-5">
+                        {/* Queue Number */}
+                        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-teal-50 text-teal-600 font-bold text-lg">
+                          #{index + 1}
+                        </div>
+
+                        {/* Patient Avatar & Info */}
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="relative">
+                            <Avatar className="h-14 w-14 rounded-xl">
+                              <AvatarFallback className={cn(
+                                "text-lg font-bold",
+                                apt.status === "Checked-in"
+                                  ? "bg-teal-100 text-teal-600"
+                                  : "bg-gray-100 text-gray-600"
+                              )}>
+                                {apt.patientImage || apt.patientName?.substring(0, 2).toUpperCase() || 'P'}
+                              </AvatarFallback>
+                            </Avatar>
+                            {apt.status === "Checked-in" && (
+                              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-gray-800 text-lg">{apt.patientName}</h4>
+                              <Badge className={cn(
+                                "text-xs",
+                                apt.status === "Checked-in"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-yellow-100 text-yellow-700"
+                              )}>
+                                {apt.status === "Checked-in" ? "Checked In" : apt.status}
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Activity className="h-3.5 w-3.5 text-teal-600" />
+                                {apt.serviceType || apt.serviceName}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3.5 w-3.5 text-teal-600" />
+                                {apt.slotTime || new Date(apt.scheduledDateTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          {apt.status === "Checked-in" ? (
+                            <Button className="bg-teal-600 hover:bg-teal-700 rounded-lg px-6 shadow-sm hover:shadow transition-all">
+                              <Stethoscope className="mr-2 h-4 w-4" />
+                              Start Consultation
+                            </Button>
+                          ) : (
+                            <>
+                              <Button variant="outline" size="sm" className="rounded-lg border-gray-200 hover:border-teal-200">
+                                <Calendar className="mr-2 h-4 w-4" />
+                                Reschedule
+                              </Button>
+                              <Button variant="outline" size="sm" className="rounded-lg border-teal-200 text-teal-600 hover:bg-teal-50">
+                                View Details
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Additional Patient Info - Visible on hover */}
+                      <div className="mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                          {apt.patientPhone && (
+                            <span className="flex items-center gap-1">
+                              <Phone className="h-3 w-3 text-teal-600" />
+                              {apt.patientPhone}
+                            </span>
+                          )}
+                          {apt.location && (
+                            <span className="flex items-center gap-1">
+                              <CalendarDays className="h-3 w-3 text-teal-600" />
+                              {apt.location}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

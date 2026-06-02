@@ -1,174 +1,105 @@
 // hooks/useServices.ts
 import { useEffect, useCallback, useMemo } from 'react';
 import { useServiceStore } from '@/stores/slices/serviceSlice';
-import { SERVICE_TYPE, ServiceType, ServiceStatus, CreateServiceDTO, UpdateServiceDTO, ServiceFilters, Service, ServiceStats } from '@/types/entities/service.types';
-import { toast } from 'sonner';
+import { Service, CreateServiceDTO } from '@/types/entities/service.types';
+
+interface ServiceStats {
+  totalRevenue: number;
+  averageFee: number;
+}
 
 interface UseServicesOptions {
-  providerId?: number | null;
+  serviceType?: string | null;
+  location?: string | null;
   autoFetch?: boolean;
-  initialFilters?: Partial<ServiceFilters>;
+  providerId?: number;
 }
 
-interface UseServicesReturn {
-  // State
-  services: Service[];
-  stats: ServiceStats | null;
-  isLoading: boolean;
-  error: string | null;
-  filters: ServiceFilters;
-  
-  // Filtered services
-  consultationServices: Service[];
-  diagnosticServices: Service[];
-  vaccinationServices: Service[];
-  procedureServices: Service[];
-  activeServices: Service[];
-  inactiveServices: Service[];
-  
-  // Actions
-  fetchServices: (providerId?: number | null) => Promise<void>;
-  fetchStats: (providerId?: number | null) => Promise<void>;
-  createService: (data: CreateServiceDTO) => Promise<Service | null>;
-  updateService: (id: number, data: UpdateServiceDTO) => Promise<Service | null>;
-  deleteService: (id: number) => Promise<boolean>;
-  toggleServiceStatus: (id: number) => Promise<Service | null>;
-  setFilters: (filters: Partial<ServiceFilters>) => void;
-  clearError: () => void;
-  getServicesByProvider: (providerId: number) => Service[];
-  getServicesByType: (type: ServiceType) => Service[];
-  
-  // Helper functions
-  getServiceById: (id: number) => Service | undefined;
-  getServicesByStatus: (status: ServiceStatus) => Service[];
-  searchServices: (query: string) => Service[];
-}
+const transformToApiFormat = (data: CreateServiceDTO) => ({
+  name: data.name,
+  service_type: data.serviceType,
+  location: data.location || '',
+  price: data.standardFee,
+  duration_minutes: data.durationMinutes,
+  description: data.description,
+});
 
-export const useServices = (options: UseServicesOptions = {}): UseServicesReturn => {
-  const { providerId, autoFetch = true, initialFilters = {} } = options;
-  
-  // Get store state and actions
+export const useServices = (options: UseServicesOptions = {}) => {
   const {
     services,
-    stats,
     isLoading,
     error,
-    filters,
-    fetchServices: fetchServicesStore,
-    fetchStats: fetchStatsStore,
-    createService: createServiceStore,
-    updateService: updateServiceStore,
-    deleteService: deleteServiceStore,
-    toggleServiceStatus: toggleServiceStatusStore,
-    setFilters: setFiltersStore,
-    clearError: clearErrorStore,
-    getServicesByProvider: getServicesByProviderStore,
-    getServicesByType: getServicesByTypeStore,
+    fetchServices,
+    createService,
+    updateService,
+    deleteService,
+    clearError,
   } = useServiceStore();
 
-  // Fetch data on mount or when providerId changes
+  const { serviceType, location, autoFetch = true, providerId } = options;
+
   useEffect(() => {
     if (autoFetch) {
-      fetchServices(providerId);
-      fetchStats(providerId);
+      fetchServices(serviceType, location);
     }
-  }, [providerId, autoFetch]);
+  }, [autoFetch, serviceType, location, fetchServices]);
 
-  // Set initial filters
-  useEffect(() => {
-    if (Object.keys(initialFilters).length > 0) {
-      setFiltersStore(initialFilters);
-    }
-  }, []);
-
-  // Wrapper functions
-  const fetchServices = useCallback(async (pid?: number | null) => {
-    await fetchServicesStore(pid !== undefined ? pid : providerId);
-  }, [fetchServicesStore, providerId]);
-
-  const fetchStats = useCallback(async (pid?: number | null) => {
-    await fetchStatsStore(pid !== undefined ? pid : providerId);
-  }, [fetchStatsStore, providerId]);
-
-  // Filtered services by type
-  const consultationServices = useMemo(() => 
-    getServicesByTypeStore(SERVICE_TYPE.CONSULTATION), 
-    [services, getServicesByTypeStore]
-  );
-  
-  const diagnosticServices = useMemo(() => 
-    getServicesByTypeStore(SERVICE_TYPE.DIAGNOSTIC), 
-    [services, getServicesByTypeStore]
-  );
-  
-  const vaccinationServices = useMemo(() => 
-    [] as Service[], 
-    [services]
-  );
-  
-  const procedureServices = useMemo(() => 
-    getServicesByTypeStore(SERVICE_TYPE.ClinicServices), 
-    [services, getServicesByTypeStore]
-  );
-  
-  const activeServices = useMemo(() => 
-    services.filter(s => s.status === 'Active'), 
-    [services]
-  );
-  
-  const inactiveServices = useMemo(() => 
-    services.filter(s => s.status === 'Inactive'), 
-    [services]
-  );
-
-  // Helper functions
-  const getServiceById = useCallback((id: number) => {
-    return services.find(s => s.id === id);
+  const getServiceById = useCallback((id: number): Service | undefined => {
+    return services.find((s) => s.id === id);
   }, [services]);
 
-  const getServicesByStatus = useCallback((status: ServiceStatus) => {
-    return services.filter(s => s.status === status);
-  }, [services]);
-
-  const searchServices = useCallback((query: string) => {
+  const searchServices = useCallback((query: string): Service[] => {
     const lowerQuery = query.toLowerCase();
-    return services.filter(s => 
+    return services.filter((s) =>
       s.name.toLowerCase().includes(lowerQuery) ||
       (s.description && s.description.toLowerCase().includes(lowerQuery))
     );
   }, [services]);
 
+  const handleCreateService = useCallback(async (data: CreateServiceDTO) => {
+    if (!providerId) {
+      throw new Error('Provider ID is required to create a service');
+    }
+    const apiData = transformToApiFormat(data);
+    await createService(providerId, apiData);
+  }, [providerId, createService]);
+
+  const handleUpdateService = useCallback(async (serviceId: number, data: CreateServiceDTO) => {
+    if (!providerId) {
+      throw new Error('Provider ID is required to update a service');
+    }
+    const apiData = transformToApiFormat(data);
+    await updateService(providerId, serviceId, apiData);
+  }, [providerId, updateService]);
+
+  const handleDeleteService = useCallback(async (serviceId: number) => {
+    if (!providerId) {
+      throw new Error('Provider ID is required to delete a service');
+    }
+    await deleteService(providerId, serviceId);
+  }, [providerId, deleteService]);
+
+  const stats = useMemo<ServiceStats>(() => {
+    const activeServices = services.filter(s => s.status === 'Active');
+    const totalRevenue = activeServices.reduce((sum, s) => sum + s.standardFee, 0);
+    const averageFee = activeServices.length > 0 ? totalRevenue / activeServices.length : 0;
+    return {
+      totalRevenue,
+      averageFee,
+    };
+  }, [services]);
+
   return {
-    // State
     services,
-    stats,
     isLoading,
     error,
-    filters,
-    
-    // Filtered services
-    consultationServices,
-    diagnosticServices,
-    vaccinationServices,
-    procedureServices,
-    activeServices,
-    inactiveServices,
-    
-    // Actions
+    stats,
     fetchServices,
-    fetchStats,
-    createService: createServiceStore,
-    updateService: updateServiceStore,
-    deleteService: deleteServiceStore,
-    toggleServiceStatus: toggleServiceStatusStore,
-    setFilters: setFiltersStore,
-    clearError: clearErrorStore,
-    getServicesByProvider: getServicesByProviderStore,
-    getServicesByType: getServicesByTypeStore,
-    
-    // Helpers
+    createService: handleCreateService,
+    updateService: handleUpdateService,
+    deleteService: handleDeleteService,
+    clearError,
     getServiceById,
-    getServicesByStatus,
     searchServices,
   };
 };

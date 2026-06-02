@@ -104,21 +104,20 @@ export default function DoctorAnalyticsPage() {
         labels: revenueData.series.map((item: { label: string }) => item.label),
       }
     }
-    // Mock data for demo
     return {
-      data: [220, 150, 210, 400, 380, 250, 300, 350, 420, 380, 450, 500],
-      labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+      data: [],
+      labels: [],
     }
   }, [revenueData])
   
   // Prepare weekly appointment data
   const weeklyAppointmentData = useMemo(() => {
     if (appointmentData?.total) {
-      // Distribute appointments across week days (mock distribution)
+      // Distribute appointments across week days
       const distribution = [0.12, 0.14, 0.15, 0.16, 0.18, 0.15, 0.10]
       return distribution.map(percent => Math.round(appointmentData.total * percent))
     }
-    return [45, 52, 48, 51, 58, 32, 18]
+    return [0, 0, 0, 0, 0, 0, 0]
   }, [appointmentData])
   
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

@@ -253,9 +253,6 @@ export default function PatientReviewsPage() {
   const {
     reviews,
     isLoading,
-    fetchReviewsByPatient,
-    updateReview,
-    deleteReview,
   } = useReview();
 
   useEffect(() => {
@@ -264,10 +261,10 @@ export default function PatientReviewsPage() {
   }, []);
 
   const loadReviews = useCallback(async () => {
-    if (patientId) {
-      await fetchReviewsByPatient(patientId);
-    }
-  }, [patientId, fetchReviewsByPatient]);
+    // Patient reviews endpoint not available in API
+    // Reviews can only be fetched per provider or per appointment
+    // This page will remain empty until the API supports fetching reviews by patient
+  }, []);
 
   useEffect(() => {
     loadReviews();
@@ -277,46 +274,17 @@ export default function PatientReviewsPage() {
     setIsRefreshing(true);
     await loadReviews();
     setIsRefreshing(false);
-    toast.success('Reviews refreshed');
-  };
-
-  const handleEdit = (review: Review) => {
-    setEditingReview(review);
-    setIsEditOpen(true);
-  };
-
-  const handleUpdateReview = async (rating: number, comment: string) => {
-    if (!editingReview) return;
-    const success = await updateReview(editingReview.review_id, { rating, comment });
-    if (success) {
-      toast.success('Review updated successfully');
-      await loadReviews();
-    } else {
-      toast.error('Failed to update review');
-    }
-    setEditingReview(null);
-  };
-
-  const handleDeleteReview = async () => {
-    if (!deletingReview) return;
-    const success = await deleteReview(deletingReview.review_id);
-    if (success) {
-      toast.success('Review deleted successfully');
-      await loadReviews();
-    } else {
-      toast.error('Failed to delete review');
-    }
-    setDeletingReview(null);
+    toast.info('Patient reviews feature not available in current API version');
   };
 
   const filteredReviews = useMemo(() => {
     if (!ratingFilter) return reviews;
-    return reviews.filter((r: Review) => r.rating === ratingFilter);
+    return reviews.filter((r) => r.rating === ratingFilter);
   }, [reviews, ratingFilter]);
 
   const ratingDistribution = useMemo(() => {
     const distribution: RatingDistributionType = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    reviews.forEach((review: Review) => {
+    reviews.forEach((review) => {
       const rating = review.rating as 1 | 2 | 3 | 4 | 5;
       distribution[rating]++;
     });
@@ -325,12 +293,12 @@ export default function PatientReviewsPage() {
 
   const averageRating = useMemo(() => {
     if (reviews.length === 0) return 0;
-    const sum = reviews.reduce((acc: number, r: Review) => acc + r.rating, 0);
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
     return sum / reviews.length;
   }, [reviews]);
 
   const positiveCount = useMemo(() => {
-    return reviews.filter((r: Review) => r.rating >= 4).length;
+    return reviews.filter((r) => r.rating >= 4).length;
   }, [reviews]);
 
   if (isLoading && reviews.length === 0) {
@@ -453,17 +421,12 @@ export default function PatientReviewsPage() {
         {/* Reviews List */}
         <div className="space-y-4">
           {filteredReviews.length > 0 ? (
-            filteredReviews.map((review: Review) => (
+            filteredReviews.map((review) => (
               <ProviderReviewCard
-                key={review.review_id}
+                key={review.id}
                 review={review}
                 variant="patient"
-                showActions={true}
-                onEdit={handleEdit}
-                onDelete={(review) => {
-                  setDeletingReview(review);
-                  setIsDeleteOpen(true);
-                }}
+                showActions={false}
               />
             ))
           ) : (
@@ -495,21 +458,8 @@ export default function PatientReviewsPage() {
         </Card>
       </div>
 
-      {/* Edit Dialog */}
-      <EditReviewDialog
-        open={isEditOpen}
-        onOpenChange={setIsEditOpen}
-        review={editingReview}
-        onSave={handleUpdateReview}
-      />
-
-      {/* Delete Dialog */}
-      <DeleteReviewDialog
-        open={isDeleteOpen}
-        onOpenChange={setIsDeleteOpen}
-        review={deletingReview}
-        onConfirm={handleDeleteReview}
-      />
+      {/* Edit Dialog - Disabled as feature not available in API */}
+      {/* Delete Dialog - Disabled as feature not available in API */}
     </div>
   );
 }

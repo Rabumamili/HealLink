@@ -1,239 +1,123 @@
 // stores/slices/schedule.slice.ts
 import { create } from 'zustand';
-import { 
-  TimeSlot, 
-  DaySchedule, 
-  ScheduleSettings,
-  CreateSlotDTO,
-  UpdateSlotDTO,
-  SlotAvailability,
-  BulkSlotCreateDTO
-} from '@/types/entities/schedule.types';
-import { scheduleService } from '@/services/schedule.service';
+import { devtools } from 'zustand/middleware';
+import { scheduleService, Schedule, CreateScheduleRequest, UpdateScheduleRequest, GenerateSlotsRequest, GenerateSlotsResponse } from '@/services/schedule.service';
 import { toast } from 'sonner';
 
 interface ScheduleState {
-  slots: TimeSlot[];
-  daySchedule: DaySchedule[];
-  settings: ScheduleSettings | null;
+  schedules: Schedule[];
+  currentSchedule: Schedule | null;
   isLoading: boolean;
   error: string | null;
-  selectedDate: string | null;
   
-  fetchSlotsByProviderAndDate: (providerId: number, date: string) => Promise<void>;
-  fetchSlotsByDateRange: (providerId: number, startDate: string, endDate: string) => Promise<void>;
-  fetchDayScheduleTemplate: (providerType: string, providerId?: number) => Promise<void>;
-  fetchScheduleSettings: (providerId: number) => Promise<void>;
-  createSlot: (data: CreateSlotDTO) => Promise<TimeSlot | null>;
-  updateSlot: (data: UpdateSlotDTO) => Promise<TimeSlot | null>;
-  deleteSlot: (slotId: number) => Promise<boolean>;
-  bulkCreateSlots: (data: BulkSlotCreateDTO) => Promise<TimeSlot[] | null>;
-  saveDayScheduleTemplate: (providerId: number, schedule: DaySchedule[]) => Promise<void>;
-  updateScheduleSettings: (providerId: number, settings: Partial<ScheduleSettings>) => Promise<void>;
-  generateSlotsFromTemplate: (providerId: number, serviceId: number, startDate: string, endDate: string) => Promise<void>;
-  bookSlot: (slotId: number) => Promise<TimeSlot | null>;
-  cancelSlotBooking: (slotId: number) => Promise<TimeSlot | null>;
-  setSelectedDate: (date: string) => void;
+  listSchedules: (serviceId?: number | null, isActive?: boolean | null) => Promise<void>;
+  getSchedule: (scheduleId: number) => Promise<void>;
+  createSchedule: (data: CreateScheduleRequest) => Promise<Schedule | null>;
+  updateSchedule: (scheduleId: number, data: UpdateScheduleRequest) => Promise<Schedule | null>;
+  deleteSchedule: (scheduleId: number) => Promise<boolean>;
+  generateSlots: (scheduleId: number, data: GenerateSlotsRequest) => Promise<GenerateSlotsResponse | null>;
+  clearCurrentSchedule: () => void;
   clearError: () => void;
 }
 
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
-  slots: [],
-  daySchedule: [],
-  settings: null,
+  schedules: [],
+  currentSchedule: null,
   isLoading: false,
   error: null,
-  selectedDate: null,
 
-  fetchSlotsByProviderAndDate: async (providerId: number, date: string) => {
+  listSchedules: async (serviceId?: number | null, isActive?: boolean | null) => {
     set({ isLoading: true, error: null });
     try {
-      const slots = await scheduleService.getSlotsByProviderAndDate(providerId, date);
-      set({ slots, isLoading: false });
+      const schedules = await scheduleService.listSchedules(serviceId, isActive);
+      set({ schedules, isLoading: false });
     } catch (error) {
-      set({ error: 'Failed to fetch slots', isLoading: false });
-      toast.error('Failed to fetch slots');
+      set({ error: 'Failed to fetch schedules', isLoading: false });
+      toast.error('Failed to fetch schedules');
     }
   },
 
-  fetchSlotsByDateRange: async (providerId: number, startDate: string, endDate: string) => {
+  getSchedule: async (scheduleId: number) => {
     set({ isLoading: true, error: null });
     try {
-      const slots = await scheduleService.getSlotsByDateRange(providerId, startDate, endDate);
-      set({ slots, isLoading: false });
+      const schedule = await scheduleService.getSchedule(scheduleId);
+      set({ currentSchedule: schedule, isLoading: false });
     } catch (error) {
-      set({ error: 'Failed to fetch slots', isLoading: false });
-      toast.error('Failed to fetch slots');
+      set({ error: 'Failed to fetch schedule', isLoading: false });
+      toast.error('Failed to fetch schedule');
     }
   },
 
-  fetchDayScheduleTemplate: async (providerType: string, providerId?: number) => {
+  createSchedule: async (data: CreateScheduleRequest) => {
     set({ isLoading: true });
     try {
-      const daySchedule = await scheduleService.getDayScheduleTemplate(providerType, providerId);
-      set({ daySchedule, isLoading: false });
-    } catch (error) {
-      console.error('Failed to fetch day schedule:', error);
-      set({ isLoading: false });
-    }
-  },
-
-  fetchScheduleSettings: async (providerId: number) => {
-    set({ isLoading: true });
-    try {
-      const settings = await scheduleService.getScheduleSettings(providerId);
-      set({ settings, isLoading: false });
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
-      set({ isLoading: false });
-    }
-  },
-
-  createSlot: async (data: CreateSlotDTO) => {
-    set({ isLoading: true });
-    try {
-      const newSlot = await scheduleService.createSlot(data);
+      const newSchedule = await scheduleService.createSchedule(data);
       set((state) => ({
-        slots: [...state.slots, newSlot],
+        schedules: [...state.schedules, newSchedule],
         isLoading: false,
       }));
-      toast.success('Time slot created successfully');
-      return newSlot;
+      toast.success('Schedule created successfully');
+      return newSchedule;
     } catch (error) {
-      set({ error: 'Failed to create slot', isLoading: false });
-      toast.error('Failed to create time slot');
+      set({ error: 'Failed to create schedule', isLoading: false });
+      toast.error('Failed to create schedule');
       return null;
     }
   },
 
-  updateSlot: async (data: UpdateSlotDTO) => {
+  updateSchedule: async (scheduleId: number, data: UpdateScheduleRequest) => {
     set({ isLoading: true });
     try {
-      const updatedSlot = await scheduleService.updateSlot(data);
+      const updatedSchedule = await scheduleService.updateSchedule(scheduleId, data);
       set((state) => ({
-        slots: state.slots.map(s => s.id === updatedSlot.id ? updatedSlot : s),
+        schedules: state.schedules.map(s => s.id === scheduleId ? updatedSchedule : s),
+        currentSchedule: state.currentSchedule?.id === scheduleId ? updatedSchedule : state.currentSchedule,
         isLoading: false,
       }));
-      toast.success('Time slot updated successfully');
-      return updatedSlot;
+      toast.success('Schedule updated successfully');
+      return updatedSchedule;
     } catch (error) {
-      set({ error: 'Failed to update slot', isLoading: false });
-      toast.error('Failed to update time slot');
+      set({ error: 'Failed to update schedule', isLoading: false });
+      toast.error('Failed to update schedule');
       return null;
     }
   },
 
-  deleteSlot: async (slotId: number) => {
+  deleteSchedule: async (scheduleId: number) => {
     set({ isLoading: true });
     try {
-      const success = await scheduleService.deleteSlot(slotId);
-      if (success) {
-        set((state) => ({
-          slots: state.slots.filter(s => s.id !== slotId),
-          isLoading: false,
-        }));
-        toast.success('Time slot deleted successfully');
-        return true;
-      }
-      throw new Error('Slot not found');
+      await scheduleService.deleteSchedule(scheduleId);
+      set((state) => ({
+        schedules: state.schedules.filter(s => s.id !== scheduleId),
+        currentSchedule: state.currentSchedule?.id === scheduleId ? null : state.currentSchedule,
+        isLoading: false,
+      }));
+      toast.success('Schedule deleted successfully');
+      return true;
     } catch (error) {
-      set({ error: 'Failed to delete slot', isLoading: false });
-      toast.error('Failed to delete time slot');
+      set({ error: 'Failed to delete schedule', isLoading: false });
+      toast.error('Failed to delete schedule');
       return false;
     }
   },
 
-  bulkCreateSlots: async (data: BulkSlotCreateDTO) => {
+  generateSlots: async (scheduleId: number, data: GenerateSlotsRequest) => {
     set({ isLoading: true });
     try {
-      const newSlots = await scheduleService.bulkCreateSlots(data);
-      set((state) => ({
-        slots: [...state.slots, ...newSlots],
-        isLoading: false,
-      }));
-      toast.success(`${newSlots.length} time slots created successfully`);
-      return newSlots;
-    } catch (error) {
-      set({ error: 'Failed to create slots', isLoading: false });
-      toast.error('Failed to create time slots');
-      return null;
-    }
-  },
-
-  saveDayScheduleTemplate: async (providerId: number, schedule: DaySchedule[]) => {
-    set({ isLoading: true });
-    try {
-      await scheduleService.saveDayScheduleTemplate(providerId, schedule);
-      set({ daySchedule: schedule, isLoading: false });
-      toast.success('Schedule template saved successfully');
-    } catch (error) {
-      set({ error: 'Failed to save schedule', isLoading: false });
-      toast.error('Failed to save schedule template');
-    }
-  },
-
-  updateScheduleSettings: async (providerId: number, settings: Partial<ScheduleSettings>) => {
-    set({ isLoading: true });
-    try {
-      const updatedSettings = await scheduleService.updateScheduleSettings(providerId, settings);
-      set({ settings: updatedSettings, isLoading: false });
-      toast.success('Settings updated successfully');
-    } catch (error) {
-      set({ error: 'Failed to update settings', isLoading: false });
-      toast.error('Failed to update settings');
-    }
-  },
-
-  generateSlotsFromTemplate: async (providerId: number, serviceId: number, startDate: string, endDate: string) => {
-    set({ isLoading: true });
-    try {
-      const generatedSlots = await scheduleService.generateSlotsFromTemplate(providerId, serviceId, startDate, endDate);
-      set((state) => ({
-        slots: [...state.slots, ...generatedSlots],
-        isLoading: false,
-      }));
-      toast.success(`${generatedSlots.length} slots generated successfully`);
+      const result = await scheduleService.generateSlots(scheduleId, data);
+      set({ isLoading: false });
+      toast.success(`${result.slots_created} slots generated successfully`);
+      return result;
     } catch (error) {
       set({ error: 'Failed to generate slots', isLoading: false });
-      toast.error('Failed to generate time slots');
-    }
-  },
-
-  bookSlot: async (slotId: number) => {
-    set({ isLoading: true });
-    try {
-      const updatedSlot = await scheduleService.bookSlot(slotId);
-      set((state) => ({
-        slots: state.slots.map(s => s.id === updatedSlot.id ? updatedSlot : s),
-        isLoading: false,
-      }));
-      toast.success('Slot booked successfully');
-      return updatedSlot;
-    } catch (error) {
-      set({ error: 'Failed to book slot', isLoading: false });
-      toast.error('Failed to book slot');
+      toast.error('Failed to generate slots');
       return null;
     }
   },
 
-  cancelSlotBooking: async (slotId: number) => {
-    set({ isLoading: true });
-    try {
-      const updatedSlot = await scheduleService.cancelSlotBooking(slotId);
-      set((state) => ({
-        slots: state.slots.map(s => s.id === updatedSlot.id ? updatedSlot : s),
-        isLoading: false,
-      }));
-      toast.success('Booking cancelled successfully');
-      return updatedSlot;
-    } catch (error) {
-      set({ error: 'Failed to cancel booking', isLoading: false });
-      toast.error('Failed to cancel booking');
-      return null;
-    }
+  clearCurrentSchedule: () => {
+    set({ currentSchedule: null });
   },
-
-  setSelectedDate: (date: string) => set({ selectedDate: date }),
 
   clearError: () => set({ error: null }),
 }));

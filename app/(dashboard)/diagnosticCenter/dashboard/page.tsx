@@ -90,23 +90,6 @@ interface Alert {
   message: string
 }
 
-// Mock data
-const mockTestResults: TestResult[] = [
-  { id: "T001", patientName: "James Wilson", patientId: "P001", testName: "Lipid Profile", category: "Biochemistry", date: "2024-05-20", time: "09:00 AM", status: "Completed", urgency: "Low", fee: 850 },
-  { id: "T002", patientName: "Maria Garcia", patientId: "P002", testName: "Thyroid Panel", category: "Endocrinology", date: "2024-05-20", time: "09:30 AM", status: "In Progress", urgency: "Medium", fee: 1200 },
-  { id: "T003", patientName: "Robert Brown", patientId: "P003", testName: "HbA1c", category: "Diabetes", date: "2024-05-20", time: "10:00 AM", status: "Pending", urgency: "Medium", fee: 650 },
-  { id: "T004", patientName: "Sarah Miller", patientId: "P004", testName: "Complete Blood Count", category: "Hematology", date: "2024-05-20", time: "10:30 AM", status: "Pending", urgency: "Low", fee: 450 },
-  { id: "T005", patientName: "David Chen", patientId: "P005", testName: "Liver Function Test", category: "Biochemistry", date: "2024-05-19", time: "02:00 PM", status: "Ready", urgency: "High", fee: 950 },
-  { id: "T006", patientName: "Elena Rodriguez", patientId: "P006", testName: "Vitamin D", category: "Nutrition", date: "2024-05-19", time: "03:30 PM", status: "Collected", urgency: "Low", fee: 750 },
-]
-
-const mockAlerts: Alert[] = [
-  { id: "A001", type: "Critical Result", patientName: "David Chen", testName: "Liver Function Test", urgency: "High", time: "2 hours ago", message: "AST and ALT levels significantly elevated" },
-  { id: "A002", type: "Quality Check", patientName: "Elena Rodriguez", testName: "Thyroid Panel", urgency: "Medium", time: "3 hours ago", message: "Sample requires recollection" },
-  { id: "A003", type: "Equipment Alert", patientName: "-", testName: "Hematology Analyzer", urgency: "Low", time: "5 hours ago", message: "Calibration required" },
-  { id: "A004", type: "Pending Review", patientName: "Maria Garcia", testName: "Lipid Profile", urgency: "Medium", time: "1 hour ago", message: "Awaiting physician approval" },
-]
-
 const statusColors: Record<string, string> = {
   "Completed": "bg-green-100 text-green-700",
   "In Progress": "bg-blue-100 text-blue-700",
@@ -131,8 +114,8 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 
 export default function DiagnosticCenterDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
-  const [testResults, setTestResults] = useState<TestResult[]>(mockTestResults)
-  const [alerts] = useState<Alert[]>(mockAlerts)
+  const [testResults, setTestResults] = useState<TestResult[]>([])
+  const [alerts] = useState<Alert[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isAddingTest, setIsAddingTest] = useState(false)
 

@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { StatsCard } from "@/components/common/StatsCard"
 import { CheckinHeader } from "@/components/checkin/CheckinHeader"
-import { useCard, useCardStats } from "@/hooks/useCard"
+import { useQr } from "@/hooks/useQr"
+import { useAppointments } from "@/hooks/useAppointments"
 import {
   Copy,
   Check,
@@ -78,7 +79,7 @@ function ActiveCardItem({
   const appointment = card.appointment
   const ProviderIcon = providerTypeIcons[appointment?.providerType || "clinic"]
   const gradient = providerTypeColors[appointment?.providerType || "clinic"]
-  const { date, time } = formatDateTime(appointment?.scheduledDateTime || card.createdAt)
+  const { date, time } = formatDateTime(appointment?.scheduledDateTime || card.created_at)
 
   return (
     <Card
@@ -97,13 +98,13 @@ function ActiveCardItem({
               <p className="text-xs opacity-80">Check-in Card Number</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-lg sm:text-xl font-mono font-bold tracking-wider">
-                  {card.cardNumber}
+                  {card.card_number}
                 </span>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 text-white hover:bg-white/10 rounded-lg"
-                  onClick={() => onCopy(card.id, card.cardNumber)}
+                  onClick={() => onCopy(card.id, card.card_number)}
                 >
                   {copiedId === card.id ? (
                     <Check className="h-3.5 w-3.5" />
@@ -118,7 +119,7 @@ function ActiveCardItem({
             <Badge className="bg-white/20 text-white border-0 text-xs rounded-full">Active</Badge>
             <div className="flex items-center gap-1.5 text-xs opacity-90 bg-white/10 px-2 py-1 rounded-full">
               <Clock className="h-3 w-3" />
-              {timeRemaining[card.id] || formatTimeRemaining(card.expiresAt)}
+              {timeRemaining[card.id] || formatTimeRemaining(card.expires_at)}
             </div>
           </div>
         </div>
@@ -175,7 +176,7 @@ function ActiveCardItem({
             variant="outline" 
             size="sm" 
             className="flex-1 rounded-xl border-[#008282] text-[#008282] hover:bg-[#008282]/10"
-            onClick={() => onCopy(card.id, card.cardNumber)}
+            onClick={() => onCopy(card.id, card.card_number)}
           >
             <Copy className="mr-2 h-3.5 w-3.5" />
             Copy Number
@@ -193,48 +194,63 @@ function PatientCardNumbersContent() {
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState<Record<number, string>>({})
 
-  const { cards, isLoading: cardsLoading } = useCard({ autoFetch: true })
-  const { cardStats, isLoading: statsLoading } = useCardStats()
+  const { qrCodes, isLoading: qrCodesLoading, activeQrCodes, usedQrCodes, expiredQrCodes } = useQr({ autoFetch: true })
+  const { appointments } = useAppointments()
 
-  const cardsWithAppointments = useMemo(
-    () => cards.filter((card) => (card as any).appointment),
-    [cards]
-  )
-  const activeCards = useMemo(
-    () => cardsWithAppointments.filter((c) => c.status === "Active"),
-    [cardsWithAppointments]
-  )
-  const usedCards = useMemo(
-    () => cardsWithAppointments.filter((c) => c.status === "Used"),
-    [cardsWithAppointments]
-  )
-  const expiredCards = useMemo(
-    () => cardsWithAppointments.filter((c) => c.status === "Expired"),
-    [cardsWithAppointments]
+  // Transform API appointment data to match UI expectations
+  const transformedAppointments = useMemo(() => {
+    return appointments.map((apt: any) => ({
+      ...apt,
+      providerType: 'clinic',
+      location: 'Location',
+      fee: 0,
+      scheduledDateTime: apt.appointment_at,
+    }))
+  }, [appointments])
+
+  const qrCodesWithAppointments = useMemo(
+    () => qrCodes.filter((qr) => qr.appointment_id).map((qr) => ({
+      ...qr,
+      appointment: transformedAppointments.find((apt) => apt.id === qr.appointment_id)
+    })),
+    [qrCodes, transformedAppointments]
   )
 
-  const activeCardKeys = activeCards.map((c) => `${c.id}:${c.expiresAt}`).join(",")
+  const activeQrCodesWithAppointments = useMemo(
+    () => qrCodesWithAppointments.filter((c) => c.status === "active"),
+    [qrCodesWithAppointments]
+  )
+  const usedQrCodesWithAppointments = useMemo(
+    () => qrCodesWithAppointments.filter((c) => c.status === "used"),
+    [qrCodesWithAppointments]
+  )
+  const expiredQrCodesWithAppointments = useMemo(
+    () => qrCodesWithAppointments.filter((c) => c.is_expired),
+    [qrCodesWithAppointments]
+  )
+
+  const activeQrKeys = activeQrCodesWithAppointments.map((c) => `${c.id}:${c.expires_at}`).join(",")
   useEffect(() => {
     const updateTimes = () => {
       setTimeRemaining(
         Object.fromEntries(
-          activeCards.map((card) => [card.id, formatTimeRemaining(card.expiresAt)])
+          activeQrCodesWithAppointments.map((card) => [card.id, formatTimeRemaining(card.expires_at)])
         )
       )
     }
     updateTimes()
     const interval = setInterval(updateTimes, 60000)
     return () => clearInterval(interval)
-  }, [activeCardKeys])
+  }, [activeQrKeys])
 
   const copyCardNumber = (id: number, cardNumber: string) => {
     navigator.clipboard.writeText(cardNumber.replace(/-/g, ""))
     setCopiedId(id)
-    toast.success("Card number copied to clipboard")
+    toast.success("QR number copied to clipboard")
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  if (cardsLoading || statsLoading) {
+  if (qrCodesLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex justify-center items-center min-h-[400px]">
@@ -253,49 +269,47 @@ function PatientCardNumbersContent() {
           icon={<Ticket className="h-5 w-5" />}
         />
 
-        {cardStats && (
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-8">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4 mb-8">
             <StatsCard
               title="Total Cards"
-              value={cardsWithAppointments.length}
+              value={qrCodesWithAppointments.length}
               icon={<CreditCard className="h-5 w-5" />}
               variant="default"
             />
             <StatsCard
               title="Active"
-              value={activeCards.length}
+              value={activeQrCodesWithAppointments.length}
               icon={<Clock className="h-5 w-5" />}
               variant="success"
             />
             <StatsCard
               title="Used"
-              value={usedCards.length}
+              value={usedQrCodesWithAppointments.length}
               icon={<Check className="h-5 w-5" />}
               variant="info"
             />
             <StatsCard
               title="Expired"
-              value={expiredCards.length}
+              value={expiredQrCodesWithAppointments.length}
               icon={<Calendar className="h-5 w-5" />}
               variant="warning"
             />
           </div>
-        )}
 
-        {cardsWithAppointments.length > 0 ? (
+        {qrCodesWithAppointments.length > 0 ? (
           <div className="space-y-6">
-            {activeCards.length > 0 && (
+            {activeQrCodesWithAppointments.length > 0 && (
               <div>
                 <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  Active Cards ({activeCards.length})
+                  Active Cards ({activeQrCodesWithAppointments.length})
                 </h2>
                 <div className="grid gap-5">
-                  {activeCards.map((card) => (
+                  {activeQrCodesWithAppointments.map((card) => (
                     <ActiveCardItem
                       key={card.id}
                       card={card}
-                      isHighlighted={card.appointmentId !== null && highlightedAppointmentId === card.appointmentId.toString()}
+                      isHighlighted={card.appointment_id !== null && highlightedAppointmentId === card.appointment_id.toString()}
                       copiedId={copiedId}
                       timeRemaining={timeRemaining}
                       onCopy={copyCardNumber}

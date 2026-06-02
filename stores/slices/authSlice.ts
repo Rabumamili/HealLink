@@ -82,7 +82,13 @@ const persistOptions: PersistOptions<AuthState, AuthPersist> = {
       const value = localStorage.getItem(name);
       if (!value) return null;
       try {
-        return JSON.parse(value);
+        const parsed = JSON.parse(value);
+        // Only restore user if there's a valid token
+        const hasToken = localStorage.getItem('token');
+        if (!hasToken && parsed.state?.user) {
+          parsed.state.user = null;
+        }
+        return parsed;
       } catch {
         return null;
       }
@@ -96,9 +102,9 @@ const persistOptions: PersistOptions<AuthState, AuthPersist> = {
       localStorage.removeItem(name);
     },
   },
-  partialize: (state) => ({ 
+  partialize: (state) => ({
     user: state.user,
-    isInitialized: state.isInitialized 
+    isInitialized: state.isInitialized
   }),
 };
 
@@ -113,7 +119,7 @@ export const useAuthStore = create<AuthState>()(
 
         initialize: async () => {
           if (get().isInitialized) return;
-          
+
           set({ isLoading: true });
           try {
             const token = localStorage.getItem('token');
@@ -129,7 +135,9 @@ export const useAuthStore = create<AuthState>()(
               const user = await authService.getCurrentUser();
               set({ user, isInitialized: true, error: null });
             } else {
-              set({ isInitialized: true });
+              // Clear user from both localStorage and store if not authenticated (no token)
+              localStorage.removeItem('user');
+              set({ user: null, isInitialized: true });
             }
           } catch (error) {
             console.error('Failed to initialize auth:', error);
@@ -171,7 +179,9 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             const response = await authService.registerUser(data);
-            set({ user: response.user, error: null });
+            // Don't set user in store after registration - they need to verify email first
+            // The user data is stored in localStorage for verification flow, but not in auth state
+            set({ user: null, error: null });
           } catch (error: any) {
             const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
             set({ error: errorMessage });

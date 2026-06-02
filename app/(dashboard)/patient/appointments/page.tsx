@@ -34,7 +34,6 @@ import { WriteReviewDialog } from '@/components/review/WriteReviewDialog';
 
 import { useAppointments } from '@/hooks/useAppointments';
 import { useReview } from '@/hooks/useReview';
-import { EnrichedAppointment } from '@/types/entities/appointment.types';
 
 import { toast } from 'sonner';
 
@@ -54,7 +53,7 @@ const normalize = (value?: string | null): string =>
 
 // IMPORTANT: Card number is NOT included in patient view for security
 const toCardData = (
-  appointment: EnrichedAppointment,
+  appointment: any,
   hasReviewed: boolean = false
 ): AppointmentCardData => ({
   id: appointment.id,
@@ -91,7 +90,7 @@ export default function PatientAppointmentsPage() {
   const [viewOpen, setViewOpen] = useState<boolean>(false);
   const [rescheduleOpen, setRescheduleOpen] = useState<boolean>(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState<boolean>(false);
-  const [selectedAppointmentForReview, setSelectedAppointmentForReview] = useState<EnrichedAppointment | null>(null);
+  const [selectedAppointmentForReview, setSelectedAppointmentForReview] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'past'>('today');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [reviewedAppointments, setReviewedAppointments] = useState<Set<number>>(new Set());
@@ -132,11 +131,11 @@ export default function PatientAppointmentsPage() {
   }, [reviews]);
 
   const patientAppointments = useMemo(() => {
-    return appointments.filter((apt: EnrichedAppointment) => apt.patientId === patientId);
+    return appointments.filter((apt: any) => (apt as any).patientId === patientId);
   }, [appointments, patientId]);
 
   const filteredAppointments = useMemo(() => {
-    return patientAppointments.filter((apt: EnrichedAppointment) => {
+    return patientAppointments.filter((apt: any) => {
       const matchesSearch =
         normalize(apt.providerName).includes(normalize(filters.searchTerm)) ||
         normalize(apt.serviceName).includes(normalize(filters.searchTerm)) ||
@@ -152,13 +151,13 @@ export default function PatientAppointmentsPage() {
   const today = new Date().toLocaleDateString('en-CA');
 
   const todayAppointments = useMemo(() => {
-    return filteredAppointments.filter((a: EnrichedAppointment) =>
-      a.scheduledDateTime.startsWith(today)
+    return filteredAppointments.filter((a: any) =>
+      (a as any).scheduledDateTime?.startsWith(today)
     );
   }, [filteredAppointments, today]);
 
   const upcomingAppointments = useMemo(() => {
-    return filteredAppointments.filter((a: EnrichedAppointment) =>
+    return filteredAppointments.filter((a: any) =>
       a.status === 'Scheduled' ||
       a.status === 'Confirmed' ||
       a.status === 'Checked-in' ||
@@ -167,7 +166,7 @@ export default function PatientAppointmentsPage() {
   }, [filteredAppointments]);
 
   const pastAppointments = useMemo(() => {
-    return filteredAppointments.filter((a: EnrichedAppointment) =>
+    return filteredAppointments.filter((a: any) =>
       a.status === 'Completed' ||
       a.status === 'Cancelled' ||
       a.status === 'No-show'
@@ -189,12 +188,12 @@ export default function PatientAppointmentsPage() {
 
   const totalSpent = useMemo(() => {
     return patientAppointments
-      .filter((a: EnrichedAppointment) => a.paymentStatus === 'SUCCESS')
-      .reduce((sum: number, apt: EnrichedAppointment) => sum + (apt.fee || 0), 0);
+      .filter((a: any) => a.paymentStatus === 'SUCCESS')
+      .reduce((sum: number, apt: any) => sum + (apt.fee || 0), 0);
   }, [patientAppointments]);
 
   const pendingPayments = useMemo(() => {
-    return patientAppointments.filter((a: EnrichedAppointment) => a.paymentStatus === 'PENDING').length;
+    return patientAppointments.filter((a: any) => a.paymentStatus === 'PENDING').length;
   }, [patientAppointments]);
 
   const statsCards = useMemo(
@@ -307,7 +306,7 @@ export default function PatientAppointmentsPage() {
     [updateTiming, fetchPatientAppointments, patientId]
   );
 
-  const handleWriteReview = useCallback((appointment: EnrichedAppointment): void => {
+  const handleWriteReview = useCallback((appointment: any): void => {
     setSelectedAppointmentForReview(appointment);
     setReviewDialogOpen(true);
   }, []);
@@ -342,7 +341,7 @@ export default function PatientAppointmentsPage() {
     [createReview, fetchReviewsByPatient, patientId, selectedAppointmentForReview]
   );
 
-  const canReview = useCallback((appointment: EnrichedAppointment): boolean => {
+  const canReview = useCallback((appointment: any): boolean => {
     return appointment.status === 'Completed' && !reviewedAppointments.has(appointment.id);
   }, [reviewedAppointments]);
 
@@ -433,7 +432,7 @@ export default function PatientAppointmentsPage() {
 
         <div className="space-y-4 mt-6">
           {currentAppointments.length > 0 ? (
-            currentAppointments.map((appointment: EnrichedAppointment) => (
+            currentAppointments.map((appointment: any) => (
               <AppointmentCard
                 key={appointment.id}
                 appointment={toCardData(appointment, reviewedAppointments.has(appointment.id))}

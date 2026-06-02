@@ -2,7 +2,6 @@
 import { TimeSlot } from './schedule.types';
 import { PatientProfile } from './profile.types';
 import { Service, ServiceType } from './service.types';
-import { Card, CardStatus } from './card.types';
 import { PaymentStatus } from './payment.types';
 
 // Use const assertion for better type safety
@@ -35,7 +34,7 @@ export interface Appointment {
   createdAt: string;
   updatedAt: string;
   paymentId: number | null;
-  cardId: number | null;
+  qrId: number | null;
 }
 
 // DTOs use the same consistent naming
@@ -57,7 +56,6 @@ export interface BookAppointmentRequest {
 export interface BookAppointmentResponse {
   success: boolean;
   appointment?: Appointment;
-  card?: Card;
   paymentId?: number;
   paymentStatus?: PaymentStatus;
   message?: string;
@@ -74,8 +72,8 @@ export interface AppointmentFilters {
   serviceId?: number;
   slotId?: number;
   type?: ServiceType | 'all';
-  hasCard?: boolean;
-  cardStatus?: CardStatus;
+  hasQr?: boolean;
+  qrStatus?: string;
   providerId?: number;
 }
 
@@ -91,21 +89,21 @@ export interface AppointmentStats {
   averageWaitTime: number;
   revenue: number;
   upcoming: number;
-  cardsIssued: number;
-  cardsUtilized: number;
+  qrIssued: number;
+  qrUtilized: number;
 }
 
 export interface CheckedInPatient {
   id: number;
   patientName: string;
-  cardNumber: string;
+  qrNumber: string;
   serviceName: string;
   serviceType?: ServiceType;
   checkInTime: string;
   scheduledTime: string;
   status: 'waiting' | 'in-progress' | 'completed';
   estimatedWaitMinutes: number;
-  cardId?: number;
+  qrId?: number;
   appointmentId?: number;
 }
 
@@ -122,8 +120,8 @@ export interface AppointmentEnrichment {
   serviceName?: string;
   serviceType?: ServiceType;
   slotTime?: string;
-  cardNumber?: string;
-  cardStatus?: CardStatus;
+  qrNumber?: string;
+  qrStatus?: string;
   providerName?: string;
   providerType?: ProviderType;
   providerImage?: string;
@@ -141,7 +139,6 @@ export type ProviderType = 'doctor' | 'clinic' | 'diagnostic_center';
 export interface AppointmentWithDetails extends EnrichedAppointment {
   patient?: PatientProfile;
   service?: Service;
-  card?: Card;
 }
 
 export type { PaymentStatus };

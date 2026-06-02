@@ -1,4 +1,4 @@
-// services/result.service.ts
+// services/diagnostic-results.service.ts
 import { ApiService } from './api.service';
 
 export interface DiagnosticResult {
@@ -6,13 +6,15 @@ export interface DiagnosticResult {
   appointment_id: number;
   status: string;
   updated_at: string;
+  updated_by_provider_id?: number;
+  created_at: string;
 }
 
 export interface UpdateResultStatusRequest {
-  status: 'pending' | 'ready' | 'collected';
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
 }
 
-class ResultService extends ApiService {
+class DiagnosticResultsService extends ApiService {
   private readonly basePath = '/diagnostic-results';
 
   async getResultForAppointment(appointmentId: number): Promise<DiagnosticResult> {
@@ -28,4 +30,4 @@ class ResultService extends ApiService {
   }
 }
 
-export const resultService = new ResultService();
+export const diagnosticResultsService = new DiagnosticResultsService();

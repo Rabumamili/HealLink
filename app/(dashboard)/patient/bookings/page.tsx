@@ -27,14 +27,15 @@ import { BookingSidebar, ProviderDetails } from "@/components/appointmentBooking
 import { PaymentModal } from "@/components/appointmentBooking/PaymentModal"
 
 import { Service } from "@/types/entities/service.types"
-import { getProviderRepository } from "@/services/mock"
+import { appointmentService } from "@/services/appointment.service"
+import { serviceService } from "@/services/service.service"
+import { authService } from "@/services/auth.service"
 
-const getCurrentPatientId = (): number => {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("currentPatientId")
-    if (stored) return parseInt(stored)
-  }
-  return 201
+const getCurrentPatientId = (): number | null => {
+  if (typeof window === 'undefined') return null
+  const user = authService.getCurrentUserSync()
+  if (user?.id) return user.id
+  return null
 }
 
 const generateTimeSlots = () => {
@@ -82,6 +83,10 @@ const providerTabs: TabOption[] = [
 function BookingWizardContent() {
   const patientId = getCurrentPatientId()
 
+  if (patientId === null) {
+    return <LoadingState message="Loading booking experience..." size="lg" fullScreen />
+  }
+
   // State
   const [activeProvider, setActiveProvider] = useState<ProviderType>("doctor")
   const [selectedService, setSelectedService] = useState<Service | null>(null)
@@ -98,48 +103,61 @@ function BookingWizardContent() {
 
   // Hooks
   const {
-    consultationServices,
-    procedureServices,
-    diagnosticServices,
+    services,
     isLoading: servicesLoading,
   } = useServices({ autoFetch: true })
 
-  const {
-    bookAppointment,
-    bookAppointmentWithPendingPayment,
-    isLoading: isBooking,
-    refreshData,
-  } = useAppointments()
+  // Derive service categories by filtering based on serviceType
+  const consultationServices = services.filter(s => s.serviceType === 'Consultation')
+  const procedureServices = services.filter(s => s.serviceType === 'ClinicServices')
+  const diagnosticServices = services.filter(s => s.serviceType === 'DiagnosticTests')
 
-  // Fetch provider details when service is selected
+  const [serviceSlots, setServiceSlots] = useState<any[]>([])
+  const [selectedSlot, setSelectedSlot] = useState<any | null>(null)
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
+
+  // Fetch provider details and slots when service is selected
   useEffect(() => {
     if (selectedService?.providerId) {
-      const providerRepo = getProviderRepository()
-      const provider = providerRepo.findById(selectedService.providerId)
-      if (provider) {
-        setSelectedProvider({
-          id: provider.id,
-          name: provider.name,
-          type: provider.type,
-          specialty: provider.specialty,
-          rating: provider.rating,
-          reviews: provider.reviews,
-          image: provider.image,
-          location: provider.location,
-          locationDetail: provider.locationDetail,
-          contactPhone: provider.contactPhone,
-          contactEmail: provider.contactEmail,
-          bio: provider.bio,
-          experience: provider.experience,
-          education: provider.education,
-        })
-      } else {
-        setSelectedProvider(null)
-      }
+      // Use service data to populate provider details
+      setSelectedProvider({
+        id: selectedService.providerId,
+        name: selectedService.name,
+        type: selectedService.serviceType === 'Consultation' ? 'doctor' : selectedService.serviceType === 'ClinicServices' ? 'clinic' : 'diagnostic',
+        specialty: selectedService.serviceType,
+        rating: 0,
+        reviews: 0,
+        image: undefined,
+        location: selectedService.location || 'Addis Ababa',
+        locationDetail: selectedService.location || '',
+        contactPhone: '',
+        contactEmail: '',
+        bio: selectedService.description || '',
+        experience: '',
+        education: '',
+      })
+
+      // Fetch available slots for the service
+      fetchSlotsForService(selectedService.id)
     } else {
       setSelectedProvider(null)
+      setServiceSlots([])
+      setSelectedSlot(null)
     }
   }, [selectedService])
+
+  const fetchSlotsForService = async (serviceId: number) => {
+    setIsLoadingSlots(true)
+    try {
+      const slots = await serviceService.listServiceSlots(serviceId, true)
+      setServiceSlots(slots)
+    } catch (error) {
+      console.error('Failed to fetch slots:', error)
+      setServiceSlots([])
+    } finally {
+      setIsLoadingSlots(false)
+    }
+  }
 
   const currentStep: BookingStep = useMemo(() => {
     if (!selectedService) return 1
@@ -171,8 +189,8 @@ function BookingWizardContent() {
   const resetBooking = () => {
     setSelectedService(null)
     setSelectedProvider(null)
-    setSelectedDate(dates[0])
-    setSelectedTime(timeSlots[0])
+    setSelectedSlot(null)
+    setServiceSlots([])
     setShowSuccessModal(false)
   }
 
@@ -189,54 +207,43 @@ function BookingWizardContent() {
   }
 
   const handleBooking = async (paymentConfirmed: boolean) => {
-    if (!selectedService) return
+    if (!selectedService || !selectedSlot) {
+      toast.error('Please select a service and time slot')
+      return
+    }
 
     setIsProcessing(true)
     setShowPaymentModal(false)
 
     try {
-      const scheduledDateTime = `${selectedDate.fullDate} ${selectedTime}:00`
+      const result = await appointmentService.createAppointment(
+        selectedService.id,
+        selectedSlot.id,
+        `Booking for ${selectedService.name} at ${new Date(selectedSlot.starts_at).toLocaleString()}`
+      )
 
-      const request = {
-        patientId,
-        serviceId: selectedService.id,
-        slotId: Math.floor(Math.random() * 100) + 1,
-        scheduledDateTime,
-        paymentConfirmed,
-        notes: `Booking for ${selectedService.name}`,
-      }
-
-      const result = paymentConfirmed
-        ? await bookAppointment(request)
-        : await bookAppointmentWithPendingPayment(request)
-
-      if (!result?.success) {
-        toast.error(result?.message || "Booking failed")
+      if (!result) {
+        toast.error("Booking failed")
         return
       }
 
-      await refreshData()
-
       setSuccessData({
-        title: paymentConfirmed ? "Appointment Confirmed" : "Booking Request Sent",
-        message: paymentConfirmed
-          ? "Your appointment has been successfully confirmed."
-          : "Your appointment is pending payment at the clinic.",
+        title: "Appointment Confirmed",
+        message: "Your appointment has been successfully confirmed.",
         variant: "booking",
         details: {
           serviceName: selectedService.name,
-          appointmentDate: `${selectedDate.day} ${selectedDate.date}/${selectedDate.month}/${selectedDate.year}`,
-          appointmentTime: selectedTime,
-          amount: totalAmount,
+          appointmentDate: new Date(selectedSlot.starts_at).toLocaleDateString(),
+          appointmentTime: new Date(selectedSlot.starts_at).toLocaleTimeString(),
+          amount: selectedService.standardFee || 0,
           location: selectedProvider?.name || "Healthcare Facility",
-          cardNumber: result.card?.cardNumber,
         },
         primaryAction: { label: "View Appointments", href: "/patient/appointments" },
         secondaryAction: { label: "Book Another", onClick: resetBooking },
       })
 
       setShowSuccessModal(true)
-      toast.success(paymentConfirmed ? "Appointment confirmed successfully" : "Booking request submitted")
+      toast.success("Appointment confirmed successfully")
     } catch (error) {
       console.error(error)
       toast.error("Something went wrong")
@@ -371,16 +378,41 @@ function BookingWizardContent() {
                         <CalendarDays className="h-6 w-6 sm:h-7 sm:w-7 text-[#006767]" />
                       </div>
                       <div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-[#0b1c30]">Schedule Appointment</h2>
-                        <p className="text-sm text-gray-500 mt-1">Select your preferred date and time for {selectedService.name}</p>
+                        <h2 className="text-xl sm:text-2xl font-bold text-[#0b1c30]">Select Time Slot</h2>
+                        <p className="text-sm text-gray-500 mt-1">Choose an available time slot for {selectedService.name}</p>
                       </div>
                     </div>
 
-                    <DateSelection dates={dates} selectedDate={selectedDate} onDateSelect={setSelectedDate} />
-                    
-                    <div className="mt-6">
-                      <TimeSelection timeSlots={timeSlots} selectedTime={selectedTime} onTimeSelect={setSelectedTime} />
-                    </div>
+                    {isLoadingSlots ? (
+                      <div className="flex justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#006767]" />
+                      </div>
+                    ) : serviceSlots.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">No available slots for this service</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {serviceSlots.map((slot) => (
+                          <button
+                            key={slot.id}
+                            onClick={() => setSelectedSlot(slot)}
+                            className={`p-4 rounded-xl border-2 transition-all ${
+                              selectedSlot?.id === slot.id
+                                ? 'border-[#006767] bg-[#006767]/5 text-[#006767]'
+                                : 'border-gray-200 hover:border-[#006767]/50'
+                            }`}
+                          >
+                            <div className="text-sm font-medium">
+                              {new Date(slot.starts_at).toLocaleDateString()}
+                            </div>
+                            <div className="text-lg font-bold mt-1">
+                              {new Date(slot.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Booking Summary Card - Mobile/Tablet */}
@@ -407,7 +439,7 @@ function BookingWizardContent() {
                   service={selectedService}
                   provider={selectedProvider}
                   totalAmount={totalAmount}
-                  isLoading={isProcessing || isBooking}
+                  isLoading={isProcessing}
                   onPayNow={() => setShowPaymentModal(true)}
                   onPayLater={() => handleBooking(false)}
                   onChapaPayment={() => setShowPaymentModal(true)}
@@ -424,7 +456,7 @@ function BookingWizardContent() {
           service={selectedService}
           totalAmount={totalAmount}
           isOpen={showPaymentModal}
-          isProcessing={isProcessing || isBooking}
+          isProcessing={isProcessing}
           onClose={() => setShowPaymentModal(false)}
           onConfirm={() => handleBooking(true)}
         />

@@ -1,13 +1,14 @@
 // app/patient/dashboard/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
+import { appointmentService } from "@/services/appointment.service"
 import {
   CalendarPlus,
   CreditCard,
@@ -35,57 +36,11 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Ordered appointment data - NO card numbers or patient IDs
-const upcomingAppointments = [
-  {
-    id: "1",
-    providerName: "Dr. Sara Tesfaye",
-    providerType: "doctor",
-    specialty: "Cardiologist",
-    date: "May 15, 2026",
-    time: "10:00 AM",
-    location: "Black Lion Hospital, Addis Ababa",
-    type: "Consultation",
-    status: "Confirmed",
-    queueNumber: 3
-  },
-  {
-    id: "2",
-    providerName: "Dr. Abebe Kebede",
-    providerType: "doctor",
-    specialty: "General Physician",
-    date: "May 18, 2026",
-    time: "2:30 PM",
-    location: "Hayat General Clinic, Bole Road",
-    type: "Follow-up",
-    status: "Confirmed",
-    queueNumber: 1
-  },
-  {
-    id: "3",
-    providerName: "Addis Diagnostic Center",
-    providerType: "diagnostic",
-    specialty: "Laboratory",
-    date: "May 20, 2026",
-    time: "9:00 AM",
-    location: "Bole, Addis Ababa",
-    type: "Blood Test",
-    status: "Pending",
-    queueNumber: null
-  }
-]
-
-const diagnosticResults = [
-  { id: "1", test: "Complete Blood Count", date: "May 5, 2026", status: "Ready" },
-  { id: "2", test: "Lipid Panel", date: "May 5, 2026", status: "In Progress" },
-  { id: "3", test: "Thyroid Function", date: "May 3, 2026", status: "Collected" },
-]
-
-const recentActivities = [
-  { id: "1", action: "Booked appointment with Dr. Sara", date: "May 10, 2026", type: "appointment" },
-  { id: "2", action: "Viewed test results", date: "May 8, 2026", type: "result" },
-  { id: "3", action: "Updated health profile", date: "May 5, 2026", type: "profile" },
-]
+const providerTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+  doctor: Stethoscope,
+  clinic: Building2,
+  diagnostic: FlaskConical,
+}
 
 const statusColors: Record<string, string> = {
   "Pending": "bg-yellow-100 text-yellow-700",
@@ -95,19 +50,53 @@ const statusColors: Record<string, string> = {
   "Confirmed": "bg-teal-100 text-teal-700",
 }
 
-const providerTypeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  doctor: Stethoscope,
-  clinic: Building2,
-  diagnostic: FlaskConical,
-}
-
 export default function PatientDashboard() {
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [diagnosticResults] = useState([
+    { id: 1, test: "Blood Work", date: "Oct 20, 2026", status: "Ready" },
+    { id: 2, test: "X-Ray Chest", date: "Oct 18, 2026", status: "In Progress" },
+    { id: 3, test: "MRI Scan", date: "Oct 15, 2026", status: "Pending" },
+  ])
+  const [recentActivities] = useState([
+    { id: 1, action: "Booked appointment with Dr. Smith", date: "Oct 22, 2026", type: "appointment" },
+    { id: 2, action: "Viewed lab results", date: "Oct 20, 2026", type: "result" },
+    { id: 3, action: "Updated health profile", date: "Oct 18, 2026", type: "profile" },
+  ])
 
-  const filteredAppointments = upcomingAppointments.filter(apt =>
-    apt.providerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    apt.specialty.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      try {
+        setLoading(true)
+        const data = await appointmentService.listMyAppointments()
+        // Transform API data to match UI expectations
+        const transformedData = data.map((apt: any) => ({
+          ...apt,
+          providerName: 'Provider',
+          specialty: 'General',
+          date: apt.appointment_at ? new Date(apt.appointment_at).toLocaleDateString() : '',
+          time: apt.appointment_at ? new Date(apt.appointment_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
+          location: 'Location',
+          queueNumber: null,
+          providerType: 'doctor',
+        }))
+        setAppointments(transformedData)
+      } catch (error) {
+        console.error('Failed to fetch appointments:', error)
+        setAppointments([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAppointments()
+  }, [])
+
+  const filteredAppointments = appointments.filter(apt =>
+    apt.providerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    apt.specialty?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const displayName = user?.full_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Patient'
@@ -200,86 +189,93 @@ export default function PatientDashboard() {
             </div>
           </div>
           <CardContent className="p-6">
-            <div className="space-y-5">
-              {filteredAppointments.map((apt) => {
-                const ProviderIcon = providerTypeIcons[apt.providerType] || Stethoscope
-                return (
-                  <div
-                    key={apt.id}
-                    className="group bg-white rounded-xl border-2 border-gray-200 hover:border-teal-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="p-5">
-                      <div className="flex flex-col lg:flex-row lg:items-start gap-5">
-                        <div className="flex items-start gap-4 flex-1">
-                          <Avatar className="h-16 w-16 rounded-xl shrink-0">
-                            <AvatarFallback className="bg-teal-50 text-teal-600 text-xl font-bold">
-                              <ProviderIcon className="h-6 w-6" />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-2">
-                              <h4 className="font-bold text-gray-900 text-lg">{apt.providerName}</h4>
-                              <Badge className={statusColors[apt.status]}>
-                                {apt.status}
-                              </Badge>
-                              {apt.queueNumber && (
-                                <Badge variant="outline" className="border-teal-300 text-teal-700 font-semibold">
-                                  Queue #{apt.queueNumber}
+            {loading ? (
+              <div className="text-center py-12 text-gray-500">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600 mx-auto mb-3"></div>
+                <p>Loading appointments...</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {filteredAppointments.map((apt) => {
+                  const ProviderIcon = providerTypeIcons[apt.providerType] || Stethoscope
+                  return (
+                    <div
+                      key={apt.id}
+                      className="group bg-white rounded-xl border-2 border-gray-200 hover:border-teal-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
+                    >
+                      <div className="p-5">
+                        <div className="flex flex-col lg:flex-row lg:items-start gap-5">
+                          <div className="flex items-start gap-4 flex-1">
+                            <Avatar className="h-16 w-16 rounded-xl shrink-0">
+                              <AvatarFallback className="bg-teal-50 text-teal-600 text-xl font-bold">
+                                <ProviderIcon className="h-6 w-6" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-2">
+                                <h4 className="font-bold text-gray-900 text-lg">{apt.providerName}</h4>
+                                <Badge className={statusColors[apt.status]}>
+                                  {apt.status}
                                 </Badge>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
-                              <span className="flex items-center gap-1.5">
-                                <Stethoscope className="h-4 w-4 text-teal-600" />
-                                {apt.specialty}
-                              </span>
-                              <span className="flex items-center gap-1.5">
-                                <Clock className="h-4 w-4 text-teal-600" />
-                                {apt.date} at {apt.time}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
-                              <span className="flex items-center gap-1.5">
-                                <MapPin className="h-4 w-4 text-teal-600" />
-                                {apt.location}
-                              </span>
+                                {apt.queueNumber && (
+                                  <Badge variant="outline" className="border-teal-300 text-teal-700 font-semibold">
+                                    Queue #{apt.queueNumber}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
+                                <span className="flex items-center gap-1.5">
+                                  <Stethoscope className="h-4 w-4 text-teal-600" />
+                                  {apt.specialty}
+                                </span>
+                                <span className="flex items-center gap-1.5">
+                                  <Clock className="h-4 w-4 text-teal-600" />
+                                  {apt.date} at {apt.time}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-600">
+                                <span className="flex items-center gap-1.5">
+                                  <MapPin className="h-4 w-4 text-teal-600" />
+                                  {apt.location}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          <div className="flex lg:flex-col gap-2 shrink-0">
+                            <Button variant="outline" size="sm" className="rounded-lg border-teal-300 text-teal-700 hover:bg-teal-50 font-medium">
+                              View Details
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex lg:flex-col gap-2 shrink-0">
-                          <Button variant="outline" size="sm" className="rounded-lg border-teal-300 text-teal-700 hover:bg-teal-50 font-medium">
-                            View Details
-                          </Button>
-                        </div>
-                      </div>
 
-                      {/* Additional Info - Always visible */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1.5">
-                            <Clipboard className="h-4 w-4 text-teal-600" />
-                            <span className="font-medium">Type:</span> {apt.type}
-                          </span>
-                          <button className="text-teal-600 hover:text-teal-700 flex items-center gap-1.5 font-medium ml-auto">
-                            <Phone className="h-4 w-4" />
-                            Contact Provider
-                          </button>
+                        {/* Additional Info - Always visible */}
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                            <span className="flex items-center gap-1.5">
+                              <Clipboard className="h-4 w-4 text-teal-600" />
+                              <span className="font-medium">Type:</span> {apt.type}
+                            </span>
+                            <button className="text-teal-600 hover:text-teal-700 flex items-center gap-1.5 font-medium ml-auto">
+                              <Phone className="h-4 w-4" />
+                              Contact Provider
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
+                  )
+                })}
+                {filteredAppointments.length === 0 && (
+                  <div className="text-center py-12 text-gray-500">
+                    <CalendarPlus className="h-12 w-12 mx-auto mb-3 opacity-50 text-teal-600" />
+                    <p>No upcoming appointments found</p>
+                    <Button variant="link" asChild className="text-teal-600">
+                      <Link href="/patient/search">Book your first appointment</Link>
+                    </Button>
                   </div>
-                )
-              })}
-              {filteredAppointments.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <CalendarPlus className="h-12 w-12 mx-auto mb-3 opacity-50 text-teal-600" />
-                  <p>No upcoming appointments found</p>
-                  <Button variant="link" asChild className="text-teal-600">
-                    <Link href="/patient/search">Book your first appointment</Link>
-                  </Button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 

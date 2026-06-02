@@ -25,6 +25,7 @@ export interface Service {
   preparationInstructions: string | null;
   serviceType: ServiceType;
   status: ServiceStatus;
+  location?: string;
   createdAt: string;
   updatedAt: string;
 }

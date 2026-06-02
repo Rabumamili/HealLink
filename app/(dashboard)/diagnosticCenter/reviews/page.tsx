@@ -42,7 +42,10 @@ import { cn } from '@/lib/utils';
 
 // Types
 interface Review {
-  review_id: number;
+  id: number;
+  patient_id: number;
+  provider_id: number;
+  appointment_id: number;
   rating: number;
   comment: string;
   created_at: string;
@@ -67,7 +70,7 @@ interface ProviderStats {
   total_reviews: number;
 }
 
-const getCurrentDiagnosticId = (): number => {
+const getCurrentDiagnosticId = (): number | null => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('currentDiagnosticCenterId');
     if (stored) {
@@ -75,12 +78,12 @@ const getCurrentDiagnosticId = (): number => {
       if (!isNaN(parsed)) return parsed;
     }
   }
-  return 104;
+  return null;
 };
 
 export default function DiagnosticReviewsPage() {
   const router = useRouter();
-  const [diagnosticId, setDiagnosticId] = useState<number>(104);
+  const [diagnosticId, setDiagnosticId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -97,7 +100,9 @@ export default function DiagnosticReviewsPage() {
 
   useEffect(() => {
     const id = getCurrentDiagnosticId();
-    setDiagnosticId(id);
+    if (id !== null) {
+      setDiagnosticId(id);
+    }
   }, []);
 
   const loadData = useCallback(async () => {
@@ -160,8 +165,8 @@ export default function DiagnosticReviewsPage() {
     return distribution;
   }, [reviews]);
 
-  const averageRating = (providerStats as ProviderStats)?.average_rating || 0;
-  const totalReviews = (providerStats as ProviderStats)?.total_reviews || 0;
+  const averageRating = (providerStats as any)?.average_rating || 0;
+  const totalReviews = (providerStats as any)?.total_reviews || 0;
   const positiveReviews = reviews.filter((r: Review) => r.rating >= 4).length;
   const positivePercentage = totalReviews > 0 ? (positiveReviews / totalReviews) * 100 : 0;
 
@@ -198,7 +203,7 @@ export default function DiagnosticReviewsPage() {
                   <Microscope className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">{(providerStats as ProviderStats)?.provider_name || 'Diagnostic Center'}</h2>
+                  <h2 className="text-xl font-bold">{(providerStats as any)?.provider_name || 'Diagnostic Center'}</h2>
                   <p className="text-violet-100 text-sm">Accredited Laboratory</p>
                 </div>
               </div>
@@ -406,7 +411,7 @@ export default function DiagnosticReviewsPage() {
           {filteredReviews.length > 0 ? (
             filteredReviews.map((review: Review) => (
               <ProviderReviewCard
-                key={review.review_id}
+                key={review.id}
                 review={review}
                 variant="diagnostic"
               />

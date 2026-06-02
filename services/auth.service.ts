@@ -186,6 +186,7 @@ class AuthService extends ApiService {
       false
     );
 
+    // Store tokens so user can verify email (API requires authentication)
     return persistAuthSession(response);
   }
 

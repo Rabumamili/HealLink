@@ -42,7 +42,10 @@ import { cn } from '@/lib/utils';
 
 // Types
 interface Review {
-  review_id: number;
+  id: number;
+  patient_id: number;
+  provider_id: number;
+  appointment_id: number;
   rating: number;
   comment: string;
   created_at: string;
@@ -67,7 +70,7 @@ interface ProviderStats {
   total_reviews: number;
 }
 
-const getCurrentDoctorId = (): number => {
+const getCurrentDoctorId = (): number | null => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('currentDoctorId');
     if (stored) {
@@ -75,12 +78,12 @@ const getCurrentDoctorId = (): number => {
       if (!isNaN(parsed)) return parsed;
     }
   }
-  return 101;
+  return null;
 };
 
 export default function DoctorReviewsPage() {
   const router = useRouter();
-  const [doctorId, setDoctorId] = useState<number>(101);
+  const [doctorId, setDoctorId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -97,7 +100,9 @@ export default function DoctorReviewsPage() {
 
   useEffect(() => {
     const id = getCurrentDoctorId();
-    setDoctorId(id);
+    if (id !== null) {
+      setDoctorId(id);
+    }
   }, []);
 
   const loadData = useCallback(async () => {
@@ -160,8 +165,8 @@ export default function DoctorReviewsPage() {
     return distribution;
   }, [reviews]);
 
-  const averageRating = (providerStats as ProviderStats)?.average_rating || 0;
-  const totalReviews = (providerStats as ProviderStats)?.total_reviews || 0;
+  const averageRating = (providerStats as any)?.average_rating || 0;
+  const totalReviews = (providerStats as any)?.total_reviews || 0;
   const positiveReviews = reviews.filter((r: Review) => r.rating >= 4).length;
   const neutralReviews = reviews.filter((r: Review) => r.rating === 3).length;
   const negativeReviews = reviews.filter((r: Review) => r.rating <= 2).length;
@@ -200,7 +205,7 @@ export default function DoctorReviewsPage() {
                   <Stethoscope className="h-8 w-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">{(providerStats as ProviderStats)?.provider_name || 'Doctor'}</h2>
+                  <h2 className="text-xl font-bold">{(providerStats as any)?.provider_name || 'Doctor'}</h2>
                   <p className="text-teal-100 text-sm">Medical Professional</p>
                 </div>
               </div>
@@ -415,7 +420,7 @@ export default function DoctorReviewsPage() {
           {filteredReviews.length > 0 ? (
             filteredReviews.map((review: Review) => (
               <ProviderReviewCard
-                key={review.review_id}
+                key={review.id}
                 review={review}
                 variant="doctor"
               />

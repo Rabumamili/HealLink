@@ -70,8 +70,8 @@ export const PatientRegisterForm = () => {
         role: 'patient',
       });
 
-      toast.success('Registration successful!');
-      router.push('/patient/dashboard');
+      toast.success('Registration successful! Please verify your email.');
+      router.push(`/verify?email=${encodeURIComponent(data.email)}&role=patient`);
     } catch (err: any) {
       // Format error message for better UX
       let errorMessage = err?.message || 'Registration failed';

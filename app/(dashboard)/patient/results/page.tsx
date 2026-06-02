@@ -219,10 +219,9 @@ export default function DiagnosticResultsPage() {
   const {
     results,
     isLoading,
-    fetchResults,
+    getMyResults,
   } = useResults({
     autoFetch: false,
-    enablePolling: false,
   });
 
   // Transform results to diagnostic results format
@@ -251,19 +250,17 @@ export default function DiagnosticResultsPage() {
     if (!user?.id) return;
     
     try {
-      // Fetch results using patient_id filter
-      await fetchResults({ 
-        patient_id: user.id
-      });
+      // Fetch results
+      await getMyResults();
       
       // Transform the results
-      const transformed = transformResults(results as ResultWithDetails[]);
+      const transformed = transformResults(results as any);
       setDiagnosticResults(transformed);
     } catch (error) {
       console.error('Error loading results:', error);
       toast.error('Failed to load diagnostic results');
     }
-  }, [user?.id, fetchResults, transformResults, results]);
+  }, [user?.id, getMyResults, transformResults, results]);
 
   useEffect(() => {
     loadResults();

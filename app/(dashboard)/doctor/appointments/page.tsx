@@ -16,11 +16,10 @@ import { LoadingState } from "@/components/common/LoadingState"
 import { Button } from "@/components/ui/button"
 import { Calendar, DollarSign, Users, CheckCircle, Stethoscope, CalendarPlus } from "lucide-react"
 import { toast } from "sonner"
-import { EnrichedAppointment } from "@/types/entities/appointment.types"
 import Link from "next/link"
 
 // Card number IS included for doctor view (for check-in purposes)
-const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCardData => {
+const toAppointmentCardData = (appointment: any): AppointmentCardData => {
   return {
     id: appointment.id,
     patientName: appointment.patientName,
@@ -51,7 +50,7 @@ const toAppointmentCardData = (appointment: EnrichedAppointment): AppointmentCar
 }
 
 // Get doctor ID from localStorage
-const getCurrentDoctorId = (): number => {
+const getCurrentDoctorId = (): number | null => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('currentDoctorId')
     if (stored) {
@@ -59,12 +58,12 @@ const getCurrentDoctorId = (): number => {
       if (!isNaN(parsed)) return parsed
     }
   }
-  return 1
+  return null
 }
 
 export default function DoctorAppointmentsPage() {
   const router = useRouter()
-  const [doctorId, setDoctorId] = useState<number>(1)
+  const [doctorId, setDoctorId] = useState<number | null>(null)
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentCardData | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false)
@@ -85,18 +84,20 @@ export default function DoctorAppointmentsPage() {
 
   useEffect(() => {
     const id = getCurrentDoctorId()
-    setDoctorId(id)
-    fetchProviderAppointments(id)
+    if (id !== null) {
+      setDoctorId(id)
+      fetchProviderAppointments(id)
+    }
   }, [fetchProviderAppointments])
 
   const doctorAppointments = useMemo(() => {
-    return appointments.filter((apt: EnrichedAppointment) => 
-      apt.providerId === doctorId && apt.serviceType === 'Consultation'
+    return appointments.filter((apt: any) => 
+      (apt as any).providerId === doctorId && (apt as any).serviceType === 'Consultation'
     )
   }, [appointments, doctorId])
 
   const filteredAppointments = useMemo(() => {
-    return doctorAppointments.filter((apt: EnrichedAppointment) => {
+    return doctorAppointments.filter((apt: any) => {
       const matchesSearch = 
         !filters.searchTerm || 
         apt.patientName?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
@@ -115,14 +116,14 @@ export default function DoctorAppointmentsPage() {
   const today = new Date().toISOString().split('T')[0]
   
   const todayAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) => 
-      apt.scheduledDateTime.startsWith(today)
+    return filteredAppointments.filter((apt: any) => 
+      (apt as any).scheduledDateTime?.startsWith(today)
     )
   }, [filteredAppointments, today])
 
   const upcomingAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) => 
-      apt.scheduledDateTime > today && 
+    return filteredAppointments.filter((apt: any) => 
+      (apt as any).scheduledDateTime > today && 
       apt.status !== 'Completed' && 
       apt.status !== 'Cancelled' &&
       apt.status !== 'No-show'
@@ -130,15 +131,16 @@ export default function DoctorAppointmentsPage() {
   }, [filteredAppointments, today])
 
   const pastAppointments = useMemo(() => {
-    return filteredAppointments.filter((apt: EnrichedAppointment) => 
+    return filteredAppointments.filter((apt: any) => 
       apt.status === 'Completed' || 
       apt.status === 'Cancelled' || 
       apt.status === 'No-show' ||
-      (apt.scheduledDateTime < today && apt.status !== 'Scheduled' && apt.status !== 'Confirmed')
+      ((apt as any).scheduledDateTime < today && apt.status !== 'Scheduled' && apt.status !== 'Confirmed')
     )
   }, [filteredAppointments, today])
 
   const handleRefresh = useCallback(async () => {
+    if (!doctorId) return
     setIsRefreshing(true)
     try {
       await refreshData()
@@ -153,14 +155,14 @@ export default function DoctorAppointmentsPage() {
   }, [refreshData, fetchProviderAppointments, doctorId])
 
   const statsCards = useMemo(() => {
-    if (!stats) return []
+    if (!stats || !doctorId) return []
     return [
       { title: "Total Consultations", value: doctorAppointments.length.toString(), icon: Stethoscope, description: "All time" },
       { title: "Today's Consultations", value: todayAppointments.length.toString(), icon: Calendar, description: "Scheduled today" },
       { title: "Completed", value: pastAppointments.filter(a => a.status === 'Completed').length.toString(), icon: CheckCircle, description: "Finished appointments" },
       { title: "Revenue", value: `ETB ${stats.revenue?.toLocaleString() || 0}`, icon: DollarSign, description: "Total earned" }
     ]
-  }, [stats, doctorAppointments.length, todayAppointments.length, pastAppointments])
+  }, [stats, doctorAppointments.length, todayAppointments.length, pastAppointments, doctorId])
 
   const tabs: TabOption[] = useMemo(() => [
     { id: "today", label: "Today", icon: <Bell className="h-4 w-4" />, count: todayAppointments.length },
@@ -179,6 +181,7 @@ export default function DoctorAppointmentsPage() {
   }, [])
 
   const handleStartConsultation = useCallback(async (appointment: AppointmentCardData) => {
+    if (!doctorId) return
     try {
       await updateStatus(appointment.id, "In Progress")
       await fetchProviderAppointments(doctorId)
@@ -190,6 +193,7 @@ export default function DoctorAppointmentsPage() {
   }, [updateStatus, fetchProviderAppointments, doctorId])
 
   const handleCompleteConsultation = useCallback(async (appointment: AppointmentCardData) => {
+    if (!doctorId) return
     try {
       await updateStatus(appointment.id, "Completed")
       await fetchProviderAppointments(doctorId)
@@ -201,14 +205,15 @@ export default function DoctorAppointmentsPage() {
   }, [updateStatus, fetchProviderAppointments, doctorId])
 
   const handleConfirmReschedule = useCallback(async (
-    appointment: AppointmentCardData, 
-    date: string, 
+    appointment: AppointmentCardData,
+    date: string,
     time: string
   ) => {
+    if (!doctorId) return
     try {
       const startDateTime = new Date(`${date}T${time}:00`)
       const endDateTime = new Date(startDateTime.getTime() + 30 * 60000)
-      
+
       await updateTiming(appointment.id, startDateTime.toISOString(), endDateTime.toISOString())
       await fetchProviderAppointments(doctorId)
       toast.success("Appointment rescheduled successfully")
@@ -223,6 +228,7 @@ export default function DoctorAppointmentsPage() {
   }, [router])
 
   const handleCancel = useCallback(async (appointment: AppointmentCardData) => {
+    if (!doctorId) return
     try {
       await updateStatus(appointment.id, "Cancelled")
       await fetchProviderAppointments(doctorId)
@@ -233,7 +239,7 @@ export default function DoctorAppointmentsPage() {
     }
   }, [updateStatus, fetchProviderAppointments, doctorId])
 
-  const getCurrentAppointments = useCallback((): EnrichedAppointment[] => {
+  const getCurrentAppointments = useCallback((): any[] => {
     switch (activeTab) {
       case "today": return todayAppointments
       case "upcoming": return upcomingAppointments
