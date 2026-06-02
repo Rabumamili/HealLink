@@ -12,7 +12,7 @@ export function ClinicsSection() {
   };
 
   const handleBooking = () => {
-    window.location.href = '/register?role=patient';
+    window.location.href = '/login?role=patient';
   };
 
   return (

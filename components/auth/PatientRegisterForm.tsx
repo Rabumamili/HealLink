@@ -21,13 +21,25 @@ import {
 
 const patientSchema = z
   .object({
-    first_name: z.string().min(1, 'First name is required'),
-    last_name: z.string().min(1, 'Last name is required'),
+    first_name: z
+      .string()
+      .min(3, 'First name must be at least 3 letters')
+      .regex(/^[A-Za-z]+$/, 'First name can only contain letters'),
+    last_name: z
+      .string()
+      .min(3, 'Last name must be at least 3 letters')
+      .regex(/^[A-Za-z]+$/, 'Last name can only contain letters'),
     email: z.string().email('Invalid email address'),
-    phone_number: z.string().min(10, 'Valid phone number is required'),
+    phone_number: z
+      .string()
+      .min(10, 'A valid phone number is required')
+      .regex(/^[+]?([0-9][\s-]?){9,}$/, 'Enter a valid phone number with at least 10 digits'),
     date_of_birth: z.string().optional(),
     gender: z.string().optional(),
-    emergency_contact: z.string().optional(),
+    emergency_contact: z
+      .string()
+      .regex(/^[+]?([0-9][\s-]?){9,}$/, 'Emergency contact must be a valid phone number')
+      .optional(),
     address: z.string().optional(),
     password: z
       .string()
@@ -55,10 +67,40 @@ export const PatientRegisterForm = () => {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isValid },
   } = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
+    mode: 'onChange',
+    reValidateMode: 'onChange',
+    defaultValues: {
+      date_of_birth: '',
+      gender: '',
+      emergency_contact: '',
+      address: '',
+    },
   });
+
+  const getFriendlyErrorMessage = (err: any) => {
+    const rawMessage =
+      typeof err === 'string'
+        ? err
+        : err?.response?.data?.message || err?.message || '';
+    const message = rawMessage.toLowerCase();
+
+    if (message.includes('email')) {
+      return 'This email is already registered. Please use a different email or log in.';
+    }
+    if (message.includes('phone')) {
+      return 'This phone number is already in use. Please use a different number or log in.';
+    }
+    if (message.includes('network')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    if (message.includes('server')) {
+      return 'Server error. Please try again later.';
+    }
+    return 'Registration failed. Please review the form and try again.';
+  };
 
   const onSubmit = async (data: PatientFormData) => {
     setError(null);
@@ -73,20 +115,7 @@ export const PatientRegisterForm = () => {
       toast.success('Registration successful! Please verify your email.');
       router.push(`/verify?email=${encodeURIComponent(data.email)}&role=patient`);
     } catch (err: any) {
-      // Format error message for better UX
-      let errorMessage = err?.message || 'Registration failed';
-      
-      if (err?.message?.toLowerCase().includes('email')) {
-        errorMessage = 'This email is already registered. Please use a different email or login.';
-      } else if (err?.message?.toLowerCase().includes('phone')) {
-        errorMessage = 'This phone number is already registered. Please use a different number.';
-      } else if (err?.message?.toLowerCase().includes('network')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (err?.message?.toLowerCase().includes('server')) {
-        errorMessage = 'Server error. Please try again later.';
-      }
-      
-      setError(errorMessage);
+      setError(getFriendlyErrorMessage(err));
     }
   };
 
@@ -271,6 +300,7 @@ export const PatientRegisterForm = () => {
             label="Create Patient Account"
             loadingLabel="Creating..."
             isLoading={isRegistering}
+            disabled={!isValid}
           />
           <LoginLink />
         </div>

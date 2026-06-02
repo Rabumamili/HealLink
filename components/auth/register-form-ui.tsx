@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ReactNode } from 'react';
+import { motion } from 'framer-motion';
 import { HealLinkIcon, type HealLinkIconName } from '@/components/icons/healink-icon';
 import {InputFieldIcon} from '@/components/icons/ui-icons';
 
@@ -53,7 +54,12 @@ export function RegisterFormShell({
   return (
     <div className="form-card w-full h-full max-h-full bg-surface-container-lowest/95 backdrop-blur-xl rounded-[16px] md:rounded-[24px] border border-white/40 shadow-2xl overflow-hidden flex flex-col min-h-0">
       <div className="flex flex-col md:flex-row h-full min-h-0 flex-1">
-        <div className="md:w-1/3 bg-primary-container p-5 md:p-8 flex flex-row md:flex-col items-center md:items-start justify-between text-on-primary-container shrink-0">
+        <motion.div
+        initial={{ opacity: 0, x: -30 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="md:w-1/3 bg-primary-container p-5 md:p-8 flex flex-row md:flex-col items-center md:items-start justify-between text-on-primary-container shrink-0"
+      >
           <div className="flex items-center md:block gap-3">
             <div className="w-10 h-10 md:w-16 md:h-16 bg-white/20 backdrop-blur-md rounded-lg md:rounded-2xl flex items-center justify-center mb-0 md:mb-6 shrink-0">
               <HealLinkIcon name={sidebarIcon} size={28} className="shrink-0 md:scale-125" />
@@ -70,7 +76,7 @@ export function RegisterFormShell({
               </div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         <div className="scrollable-form custom-scrollbar flex-1 min-h-0 overflow-y-auto p-5 md:p-8 lg:p-10">
           <div className="mb-6 flex items-start justify-between gap-3">

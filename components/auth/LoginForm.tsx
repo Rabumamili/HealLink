@@ -92,7 +92,7 @@ export const LoginForm = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-3 py-6">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-3 py-4">
 
       {/* Background */}
       <div className="absolute left-[-5%] top-[-5%] h-[220px] w-[220px] rounded-full bg-cyan-500/10 blur-3xl" />
