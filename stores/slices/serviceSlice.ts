@@ -15,7 +15,7 @@ interface ServiceState {
   error: string | null;
 
   fetchServices: (serviceType?: string | null, location?: string | null) => Promise<void>;
-  createService: (providerId: number, data: {
+  createService: (data: {
     name: string;
     service_type: string;
     location: string;
@@ -51,10 +51,10 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
     }
   },
 
-  createService: async (providerId: number, data) => {
+  createService: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      await serviceService.createProviderService(providerId, data);
+      await serviceService.createProviderService(data);
       // Refetch services after creation
       await get().fetchServices();
       toast.success('Service created successfully');

@@ -11,6 +11,7 @@ import { StatsCard } from "@/components/common/StatsCard"
 import { CheckinHeader } from "@/components/checkin/CheckinHeader"
 import { useQr, useQrCheckIn, useQrValidation, useQrStats } from "@/hooks/useQr"
 import { useAppointments } from "@/hooks/useAppointments"
+import { useAuth } from "@/hooks/useAuth"
 import { Search, CheckCircle, AlertCircle, Loader2, Calendar, Users, Clock, Stethoscope } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -38,30 +39,20 @@ export default function DoctorCheckinPage() {
   const [checkInSuccess, setCheckInSuccess] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
+  const { user, isLoading: isAuthLoading } = useAuth({ requireAuth: true })
   const { qrCodes, fetchQrCodes, isLoading: qrCodesLoading } = useQr({ autoFetch: true })
   const { validateQr, validationResult, clearValidationResult } = useQrValidation()
   const { checkIn, checkInResult, clearCheckInResult } = useQrCheckIn()
   const { qrStats, refresh: refreshStats } = useQrStats()
   const { updateStatus, refreshData, appointments } = useAppointments()
 
-  const getCurrentDoctorId = (): number | null => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('currentDoctorId');
-      if (stored) {
-        const parsed = parseInt(stored, 10);
-        if (!isNaN(parsed)) return parsed;
-      }
-    }
-    return null;
-  };
-
-  const staffId = getCurrentDoctorId()
-
-  if (staffId === null) {
+  if (isAuthLoading) {
     return <div className="flex items-center justify-center min-h-screen">
       <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
     </div>
   }
+
+  const staffId = user?.provider_id || null
   const staffType = "doctor" as const
 
   const qrCodesWithAppointments = qrCodes.map((qr) => ({

@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CreateServiceDTO, SERVICE_TYPE, ServiceType } from '@/types/entities/service.types';
 
@@ -33,10 +33,10 @@ interface ServiceFormModalProps {
   initialData?: CreateServiceDTO | null;
   title: string;
   description: string;
-  providerId?: number;
   showTypeField?: boolean;
   typeOptions?: { value: ServiceType; label: string }[];
   typeFieldLabel?: string;
+  isLoading?: boolean;
 }
 
 const defaultTypeOptions: { value: ServiceType; label: string }[] = [
@@ -58,13 +58,12 @@ export function ServiceFormModal({
   initialData,
   title,
   description,
-  providerId,
   showTypeField = true,
   typeOptions = defaultTypeOptions,
-  typeFieldLabel = 'Service Type'
+  typeFieldLabel = 'Service Type',
+  isLoading = false
 }: ServiceFormModalProps) {
   const [formData, setFormData] = useState<CreateServiceDTO>({
-    providerId: providerId || 0,
     name: '',
     description: '',
     durationMinutes: 30,
@@ -82,7 +81,6 @@ export function ServiceFormModal({
       setFormData(initialData);
     } else {
       setFormData({
-        providerId: providerId || 0,
         name: '',
         description: '',
         durationMinutes: 30,
@@ -96,7 +94,7 @@ export function ServiceFormModal({
     // Reset errors and touched when modal opens/closes
     setErrors({});
     setTouched({});
-  }, [initialData, open, providerId]);
+  }, [open]);
 
   const validateField = (field: keyof FormErrors, value: any): string | undefined => {
     switch (field) {
@@ -345,11 +343,19 @@ export function ServiceFormModal({
             >
               Cancel
             </Button>
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
+              disabled={isLoading}
               className="flex-1 py-5 text-base font-semibold bg-primary hover:bg-primary/90 text-white shadow-lg"
             >
-              {initialData ? 'Save Changes' : 'Create Service'}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {initialData ? 'Saving...' : 'Creating...'}
+                </>
+              ) : (
+                initialData ? 'Save Changes' : 'Create Service'
+              )}
             </Button>
           </div>
         </DialogFooter>

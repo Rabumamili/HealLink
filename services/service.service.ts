@@ -29,8 +29,8 @@ export interface SlotCreatePayload {
 class ServiceService extends ApiService {
   private readonly basePath = '/providers';
 
-  async createProviderService(providerId: number, payload: ProviderServiceCreatePayload) {
-    return this.post(`${this.basePath}/${providerId}/services`, payload);
+  async createProviderService(payload: ProviderServiceCreatePayload) {
+    return this.post(`${this.basePath}/services`, payload);
   }
 
   async updateProviderService(providerId: number, serviceId: number, payload: Partial<ProviderServiceCreatePayload>) {

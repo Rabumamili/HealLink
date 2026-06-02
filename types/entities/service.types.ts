@@ -50,8 +50,8 @@ export interface ServiceStats {
   averageDuration: number;
 }
 
-export type CreateServiceDTO = Omit<Service, 'id' | 'createdAt' | 'updatedAt'>;
-export type UpdateServiceDTO = Partial<Omit<Service, 'id' | 'createdAt' | 'updatedAt'>>;
+export type CreateServiceDTO = Omit<Service, 'id' | 'providerId' | 'createdAt' | 'updatedAt'>;
+export type UpdateServiceDTO = Partial<Omit<Service, 'id' | 'providerId' | 'createdAt' | 'updatedAt'>>;
 
 // Helper functions
 export function isServiceAvailable(service: Service): boolean {

@@ -83,7 +83,13 @@ export const useAppointments = () => {
   const stats = useMemo(() => {
     const completedAppointments = appointments.filter(a => a.status === 'Completed').length;
     const cancelledAppointments = appointments.filter(a => a.status === 'Cancelled').length;
-    const totalRevenue = completedAppointments * 1000; // Placeholder - would need service data
+    // Calculate revenue from actual service fees if available
+    const totalRevenue = appointments.reduce((sum, apt) => {
+      if (apt.status === 'Completed' && apt.fee) {
+        return sum + apt.fee;
+      }
+      return sum;
+    }, 0);
     return {
       revenue: totalRevenue,
       cardsIssued: appointments.length,

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Building2, ClipboardList, DollarSign, TrendingUp } from 'lucide-react';
+import { Building2, ClipboardList, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ServiceTable } from '@/components/services/service-table';
@@ -11,17 +11,24 @@ import { ServiceFormModal } from '@/components/services/service-form-modal';
 import { ServicePageHeader } from '@/components/services/ServicePageHeader';
 import { StatsCard } from '@/components/common/StatsCard';
 import { useServices } from '@/hooks/useService';
-
-const PROVIDER_ID = 103;
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ClinicServicesPage() {
+  const { user, isLoading: isAuthLoading } = useAuth({ requireAuth: true });
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<any>(null);
 
-  const { services, stats, createService, updateService, deleteService } =
-    useServices({ providerId: PROVIDER_ID, autoFetch: true });
+  if (isAuthLoading || !user?.provider_id) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
+    </div>;
+  }
+
+  const providerId = user.provider_id;
+  const { services, stats, createService, updateService, deleteService, isLoading } =
+    useServices({ providerId, autoFetch: true });
 
   const filtered = useMemo(() => {
     return services.filter(s =>
@@ -101,9 +108,9 @@ export default function ClinicServicesPage() {
           open={open}
           onOpenChange={setOpen}
           onSave={(d) => createService(d)}
-          providerId={PROVIDER_ID}
           title="Add Service"
           description="Create a new clinic service"
+          isLoading={isLoading}
         />
 
         {/* Edit Modal */}

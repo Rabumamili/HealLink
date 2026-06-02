@@ -1,6 +1,7 @@
 // services/appointment.service.ts
 import { ApiService } from './api.service';
 import { EnrichedAppointment } from '@/types/entities/appointment.types';
+import { toast } from 'sonner';
 
 export interface Service {
   id: number;
@@ -89,7 +90,34 @@ class AppointmentService extends ApiService {
   }
 
   async listMyAppointments(): Promise<EnrichedAppointment[]> {
-    const apiAppointments = await this.get<ApiAppointment[]>(`${this.basePath}/mine`);
+    // Check if user is a provider (doctor/clinic/diagnostic_center)
+    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    const user = userStr ? JSON.parse(userStr) : null;
+    const isProvider = user && (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center');
+
+    let apiAppointments: ApiAppointment[];
+    
+    if (isProvider && user.provider_id) {
+      // Try provider-specific endpoint for doctors/clinics/diagnostic centers
+      try {
+        apiAppointments = await this.get<ApiAppointment[]>(`/providers/${user.provider_id}/appointments`);
+      } catch (error: any) {
+        // If endpoint doesn't exist, try alternative endpoint or return empty
+        toast.info('Provider appointments endpoint not found, trying alternative...');
+        // Try the appointments endpoint with provider filter
+        try {
+          apiAppointments = await this.get<ApiAppointment[]>(`${this.basePath}?provider_id=${user.provider_id}`);
+        } catch (altError) {
+          // If that also fails, return empty array for providers
+          toast.info('Appointments feature not available for providers in current API version');
+          apiAppointments = [];
+        }
+      }
+    } else {
+      // Use patient endpoint for patients
+      apiAppointments = await this.get<ApiAppointment[]>(`${this.basePath}/mine`);
+    }
+    
     return apiAppointments.map(apt => this.transformToEnrichedAppointment(apt));
   }
 

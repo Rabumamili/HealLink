@@ -28,7 +28,8 @@ export const usePayment = (options?: { patientId?: number; autoFetch?: boolean }
     return await chapaCallback(trxRef);
   }, [chapaCallback]);
 
-  // Placeholder for payment history - TODO: Implement payment history fetching
+  // Payment history - API endpoint not yet implemented
+  // TODO: Implement payment history fetching when backend endpoint is available
   const payments: any[] = [];
   const getTotalAmountSpent = useCallback(() => 0, []);
 

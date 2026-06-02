@@ -57,12 +57,9 @@ export const useServices = (options: UseServicesOptions = {}) => {
   }, [services]);
 
   const handleCreateService = useCallback(async (data: CreateServiceDTO) => {
-    if (!providerId) {
-      throw new Error('Provider ID is required to create a service');
-    }
     const apiData = transformToApiFormat(data);
-    await createService(providerId, apiData);
-  }, [providerId, createService]);
+    await createService(apiData);
+  }, [createService]);
 
   const handleUpdateService = useCallback(async (serviceId: number, data: CreateServiceDTO) => {
     if (!providerId) {

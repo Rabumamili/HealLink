@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { FlaskConical, ClipboardList, DollarSign, TrendingUp } from 'lucide-react';
+import { FlaskConical, ClipboardList, DollarSign, TrendingUp, Loader2 } from 'lucide-react';
 
 import { ServiceTable } from '@/components/services/service-table';
 import { ServiceSearchFilter } from '@/components/services/service-search-filter';
@@ -10,17 +10,24 @@ import { ServiceFormModal } from '@/components/services/service-form-modal';
 import { ServicePageHeader } from '@/components/services/ServicePageHeader';
 import { StatsCard } from '@/components/common/StatsCard';
 import { useServices } from '@/hooks/useService';
-
-const PROVIDER_ID = 104;
+import { useAuth } from '@/hooks/useAuth';
 
 export default function DiagnosticServicesPage() {
+  const { user, isLoading: isAuthLoading } = useAuth({ requireAuth: true });
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<any>(null);
 
-  const { services, stats, createService, updateService, deleteService } =
-    useServices({ providerId: PROVIDER_ID, autoFetch: true });
+  if (isAuthLoading || !user?.provider_id) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <Loader2 className="h-8 w-8 animate-spin text-[#008282]" />
+    </div>;
+  }
+
+  const providerId = user.provider_id;
+  const { services, stats, createService, updateService, deleteService, isLoading } =
+    useServices({ providerId, autoFetch: true });
 
   const filtered = useMemo(() => {
     return services.filter(s =>
@@ -99,10 +106,10 @@ export default function DiagnosticServicesPage() {
         <ServiceFormModal
           open={open}
           onOpenChange={setOpen}
-          onSave={(d) => createService({ ...d, providerId: PROVIDER_ID })}
-          providerId={PROVIDER_ID}
+          onSave={(d) => createService(d)}
           title="Add Test"
           description="Create a new diagnostic test"
+          isLoading={isLoading}
         />
 
         {/* Edit Modal */}
