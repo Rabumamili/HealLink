@@ -311,7 +311,9 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoading: true, error: null });
           try {
             await authService.verifyEmail(data);
-            await get().getCurrentUser();
+            if (authService.isAuthenticated()) {
+              await get().getCurrentUser();
+            }
             set({ error: null });
           } catch (error: any) {
             const errorMessage = error.response?.data?.message || error.message || 'Email verification failed';

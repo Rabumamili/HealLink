@@ -190,6 +190,16 @@ export interface BackendPatient {
   updated_at: string | null;
 }
 
+export interface BackendAuthenticatedUser extends BackendPatient {
+  provider_type?: string;
+  specialization?: string | null;
+  license_number?: string | null;
+  tin_number?: string | null;
+  location?: string;
+  address?: string | null;
+  description?: string | null;
+}
+
 export interface BackendPatientRegisterRequest {
   email: string;
   password: string;
@@ -205,7 +215,7 @@ export interface BackendTokenResponse {
   access_token: string;
   refresh_token: string;
   token_type: string;
-  patient: BackendPatient;
+  patient: BackendAuthenticatedUser;
 }
 
 export interface BackendRefreshTokenRequest {

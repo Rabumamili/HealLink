@@ -6,6 +6,7 @@ import { CommonSidebar } from "@/components/common/sidebar"
 import { CommonTopHeader } from "@/components/common/top-header"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { usePathname } from "next/navigation"
+import { useRouter } from 'next/navigation'
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -166,6 +167,21 @@ export function LayoutWrapper({
   const pageTitle = getPageTitle(pathname, role)
   const isDashboard = pathname === `/${role}/dashboard`
   const isResponsive = isMobile || isTablet
+
+  const router = useRouter()
+
+  // Redirect providers who still need professional verification
+  useEffect(() => {
+    if (!user) return
+    const isProvider = user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center'
+    if (!isProvider) return
+
+    const status = (user as any).professional_verification_status
+    if (status && status !== 'approved') {
+      // Keep user on the verification status page while their account is not approved
+      router.replace('/professional-verification-status')
+    }
+  }, [user, router])
 
   // For mobile/tablet: show sidebar as overlay menu
   const showSidebarAsOverlay = isResponsive && isMobileMenuOpen

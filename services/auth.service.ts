@@ -20,7 +20,9 @@ import {
   StaffRegisterData,
   StaffSubRole,
   ProfessionalVerificationSubmitData,
+  ProfessionalVerificationStatus,
   BackendPatient,
+  BackendAuthenticatedUser,
   BackendPatientRegisterRequest,
   BackendProviderRegisterPayload,
   BackendTokenResponse,
@@ -106,8 +108,47 @@ function buildRegisterPayload(data: UserRegisterData): BackendPatientRegisterReq
   return payload;
 }
 
+function normalizeProviderVerificationStatus(status?: string): ProfessionalVerificationStatus {
+  if (status === 'approved' || status === 'verified') return 'approved';
+  if (status === 'rejected') return 'rejected';
+  return 'submitted';
+}
+
+function mapAuthenticatedUser(user: BackendAuthenticatedUser): AuthUser {
+  if (user.provider_type) {
+    const role = mapProviderTypeToRole(user.provider_type);
+    const professional_verification_status = normalizeProviderVerificationStatus(user.verification_status);
+
+    return {
+      id: user.id,
+      email: user.email,
+      phone_number: user.phone_number ?? '',
+      role,
+      is_active: user.is_active,
+      is_verified: user.is_verified,
+      verification_status: user.verification_status,
+      professional_verification_status,
+      created_at: user.created_at,
+      updated_at: user.updated_at ?? undefined,
+      full_name: buildFullName(user.first_name, user.last_name, user.email),
+      first_name: user.first_name ?? undefined,
+      last_name: user.last_name ?? undefined,
+      provider_id: user.id,
+      provider_type: role as ProviderType,
+      specialization: user.specialization ?? undefined,
+      license_number: user.license_number ?? undefined,
+      tin_number: user.tin_number ?? undefined,
+      location: user.location,
+      address: user.address ?? undefined,
+      description: user.description ?? undefined,
+    };
+  }
+
+  return mapPatientToAuthUser(user);
+}
+
 function persistAuthSession(response: BackendTokenResponse): LoginResponse {
-  const user = mapPatientToAuthUser(response.patient);
+  const user = mapAuthenticatedUser(response.patient);
 
   localStorage.setItem('token', response.access_token);
   localStorage.setItem('refreshToken', response.refresh_token);
@@ -203,7 +244,8 @@ class AuthService extends ApiService {
       license_file: data.license_document,
     });
 
-    return this.tryProviderLogin(data.email, data.password, user);
+    // Don't try to login immediately - providers need to verify email first
+    return persistUserWithoutSession(user);
   }
 
   async registerClinic(data: ClinicRegisterData): Promise<LoginResponse> {
@@ -219,7 +261,8 @@ class AuthService extends ApiService {
       license_file: data.license_document,
     });
 
-    return this.tryProviderLogin(data.email, data.password, user);
+    // Don't try to login immediately - providers need to verify email first
+    return persistUserWithoutSession(user);
   }
 
   async registerDiagnosticCenter(data: DiagnosticCenterRegisterData): Promise<LoginResponse> {
@@ -236,7 +279,8 @@ class AuthService extends ApiService {
       license_file: data.license_document,
     });
 
-    return this.tryProviderLogin(data.email, data.password, user);
+    // Don't try to login immediately - providers need to verify email first
+    return persistUserWithoutSession(user);
   }
 
   private async registerProvider(payload: BackendProviderRegisterPayload): Promise<AuthUser> {

@@ -166,8 +166,8 @@ export const ClinicRegisterForm = () => {
 
     try {
       await verifyEmail({ email: formData.email, code: verificationCode, role: 'clinic' });
-      toast.success('Email verified! Please complete professional verification');
-      setStep(3);
+      toast.success('Email verified! Please login to continue');
+      router.push('/login?verified=true');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Verification failed';
       setError(message);

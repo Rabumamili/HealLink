@@ -36,15 +36,13 @@ function VerifyEmailContent() {
         console.log('Email verification successful');
         setStatus('success');
 
-        // Refresh user data after verification
+        // Refresh user data after verification if already authenticated
         setTimeout(async () => {
-          await getCurrentUser();
-
-          if (role === 'patient') {
-            router.push('/login?verified=true');
-          } else {
-            router.push('/professional-verification-submit');
+          if (localStorage.getItem('token')) {
+            await getCurrentUser();
           }
+          toast.success('Email verified successfully! Please login to continue.');
+          router.push('/login?verified=true');
         }, 2000);
       } catch (error: any) {
         console.error('Email verification failed:', error?.message || error);
@@ -92,15 +90,12 @@ function VerifyEmailContent() {
     setHasJustVerified(true); // Prevent auto-redirect to dashboard
     setShowManualVerification(false);
 
-    await getCurrentUser();
-
-    if (role === 'patient') {
-      toast.success('Email verified successfully! Please login.');
-      router.push('/login?verified=true');
-    } else {
-      toast.success('Email verified! Please complete professional verification.');
-      router.push('/professional-verification-submit');
+    if (localStorage.getItem('token')) {
+      await getCurrentUser();
     }
+
+    toast.success('Email verified successfully! Please login.');
+    router.push('/login?verified=true');
   };
 
   const handleCancel = () => {

@@ -195,7 +195,7 @@ export const useAuth = (options: UseAuthOptions = {}) => {
               diagnostic_center: '/diagnostic/dashboard',
             };
             redirectPath = routes[currentUser.role];
-          } else if (status === 'submitted') {
+          } else if (status === 'submitted' || status === 'pending') {
             redirectPath = '/professional-verification-status';
           } else if (status === 'rejected') {
             redirectPath = '/professional-verification-status?status=rejected';

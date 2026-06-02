@@ -166,7 +166,7 @@ export const EmailVerificationDialog = ({
               </p>
               {role !== 'patient' && (
                 <p className="mt-2 text-xs text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
-                  Professional verification will be submitted automatically
+                  Your email is being verified. Your submitted documents will remain pending admin review.
                 </p>
               )}
             </div>
@@ -206,10 +206,10 @@ export const EmailVerificationDialog = ({
                 {isVerifyingEmail ? (
                   <>
                     <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent sm:h-3.5 sm:w-3.5" />
-                    Verifying & Submitting...
+                    Verifying...
                   </>
                 ) : (
-                  'Verify Email & Submit'
+                  'Verify Email'
                 )}
               </button>
 
