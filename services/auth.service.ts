@@ -299,8 +299,11 @@ class AuthService extends ApiService {
   // ===============================
 
   async verifyEmail(data: VerifyEmailData): Promise<{ message: string }> {
+    const isProvider = data.role === 'doctor' || data.role === 'clinic' || data.role === 'diagnostic_center';
+    const endpoint = isProvider ? '/providers/verify-email' : '/verify-email';
+    
     const response = await this.post<{ message: string }>(
-      `${this.basePath}/verify-email`,
+      `${this.basePath}${endpoint}`,
       { token: data.code },
       undefined,
       false
@@ -308,8 +311,14 @@ class AuthService extends ApiService {
     return response;
   }
 
-  async resendVerificationCode(_data: ResendVerificationData): Promise<{ message: string }> {
-    notImplemented('Verification code resend');
+  async resendVerificationCode(data: ResendVerificationData): Promise<{ message: string }> {
+    const response = await this.post<{ message: string }>(
+      `${this.basePath}/resend-verification`,
+      { email: data.email },
+      undefined,
+      false
+    );
+    return response;
   }
 
   // ===============================

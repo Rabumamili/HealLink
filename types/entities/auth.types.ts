@@ -140,6 +140,7 @@ export type RegisterData =
 export interface VerifyEmailData {
   email: string;
   code: string;
+  role?: UserRole;
 }
 
 export interface ResendVerificationData {

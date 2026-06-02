@@ -172,7 +172,7 @@ export const DiagnosticRegisterForm = () => {
     setIsSubmitting(true);
 
     try {
-      await verifyEmail({ email: formData.email, code: verificationCode });
+      await verifyEmail({ email: formData.email, code: verificationCode, role: 'diagnostic_center' });
       toast.success('Email verified! Please complete professional verification');
       setStep(3);
     } catch (err: unknown) {
