@@ -32,7 +32,7 @@ function VerifyEmailContent() {
 
       try {
         console.log('Verifying email with token:', { email, token: token.substring(0, 10) + '...' });
-        await verifyEmail({ email, code: token });
+        await verifyEmail({ email, code: token, role: role as any });
         console.log('Email verification successful');
         setStatus('success');
 

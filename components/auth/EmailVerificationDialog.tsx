@@ -71,7 +71,7 @@ export const EmailVerificationDialog = ({
       await verifyEmail({
         email,
         code: verificationCodeString,
-
+        role: role as any,
       });
       console.log('Verification code submission successful');
       toast.success('Email verified successfully! Professional verification submitted.');

@@ -147,7 +147,7 @@ export const DoctorRegisterForm = () => {
     setIsSubmitting(true);
 
     try {
-      await verifyEmail({ email: formData.email, code: verificationCode });
+      await verifyEmail({ email: formData.email, code: verificationCode, role: 'doctor' });
       toast.success('Email verified! Please complete professional verification');
       setStep(3);
     } catch (err: unknown) {
