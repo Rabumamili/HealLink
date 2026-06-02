@@ -17,9 +17,22 @@ export default function DoctorServicesPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [open, setOpen] = useState(false);
+  const [editingService, setEditingService] = useState<any>(null);
 
   const { services, stats, createService, isLoading } =
     useServices({ autoFetch: true });
+
+  const handleEdit = (service: any) => {
+    setEditingService(service);
+    setOpen(true);
+  };
+
+  const handleDelete = async (id: number, name: string) => {
+    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+      // TODO: Implement delete functionality
+      console.log('Delete service:', id);
+    }
+  };
 
   const filtered = useMemo(() => {
     return services.filter(s =>
@@ -93,16 +106,22 @@ export default function DoctorServicesPage() {
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
           <ServiceTable
             services={filtered}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </div>
 
         {/* Add Modal */}
         <ServiceFormModal
           open={open}
-          onOpenChange={setOpen}
+          onOpenChange={(isOpen) => {
+            setOpen(isOpen);
+            if (!isOpen) setEditingService(null);
+          }}
           onSave={(d) => createService(d)}
-          title="Add Service"
-          description="Create a new consultation service"
+          title={editingService ? "Edit Service" : "Add Service"}
+          description={editingService ? "Update your consultation service details" : "Create a new consultation service"}
+          initialData={editingService}
           isLoading={isLoading}
         />
       </div>

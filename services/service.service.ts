@@ -74,11 +74,11 @@ class ServiceService extends ApiService {
   }
 
   async listServiceSlots(serviceId: number, onlyAvailable: boolean = true): Promise<ServiceSlot[]> {
-    return this.get<ServiceSlot[]>(`${this.basePath}/services/${serviceId}/slots?only_available=${onlyAvailable}`, undefined, false);
+    return this.get<ServiceSlot[]>(`${this.basePath}/services/${serviceId}/slots?only_available=${onlyAvailable}`);
   }
 
   async listServices(): Promise<Service[]> {
-    const apiServices = await this.get<any[]>(`${this.basePath}/services`, undefined, false);
+    const apiServices = await this.get<any[]>(`${this.basePath}/services`);
 
     // Transform API response (snake_case) to internal format (camelCase)
     return apiServices.map(apiService => ({

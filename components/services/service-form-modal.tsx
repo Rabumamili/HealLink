@@ -351,10 +351,10 @@ export function ServiceFormModal({
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {initialData ? 'Saving...' : 'Creating...'}
+                  {initialData ? 'Editing...' : 'Creating...'}
                 </>
               ) : (
-                initialData ? 'Save Changes' : 'Create Service'
+                initialData ? 'Edit Service' : 'Create Service'
               )}
             </Button>
           </div>
