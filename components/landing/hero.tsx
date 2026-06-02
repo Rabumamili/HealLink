@@ -13,7 +13,7 @@ export function Hero() {
     <section className="relative flex min-h-[720px] items-center overflow-hidden bg-[#f5fffc] pt-16">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_20%,rgba(140,243,243,0.36),transparent_32%),linear-gradient(180deg,#f5fffc_0%,#ffffff_84%)]" />
 
-      <div className="relative z-10 mx-auto grid w-full max-w-[1440px] items-center gap-12 px-4 py-16 md:grid-cols-[0.92fr_1.08fr] md:px-container-padding lg:gap-14">
+      <div className="relative z-10 mx-auto grid w-full max-w-[1440px] items-center gap-12 px-4 py-4 md:grid-cols-[0.92fr_1.08fr] md:px-container-padding lg:gap-14">
         <motion.div
           className="space-y-7"
           initial={{ opacity: 0, y: 24 }}
