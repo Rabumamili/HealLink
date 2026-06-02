@@ -37,15 +37,17 @@ export function ClinicsSection() {
             return (
               <div
                 key={clinic.id}
-                className={`bg-white rounded-2xl border border-outline-variant/30 shadow-sm hover:shadow-lg transition-all overflow-hidden group ${isExpanded ? 'card-active ring-2 ring-primary/20' : ''}`}
+                className={`group relative isolate overflow-hidden rounded-2xl border border-outline-variant/30 bg-white shadow-sm transition-all duration-500 ease-out hover:-translate-y-2 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/15 ${isExpanded ? 'card-active ring-2 ring-primary/20' : ''}`}
               >
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-primary-fixed-dim to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                 <div className="relative h-48 overflow-hidden">
                   <img
                     src={clinic.image}
                     alt={clinic.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-110 group-hover:saturate-110"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent transition-opacity duration-500 group-hover:opacity-95" />
+                  <div className="pointer-events-none absolute inset-0 bg-primary/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                   <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
                     <div className="text-white">
                       <h3 className="font-bold text-lg leading-tight mb-1">{clinic.name}</h3>
@@ -54,7 +56,7 @@ export function ClinicsSection() {
                         <span>{clinic.location}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 px-2 py-1 bg-white/20 backdrop-blur-md rounded-lg text-white text-xs font-bold">
+                    <div className="flex items-center gap-1 rounded-lg bg-white/20 px-2 py-1 text-xs font-bold text-white shadow-lg shadow-black/10 backdrop-blur-md transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:bg-white/25">
                       <HealLinkIcon name="star" size={14} className="text-white fill-white" />
                       <span>{clinic.rating}</span>
                     </div>
@@ -67,7 +69,7 @@ export function ClinicsSection() {
                       <p className="text-[14px] text-on-surface-variant line-clamp-2 leading-relaxed">
                         {clinic.description}
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 transition-transform duration-300 group-hover:translate-y-[-2px]">
                         <ServiceBadges items={clinic.services} />
                       </div>
                     </div>
@@ -84,7 +86,7 @@ export function ClinicsSection() {
                     <button
                       type="button"
                       onClick={() => toggleExpand(clinic.id)}
-                      className="flex items-center gap-1 text-primary font-bold text-sm hover:underline"
+                      className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-primary transition-all duration-300 hover:bg-primary/10"
                     >
                       {isExpanded ? 'Show Less' : 'View Details'}
                       <HealLinkIcon

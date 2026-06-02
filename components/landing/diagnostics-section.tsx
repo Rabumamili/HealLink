@@ -26,17 +26,19 @@ export function DiagnosticsSection() {
             return (
               <div
                 key={lab.id}
-                className={`bg-white rounded-2xl border border-outline-variant/30 shadow-sm hover:shadow-lg transition-all overflow-hidden group ${isExpanded ? 'card-active ring-2 ring-primary/20' : ''}`}
+                className={`group relative isolate overflow-hidden rounded-2xl border border-outline-variant/30 bg-white shadow-sm transition-all duration-500 ease-out hover:-translate-y-2 hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/15 ${isExpanded ? 'card-active ring-2 ring-primary/20' : ''}`}
               >
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px bg-gradient-to-r from-transparent via-primary-fixed-dim to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                 <div className="relative h-44 overflow-hidden">
                   <img
                     src={lab.image}
                     alt={lab.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-cover transition duration-700 ease-out group-hover:scale-110 group-hover:saturate-110"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent transition-opacity duration-500 group-hover:opacity-95" />
+                  <div className="pointer-events-none absolute inset-0 bg-primary/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                   <div className="absolute top-3 right-3">
-                    <div className="px-2 py-0.5 bg-primary text-on-primary text-[9px] font-bold rounded-full uppercase tracking-widest">
+                    <div className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-on-primary shadow-lg shadow-primary/20 transition-transform duration-300 group-hover:-translate-y-0.5">
                       ISO Certified
                     </div>
                   </div>
@@ -55,7 +57,7 @@ export function DiagnosticsSection() {
                       <p className="text-[14px] text-on-surface-variant line-clamp-2 leading-relaxed">
                         {lab.description}
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 transition-transform duration-300 group-hover:translate-y-[-2px]">
                         <ServiceBadges items={lab.tests} />
                       </div>
                     </div>
@@ -76,7 +78,7 @@ export function DiagnosticsSection() {
                       <button
                         type="button"
                         onClick={() => toggleExpand(lab.id)}
-                        className="flex items-center gap-1 text-primary font-bold text-sm hover:underline"
+                        className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-primary transition-all duration-300 hover:bg-primary/10"
                       >
                         {isExpanded ? 'Show Less' : 'View Details'}
                         <HealLinkIcon
