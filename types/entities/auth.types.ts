@@ -17,9 +17,9 @@ export interface AuthUser {
   email: string;
   phone_number: string;
   role: UserRole;
-  is_active: boolean;
-  is_verified: boolean;
-  verification_status: VerificationStatus;
+  is_active?: boolean;
+  is_verified?: boolean;
+  verification_status?: VerificationStatus;
   created_at: string;
   updated_at?: string;
   first_name?: string;

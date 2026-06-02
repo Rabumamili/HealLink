@@ -71,7 +71,8 @@ export function ServiceFormModal({
     standardFee: 0,
     serviceType: 'Consultation',
     status: 'Active',
-    preparationInstructions: ''
+    preparationInstructions: '',
+    location: 'Addis Ababa'
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -88,7 +89,8 @@ export function ServiceFormModal({
         standardFee: 0,
         serviceType: 'Consultation',
         status: 'Active',
-        preparationInstructions: ''
+        preparationInstructions: '',
+        location: 'Addis Ababa'
       });
     }
     // Reset errors and touched when modal opens/closes
@@ -265,7 +267,7 @@ export function ServiceFormModal({
             </div>
           </div>
 
-          {/* Service Type and Status */}
+          {/* Service Type and Location */}
           <div className="grid grid-cols-2 gap-4">
             {showTypeField && (
               <div className="space-y-2">
@@ -291,17 +293,30 @@ export function ServiceFormModal({
             )}
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-foreground">
-                Status
+                Location
               </Label>
-              <div className="flex items-center justify-between bg-[#F1F5F9] rounded-xl p-3">
-                <span className="text-sm font-medium text-foreground">
-                  {formData.status === 'Active' ? 'Active' : 'Inactive'}
-                </span>
-                <Switch 
-                  checked={formData.status === 'Active'}
-                  onCheckedChange={(checked) => handleFieldChange('status', checked ? 'Active' : 'Inactive')}
-                />
-              </div>
+              <Input
+                placeholder="e.g., Addis Ababa"
+                value={formData.location || ''}
+                onChange={(e) => handleFieldChange('location', e.target.value)}
+                className="bg-[#F1F5F9] border-none focus:ring-2 focus:ring-primary rounded-xl"
+              />
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-foreground">
+              Status
+            </Label>
+            <div className="flex items-center justify-between bg-[#F1F5F9] rounded-xl p-3">
+              <span className="text-sm font-medium text-foreground">
+                {formData.status === 'Active' ? 'Active' : 'Inactive'}
+              </span>
+              <Switch 
+                checked={formData.status === 'Active'}
+                onCheckedChange={(checked) => handleFieldChange('status', checked ? 'Active' : 'Inactive')}
+              />
             </div>
           </div>
 

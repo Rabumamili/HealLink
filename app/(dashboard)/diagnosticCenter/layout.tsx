@@ -12,9 +12,6 @@ export default function DiagnosticCenterLayout({
       portalName="Diagnostic Center"
       portalSubtitle="Accurate Diagnostics"
       searchPlaceholder="Search patients, tests..."
-      userInitials="DC"
-      userName="Diagnostic Admin"
-      userEmail="admin@diagnostic.com"
     >
       {children}
     </LayoutWrapper>

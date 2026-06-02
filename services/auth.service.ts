@@ -17,6 +17,7 @@ import {
   ResetPasswordData,
   RefreshTokenResponse,
   AuthUser,
+  VerificationStatus,
   StaffRegisterData,
   StaffSubRole,
   ProfessionalVerificationSubmitData,
@@ -70,15 +71,11 @@ function mapProviderTypeToRole(providerType: string): UserRole {
 function mapProviderToAuthUser(provider: BackendProvider): AuthUser {
   const role = mapProviderTypeToRole(provider.provider_type);
 
-  return {
+  const user: AuthUser = {
     id: provider.id,
     email: provider.email,
     phone_number: provider.phone ?? '',
     role,
-    is_active: true,
-    is_verified: false,
-    verification_status: 'pending',
-    professional_verification_status: 'pending',
     created_at: provider.created_at,
     full_name: provider.name,
     provider_id: provider.id,
@@ -90,6 +87,21 @@ function mapProviderToAuthUser(provider: BackendProvider): AuthUser {
     address: provider.address ?? undefined,
     description: provider.description ?? undefined,
   };
+
+  if (provider.is_active !== undefined) {
+    user.is_active = provider.is_active;
+  }
+
+  if (provider.is_verified !== undefined) {
+    user.is_verified = provider.is_verified;
+  }
+
+  if (provider.verification_status !== undefined) {
+    user.verification_status = provider.verification_status as VerificationStatus;
+    user.professional_verification_status = normalizeProviderVerificationStatus(provider.verification_status);
+  }
+
+  return user;
 }
 
 function buildRegisterPayload(data: UserRegisterData): BackendPatientRegisterRequest {
@@ -535,7 +547,7 @@ class AuthService extends ApiService {
 
   isAuthenticated(): boolean {
     const token = localStorage.getItem('token');
-    return !!token && !token.startsWith('mock-');
+    return !!token;
   }
 
   getToken(): string | null {

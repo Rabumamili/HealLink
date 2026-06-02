@@ -30,7 +30,7 @@ class ServiceService extends ApiService {
   private readonly basePath = '/providers';
 
   async createProviderService(providerId: number, payload: ProviderServiceCreatePayload) {
-    return this.post(`${this.basePath}/${providerId}/services`, payload, undefined, false);
+    return this.post(`${this.basePath}/${providerId}/services`, payload);
   }
 
   async updateProviderService(providerId: number, serviceId: number, payload: Partial<ProviderServiceCreatePayload>) {
@@ -42,7 +42,7 @@ class ServiceService extends ApiService {
   }
 
   async createServiceSlot(serviceId: number, payload: SlotCreatePayload): Promise<ServiceSlot> {
-    return this.post<ServiceSlot>(`${this.basePath}/services/${serviceId}/slots`, payload, undefined, false);
+    return this.post<ServiceSlot>(`${this.basePath}/services/${serviceId}/slots`, payload);
   }
 
   async listServiceSlots(serviceId: number, onlyAvailable: boolean = true): Promise<ServiceSlot[]> {

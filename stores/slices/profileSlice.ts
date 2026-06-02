@@ -59,9 +59,8 @@ interface ProfileState {
   fetchProfileById: (userId: number, role: ProfileRoleType) => Promise<void>;
   
   // Patient actions
-  fetchPatientProfile: (userId: number) => Promise<void>;
-  updatePatientProfile: (userId: number, data: PatientProfileUpdate) => Promise<void>;
-  fetchPatientStatistics: (userId: number) => Promise<void>;
+  fetchPatientProfile: () => Promise<void>;
+  updatePatientProfile: (data: PatientProfileUpdate) => Promise<void>;
   
   // Doctor actions
   fetchDoctorProfile: (userId: number) => Promise<void>;
@@ -203,15 +202,11 @@ export const useProfileStore = create<ProfileState>()(
       },
 
       // Patient Actions
-      fetchPatientProfile: async (userId: number) => {
+      fetchPatientProfile: async () => {
         set({ isLoading: true, error: null });
         try {
-          const response = await profileService.getPatientProfile(userId);
-          if (response.success) {
-            set({ patientProfile: response.data });
-          } else {
-            set({ error: response.message || 'Failed to fetch patient profile' });
-          }
+          const profile = await profileService.getPatientProfile();
+          set({ patientProfile: profile });
         } catch (error: any) {
           set({ error: error.message || 'An error occurred' });
         } finally {
@@ -219,16 +214,11 @@ export const useProfileStore = create<ProfileState>()(
         }
       },
 
-      updatePatientProfile: async (userId: number, data: PatientProfileUpdate) => {
+      updatePatientProfile: async (data: PatientProfileUpdate) => {
         set({ isUpdating: true, error: null });
         try {
-          const response = await profileService.updatePatientProfile(userId, data);
-          if (response.success) {
-            set({ patientProfile: response.data });
-          } else {
-            set({ error: response.message || 'Failed to update patient profile' });
-            throw new Error(response.message);
-          }
+          const profile = await profileService.updatePatientProfile(data);
+          set({ patientProfile: profile });
         } catch (error: any) {
           set({ error: error.message || 'An error occurred' });
           throw error;
@@ -237,21 +227,6 @@ export const useProfileStore = create<ProfileState>()(
         }
       },
 
-      fetchPatientStatistics: async (userId: number) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await profileService.getPatientStatistics(userId);
-          if (response.success) {
-            set({ patientStatistics: response.data });
-          } else {
-            set({ error: response.message || 'Failed to fetch patient statistics' });
-          }
-        } catch (error: any) {
-          set({ error: error.message || 'An error occurred' });
-        } finally {
-          set({ isLoading: false });
-        }
-      },
 
       // Doctor Actions
       fetchDoctorProfile: async (userId: number) => {

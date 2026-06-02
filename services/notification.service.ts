@@ -13,11 +13,11 @@ class NotificationService extends ApiService {
     queryParams.append('include_read', includeRead.toString());
     queryParams.append('limit', limit.toString());
 
-    return this.get<Notification[]>(`${this.basePath}/mine?${queryParams.toString()}`, undefined, false);
+    return this.get<Notification[]>(`${this.basePath}/mine?${queryParams.toString()}`);
   }
 
   async markNotificationRead(notificationId: number): Promise<Notification> {
-    return this.post<Notification>(`${this.basePath}/${notificationId}/read`, {}, undefined, false);
+    return this.post<Notification>(`${this.basePath}/${notificationId}/read`, {});
   }
 }
 

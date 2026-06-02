@@ -43,9 +43,6 @@ interface LayoutWrapperProps {
   portalSubtitle: string
   titleColor?: string
   searchPlaceholder?: string
-  userInitials?: string
-  userName?: string
-  userEmail?: string
 }
 
 const getPageTitle = (pathname: string, role: string): string => {
@@ -112,15 +109,12 @@ export function LayoutWrapper({
   portalSubtitle,
   titleColor = "text-teal-600",
   searchPlaceholder = "Search...",
-  userInitials = "JD",
-  userName = "User",
-  userEmail = "user@heallink.com",
 }: LayoutWrapperProps) {
   const { user } = useAuth()
   const authDisplay = user ? getUserDisplayFromAuth(user) : null
-  const displayName = authDisplay?.userName ?? userName
-  const displayEmail = authDisplay?.userEmail ?? userEmail
-  const displayInitials = authDisplay?.userInitials ?? userInitials
+  const displayName = authDisplay?.userName ?? "User"
+  const displayEmail = authDisplay?.userEmail ?? ""
+  const displayInitials = authDisplay?.userInitials ?? "JD"
 
   const [isMobile, setIsMobile] = useState(false)
   const [isTablet, setIsTablet] = useState(false)

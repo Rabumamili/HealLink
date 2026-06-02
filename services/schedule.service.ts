@@ -50,7 +50,7 @@ class ScheduleService extends ApiService {
   private readonly basePath = '/schedules';
 
   async createSchedule(data: CreateScheduleRequest): Promise<Schedule> {
-    return this.post<Schedule>(this.basePath, data, undefined, false);
+    return this.post<Schedule>(this.basePath, data);
   }
 
   async listSchedules(serviceId?: number | null, isActive?: boolean | null): Promise<Schedule[]> {
@@ -63,11 +63,11 @@ class ScheduleService extends ApiService {
     }
 
     const query = queryParams.toString();
-    return this.get<Schedule[]>(`${this.basePath}${query ? `?${query}` : ''}`, undefined, false);
+    return this.get<Schedule[]>(`${this.basePath}${query ? `?${query}` : ''}`);
   }
 
   async getSchedule(scheduleId: number): Promise<Schedule> {
-    return this.get<Schedule>(`${this.basePath}/${scheduleId}`, undefined, false);
+    return this.get<Schedule>(`${this.basePath}/${scheduleId}`);
   }
 
   async updateSchedule(scheduleId: number, data: UpdateScheduleRequest): Promise<Schedule> {
@@ -79,7 +79,7 @@ class ScheduleService extends ApiService {
   }
 
   async generateSlots(scheduleId: number, data: GenerateSlotsRequest): Promise<GenerateSlotsResponse> {
-    return this.post<GenerateSlotsResponse>(`${this.basePath}/${scheduleId}/generate-slots`, data, undefined, false);
+    return this.post<GenerateSlotsResponse>(`${this.basePath}/${scheduleId}/generate-slots`, data);
   }
 }
 

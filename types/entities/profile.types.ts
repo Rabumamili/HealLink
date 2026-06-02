@@ -9,36 +9,28 @@ import { PaymentStatus } from './payment.types';
 
 export interface PatientProfile {
   id: number;
-  user_id: number;
-  role: 'patient';
   email: string;
-  phone_number: string;
   first_name: string;
   last_name: string;
+  phone_number: string;
   date_of_birth?: string;
-  gender?: 'Male' | 'Female' | 'Other';
-  blood_type?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
-  address?: string;
+  gender: string;
+  role: 'patient';
+  is_active: boolean;
+  is_verified: boolean;
+  verification_status: string;
   profile_photo?: string;
-  status: PaymentStatus;
-  
-  // Statistics
-  total_appointments?: number;
-  last_visit?: string;
-  health_score?: number;
-  
   created_at: string;
-  updated_at?: string;
+  updated_at: string;
 }
 
 export interface PatientProfileUpdate {
+  email?: string;
   first_name?: string;
   last_name?: string;
   phone_number?: string;
   date_of_birth?: string;
   gender?: string;
-  blood_type?: string;
-  address?: string;
   profile_photo?: string;
 }
 

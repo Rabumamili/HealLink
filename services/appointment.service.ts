@@ -84,38 +84,38 @@ class AppointmentService extends ApiService {
       slot_id: slotId,
       note: note || ''
     };
-    const apiAppointment = await this.post<ApiAppointment>(this.basePath, payload, undefined, false);
+    const apiAppointment = await this.post<ApiAppointment>(this.basePath, payload);
     return this.transformToEnrichedAppointment(apiAppointment);
   }
 
   async listMyAppointments(): Promise<EnrichedAppointment[]> {
-    const apiAppointments = await this.get<ApiAppointment[]>(`${this.basePath}/mine`, undefined, false);
+    const apiAppointments = await this.get<ApiAppointment[]>(`${this.basePath}/mine`);
     return apiAppointments.map(apt => this.transformToEnrichedAppointment(apt));
   }
 
   async cancelAppointmentById(appointmentId: number): Promise<EnrichedAppointment> {
-    const apiAppointment = await this.post<ApiAppointment>(`${this.basePath}/${appointmentId}/cancel`, {}, undefined, false);
+    const apiAppointment = await this.post<ApiAppointment>(`${this.basePath}/${appointmentId}/cancel`, {});
     return this.transformToEnrichedAppointment(apiAppointment);
   }
 
   // Provider appointment actions
   async markVisitCompleted(providerId: number, appointmentId: number): Promise<EnrichedAppointment> {
-    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/complete`, {}, undefined, false);
+    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/complete`, {});
     return this.transformToEnrichedAppointment(apiAppointment);
   }
 
   async markNeedsRecheck(providerId: number, appointmentId: number, reason: string): Promise<EnrichedAppointment> {
-    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/needs-recheck`, { reason }, undefined, false);
+    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/needs-recheck`, { reason });
     return this.transformToEnrichedAppointment(apiAppointment);
   }
 
   async bookRecheckVisit(providerId: number, appointmentId: number, slotId: number): Promise<EnrichedAppointment> {
-    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/book-recheck`, { slot_id: slotId }, undefined, false);
+    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/book-recheck`, { slot_id: slotId });
     return this.transformToEnrichedAppointment(apiAppointment);
   }
 
   async rescheduleAppointment(providerId: number, appointmentId: number, slotId: number): Promise<EnrichedAppointment> {
-    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/reschedule`, { slot_id: slotId }, undefined, false);
+    const apiAppointment = await this.post<ApiAppointment>(`/providers/${providerId}/appointments/${appointmentId}/reschedule`, { slot_id: slotId });
     return this.transformToEnrichedAppointment(apiAppointment);
   }
 

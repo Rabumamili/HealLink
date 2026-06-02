@@ -41,7 +41,6 @@ export const useProfile = (options: UseProfileOptions = {}) => {
     clinicProfile,
     diagnosticCenterProfile,
     staffProfile,
-    patientStatistics,
     doctorStatistics,
     clinicStatistics,
     diagnosticCenterStatistics,
@@ -67,7 +66,6 @@ export const useProfile = (options: UseProfileOptions = {}) => {
     updateClinicProfile,
     updateDiagnosticCenterProfile,
     updateStaffProfile,
-    fetchPatientStatistics,
     fetchDoctorStatistics,
     fetchClinicStatistics,
     fetchDiagnosticCenterStatistics,
@@ -116,39 +114,32 @@ export const useProfile = (options: UseProfileOptions = {}) => {
   const getStatisticsByRole = useCallback(() => {
     if (!user) return null;
     switch (user.role) {
-      case 'patient': return patientStatistics;
       case 'doctor': return doctorStatistics;
       case 'clinic': return clinicStatistics;
       case 'diagnostic_center': return diagnosticCenterStatistics;
       case 'staff': return staffStatistics;
       default: return null;
     }
-  }, [user, patientStatistics, doctorStatistics, clinicStatistics, diagnosticCenterStatistics, staffStatistics]);
+  }, [user, doctorStatistics, clinicStatistics, diagnosticCenterStatistics, staffStatistics]);
 
   // ===============================
   // PATIENT METHODS
   // ===============================
   const loadPatientProfile = useCallback(async () => {
     if (!user || user.role !== 'patient') return null;
-    await fetchPatientProfile(user.id);
+    await fetchPatientProfile();
     return patientProfile;
   }, [user, fetchPatientProfile, patientProfile]);
 
   const updatePatient = useCallback(async (data: PatientProfileUpdate) => {
     if (!user || user.role !== 'patient') return false;
     try {
-      await updatePatientProfile(user.id, data);
+      await updatePatientProfile(data);
       return true;
     } catch {
       return false;
     }
   }, [user, updatePatientProfile]);
-
-  const loadPatientStatistics = useCallback(async () => {
-    if (!user || user.role !== 'patient') return null;
-    await fetchPatientStatistics(user.id);
-    return patientStatistics;
-  }, [user, fetchPatientStatistics, patientStatistics]);
 
   // ===============================
   // DOCTOR METHODS
@@ -375,7 +366,6 @@ export const useProfile = (options: UseProfileOptions = {}) => {
     // Patient specific
     loadPatientProfile,
     updatePatient,
-    loadPatientStatistics,
     
     // Doctor specific
     loadDoctorProfile,

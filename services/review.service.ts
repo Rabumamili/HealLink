@@ -28,7 +28,7 @@ class ReviewService extends ApiService {
   private readonly basePath = '/reviews';
 
   async submitReview(data: CreateReviewRequest): Promise<Review> {
-    return this.post<Review>(this.basePath, data, undefined, false);
+    return this.post<Review>(this.basePath, data);
   }
 
   async getProviderReviews(providerId: number, limit: number = 20, offset: number = 0): Promise<ProviderReviewsResponse> {
@@ -40,7 +40,7 @@ class ReviewService extends ApiService {
   }
 
   async getReviewForAppointment(appointmentId: number): Promise<Review> {
-    return this.get<Review>(`${this.basePath}/appointments/${appointmentId}`, undefined, false);
+    return this.get<Review>(`${this.basePath}/appointments/${appointmentId}`);
   }
 }
 

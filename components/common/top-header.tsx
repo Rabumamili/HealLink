@@ -56,7 +56,7 @@ export function CommonTopHeader({
   onSidebarToggle,
   userInitials = "JD",
   userName = "User",
-  userEmail = "user@heallink.com",
+  userEmail = "",
   userAvatar,
   role = "patient",
   profileLink = "/profile",

@@ -50,21 +50,35 @@ class ProfileService {
   // PATIENT PROFILE METHODS
   // ===============================
 
-  async getPatientProfile(userId: number): Promise<ProfileResponse<PatientProfile>> {
-    const response = await axios.get(`${this.baseUrl}/patient/${userId}`);
+  async getPatientProfile(): Promise<PatientProfile> {
+    const response = await axios.get(`${API_BASE_URL}/patients/me`);
     return response.data;
   }
 
   async updatePatientProfile(
-    userId: number,
     data: PatientProfileUpdate
-  ): Promise<ProfileResponse<PatientProfile>> {
-    const response = await axios.patch(`${this.baseUrl}/patient/${userId}`, data);
+  ): Promise<PatientProfile> {
+    const response = await axios.patch(`${API_BASE_URL}/patients/me`, data);
     return response.data;
   }
 
-  async getPatientStatistics(userId: number): Promise<ProfileResponse<PatientStatistics>> {
-    const response = await axios.get(`${this.baseUrl}/patient/${userId}/statistics`);
+  async deletePatientAccount(): Promise<void> {
+    await axios.delete(`${API_BASE_URL}/patients/me`);
+  }
+
+  async uploadPatientProfilePhoto(file: File): Promise<ProfileUploadResponse> {
+    const formData = new FormData();
+    formData.append('profile_photo', file);
+    
+    const response = await axios.post(
+      `${API_BASE_URL}/patients/me/profile-photo`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
     return response.data;
   }
 

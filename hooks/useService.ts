@@ -18,7 +18,7 @@ interface UseServicesOptions {
 const transformToApiFormat = (data: CreateServiceDTO) => ({
   name: data.name,
   service_type: data.serviceType,
-  location: data.location || '',
+  location: data.location,
   price: data.standardFee,
   duration_minutes: data.durationMinutes,
   description: data.description,

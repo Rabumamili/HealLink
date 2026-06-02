@@ -15,6 +15,9 @@ export interface BackendProvider {
   address: string | null;
   description: string | null;
   created_at: string;
+  is_active?: boolean;
+  is_verified?: boolean;
+  verification_status?: string;
 }
 
 export interface ProviderListFilters {

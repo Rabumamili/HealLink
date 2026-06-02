@@ -12,9 +12,6 @@ export default function DoctorLayout({
       portalName="Doctor Portal"
       portalSubtitle="Providing Quality Care"
       searchPlaceholder="Search patients, appointments..."
-      userInitials="AB"
-      userName="Dr. Abebe Bekele"
-      userEmail="abebe.bekele@heallink.com"
     >
       {children}
     </LayoutWrapper>

@@ -48,8 +48,6 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { PatientProfile, PatientProfileUpdate } from "@/types/entities/profile.types";
 
-const bloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-
 export default function PatientProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -59,7 +57,6 @@ export default function PatientProfilePage() {
 
   const {
     profile,
-    statistics,
     loading,
     uploadLoading,
     passwordLoading,
@@ -68,7 +65,6 @@ export default function PatientProfilePage() {
     updatePatient,
     uploadPhoto,
     updatePassword,
-    loadPatientStatistics,
     removeAccount,
   } = useProfile();
 
@@ -83,7 +79,6 @@ export default function PatientProfilePage() {
 
   useEffect(() => {
     loadPatientProfile();
-    loadPatientStatistics();
   }, []);
 
   useEffect(() => {
@@ -95,8 +90,6 @@ export default function PatientProfilePage() {
         phone_number: p.phone_number,
         date_of_birth: p.date_of_birth,
         gender: p.gender,
-        address: p.address,
-        blood_type: p.blood_type,
       });
     }
   }, [profile]);
@@ -145,20 +138,20 @@ export default function PatientProfilePage() {
     {
       icon: Calendar,
       label: "Appointments",
-      value: (statistics as any)?.total_appointments ?? 0,
-      detail: `Upcoming: ${(statistics as any)?.upcoming_appointments ?? 0}`,
+      value: 0,
+      detail: "Upcoming: 0",
     },
     {
       icon: FileText,
       label: "Lab Results",
-      value: (statistics as any)?.pending_lab_results ?? 0,
+      value: 0,
       detail: "Pending review",
     },
     {
       icon: Activity,
       label: "Health Score",
-      value: (statistics as any)?.health_score ?? 0,
-      detail: (statistics as any)?.health_score >= 80 ? "Excellent" : "Good",
+      value: 0,
+      detail: "Good",
     },
   ];
 
@@ -333,16 +326,6 @@ export default function PatientProfilePage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Residential Address</Label>
-                  <Textarea
-                    value={formData.address || ""}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    disabled={!isEditing}
-                    rows={2}
-                    className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]"
-                  />
-                </div>
               </div>
               <div className="flex justify-end mt-6">
                 <Button
@@ -362,40 +345,6 @@ export default function PatientProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Medical Information */}
-          <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <Heart className="h-5 w-5 text-[#006767]" />
-                <CardTitle className="text-2xl font-semibold text-[#0b1c30]">Medical Information</CardTitle>
-              </div>
-              <CardDescription>Your health and medical details</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[#3d4949] text-sm font-medium ml-1">Blood Type</Label>
-                  <Select
-                    value={formData.blood_type}
-                    onValueChange={(value) => setFormData({ ...formData, blood_type: value })}
-                    disabled={!isEditing}
-                  >
-                    <SelectTrigger className="bg-[#F1F5F9] border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-[#006767]">
-                      <div className="flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-red-500 shrink-0" />
-                        <SelectValue placeholder="Select blood type" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {bloodTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Account Security */}
           <Card className="rounded-xl border-[#E2E8F0] shadow-[0_4px_20px_rgba(11,28,48,0.04)]">

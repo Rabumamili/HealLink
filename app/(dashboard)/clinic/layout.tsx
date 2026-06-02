@@ -12,9 +12,6 @@ export default function ClinicAdminLayout({
       portalName="Clinic Portal"
       portalSubtitle="Healthcare Management"
       searchPlaceholder="Search patients, appointments..."
-      userInitials="CA"
-      userName="Clinic Admin"
-      userEmail="admin@heallink.com"
     >
       {children}
     </LayoutWrapper>

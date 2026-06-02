@@ -12,9 +12,6 @@ export default function PatientLayout({
       portalName="Patient Portal"
       portalSubtitle="Your Health Journey"
       searchPlaceholder="Search doctors, specialties..."
-      userInitials="SJ"
-      userName="Sarah Johnson"
-      userEmail="sarah.johnson@example.com"
     >
       {children}
     </LayoutWrapper>

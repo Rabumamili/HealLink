@@ -2,9 +2,11 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { CalendarDays } from "lucide-react"
+import { CalendarDays, Plus } from "lucide-react"
 import { toast } from "sonner"
 
+import { useAuth } from "@/hooks/useAuth"
+import { useServices } from "@/hooks/useService"
 import { useSchedule } from "@/hooks/useSchedule"
 import { SchedulePageHeader } from "@/components/schedules/SchedulePageHeader"
 import { ScheduleSettings } from "@/components/schedules/schedule-settings"
@@ -12,26 +14,35 @@ import { WeeklySchedule } from "@/components/schedules/weekly-schedule"
 import { AddSlotDialog } from "@/components/schedules/add-slot-dialog"
 import { ScheduleProTip } from "@/components/schedules/schedule-pro-tip"
 import { LoadingState } from "@/components/common/LoadingState"
-
-const getCurrentClinicId = (): number | null => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('currentClinicId');
-    if (stored) {
-      const parsed = parseInt(stored, 10);
-      if (!isNaN(parsed)) return parsed;
-    }
-  }
-  return null;
-};
+import { EmptyState } from "@/components/common/EmptyState"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function ClinicSchedulePage() {
-  const clinicId = getCurrentClinicId();
+  const { user, isLoading: isAuthLoading } = useAuth({ requireAuth: true })
+  const { services, isLoading: isServicesLoading } = useServices({
+    autoFetch: true,
+    providerId: user?.provider_id,
+  })
 
-  if (clinicId === null) {
-    return <LoadingState message="Loading schedule..." />;
-  }
+  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [isAddSlotOpen, setIsAddSlotOpen] = useState(false)
+  const [isCreateScheduleOpen, setIsCreateScheduleOpen] = useState(false)
   const [localSchedule, setLocalSchedule] = useState<any[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -43,7 +54,7 @@ export default function ClinicSchedulePage() {
     createSchedule,
     updateSchedule,
     deleteSchedule,
-  } = useSchedule({ serviceId: undefined, autoFetch: true })
+  } = useSchedule({ serviceId: selectedServiceId || undefined, autoFetch: !!selectedServiceId })
 
   useEffect(() => {
     if (schedules) {
@@ -135,28 +146,87 @@ export default function ClinicSchedulePage() {
           isSaving={isSaving}
         />
 
-        <ScheduleSettings
-          settings={{
-            slotDuration: "30",
-            bufferTime: "5",
-            maxAppointmentsPerDay: "20",
-          }}
-          onSettingChange={(key: string, value: any) => {
-            toast.info("Settings management not available in current API version")
-          }}
-          type="clinic"
-        />
+        {/* Service Selector & Create Schedule */}
+        {services.length === 0 ? (
+          <EmptyState
+            variant="schedule"
+            title="No Services Yet"
+            message="Create a service first to manage schedules"
+            submessage="Go to Services to add your first clinic service."
+            icon={<CalendarDays className="h-8 w-8" />}
+            actionLabel="Go to Services"
+            actionHref="/clinic/services"
+          />
+        ) : (
+          <>
+            <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Select Service
+                </label>
+                <Select value={selectedServiceId?.toString() || ""} onValueChange={(v) => setSelectedServiceId(parseInt(v))}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose a service to manage schedules" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map((service) => (
+                      <SelectItem key={service.id} value={service.id.toString()}>
+                        {service.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Dialog open={isCreateScheduleOpen} onOpenChange={setIsCreateScheduleOpen}>
+                <DialogTrigger asChild>
+                  <Button className="mt-6" variant="default" size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Schedule
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Schedule</DialogTitle>
+                    <DialogDescription>
+                      Set up a new schedule for {services.find(s => s.id === selectedServiceId)?.name || 'your service'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    {/* Placeholder for schedule creation form */}
+                    <p className="text-sm text-slate-600">Schedule creation form coming soon</p>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
 
-        <WeeklySchedule
-          schedule={localSchedule}
-          type="clinic"
-          onToggleDay={toggleDay}
-          onAddSlot={(day: string) => {
-            setSelectedDay(day)
-            setIsAddSlotOpen(true)
-          }}
-          onRemoveSlot={removeSlot}
-        />
+            {selectedServiceId && (
+              <>
+                <ScheduleSettings
+                  settings={{
+                    slotDuration: "30",
+                    bufferTime: "5",
+                    maxAppointmentsPerDay: "20",
+                  }}
+                  onSettingChange={(key: string, value: any) => {
+                    toast.info("Settings management not available in current API version")
+                  }}
+                  type="clinic"
+                />
+
+                <WeeklySchedule
+                  schedule={localSchedule}
+                  type="clinic"
+                  onToggleDay={toggleDay}
+                  onAddSlot={(day: string) => {
+                    setSelectedDay(day)
+                    setIsAddSlotOpen(true)
+                  }}
+                  onRemoveSlot={removeSlot}
+                />
+              </>
+            )}
+          </>
+        )}
 
         <ScheduleProTip type="clinic" />
 

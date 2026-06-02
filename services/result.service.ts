@@ -16,7 +16,7 @@ class ResultService extends ApiService {
   private readonly basePath = '/diagnostic-results';
 
   async getResultForAppointment(appointmentId: number): Promise<DiagnosticResult> {
-    return this.get<DiagnosticResult>(`${this.basePath}/appointments/${appointmentId}`, undefined, false);
+    return this.get<DiagnosticResult>(`${this.basePath}/appointments/${appointmentId}`);
   }
 
   async updateResultStatus(appointmentId: number, data: UpdateResultStatusRequest): Promise<DiagnosticResult> {
@@ -24,7 +24,7 @@ class ResultService extends ApiService {
   }
 
   async getMyResults(): Promise<DiagnosticResult[]> {
-    return this.get<DiagnosticResult[]>(`${this.basePath}/mine`, undefined, false);
+    return this.get<DiagnosticResult[]>(`${this.basePath}/mine`);
   }
 }
 
