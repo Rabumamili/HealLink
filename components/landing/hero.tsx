@@ -88,7 +88,7 @@ export function Hero() {
               <span className="h-px w-5 bg-primary/40" />
               <Building2 className="h-5 w-5" />
             </div>
-            <div className="text-center text-sm font-black text-[#202936]">Doctors - Patients - Clinics</div>
+            <div className="text-center text-sm font-black text-[#202936]">Doctors - Clinics- Diagonistics </div>
             <div className="mt-1 text-center text-xs font-semibold text-[#748090]">All in one platform</div>
           </motion.div>
         </motion.div>
