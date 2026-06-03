@@ -10,7 +10,7 @@ interface ScheduleState {
   isLoading: boolean;
   error: string | null;
   
-  listSchedules: (serviceId?: number | null, isActive?: boolean | null) => Promise<void>;
+  listSchedules: (serviceId?: number | null, providerId?: number | null, isActive?: boolean | null) => Promise<void>;
   getSchedule: (scheduleId: number) => Promise<void>;
   createSchedule: (data: CreateScheduleRequest) => Promise<Schedule | null>;
   updateSchedule: (scheduleId: number, data: UpdateScheduleRequest) => Promise<Schedule | null>;
@@ -26,10 +26,10 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  listSchedules: async (serviceId?: number | null, isActive?: boolean | null) => {
+  listSchedules: async (serviceId?: number | null, providerId?: number | null, isActive?: boolean | null) => {
     set({ isLoading: true, error: null });
     try {
-      const schedules = await scheduleService.listSchedules(serviceId, isActive);
+      const schedules = await scheduleService.listSchedules(serviceId, providerId, isActive);
       set({ schedules, isLoading: false });
     } catch (error) {
       set({ error: 'Failed to fetch schedules', isLoading: false });

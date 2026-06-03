@@ -44,8 +44,6 @@ interface BookingSidebarProps {
   service: Service
   provider: ProviderDetails | null
   totalAmount: number
-  onPayNow: () => void
-  onChapaPayment: () => void
   isLoading?: boolean
 }
 
@@ -66,7 +64,6 @@ export function BookingSidebar({
   service,
   provider,
   totalAmount,
-  onPayNow,
   isLoading,
 }: BookingSidebarProps) {
   return (
@@ -306,17 +303,6 @@ export function BookingSidebar({
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="mt-6">
-          <Button
-            onClick={onPayNow}
-            disabled={isLoading}
-            className="h-14 w-full rounded-2xl bg-[#006767] hover:bg-[#008282] text-white font-bold text-base"
-          >
-            Continue Payment
-          </Button>
         </div>
       </div>
     </div>

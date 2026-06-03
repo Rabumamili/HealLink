@@ -86,6 +86,7 @@ function mapProviderToAuthUser(provider: BackendProvider): AuthUser {
     location: provider.location,
     address: provider.address ?? undefined,
     description: provider.description ?? undefined,
+    license_document: provider.license_document ?? undefined,
   };
 
   if (provider.is_active !== undefined) {
@@ -303,7 +304,7 @@ class AuthService extends ApiService {
 
     if (payload.password) formData.append('password', payload.password);
     if (payload.name) formData.append('name', payload.name);
-    if (payload.phone_number) formData.append('phone_number', payload.phone_number);
+    if (payload.phone_number) formData.append('phone', payload.phone_number);
     if (payload.location) formData.append('location', payload.location);
     if (payload.address) formData.append('address', payload.address);
     if (payload.specialization) formData.append('specialization', payload.specialization);

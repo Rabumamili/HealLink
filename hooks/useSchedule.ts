@@ -5,6 +5,7 @@ import { Schedule, CreateScheduleRequest, UpdateScheduleRequest, GenerateSlotsRe
 
 interface UseScheduleOptions {
   serviceId?: number;
+  providerId?: number;
   autoFetch?: boolean;
 }
 
@@ -24,13 +25,13 @@ export const useSchedule = (options: UseScheduleOptions = {}) => {
     clearError,
   } = useScheduleStore();
 
-  const { serviceId, autoFetch = true } = options;
+  const { serviceId, providerId, autoFetch = true } = options;
 
   useEffect(() => {
     if (autoFetch) {
-      listSchedules(serviceId);
+      listSchedules(serviceId, providerId, true);
     }
-  }, [autoFetch, serviceId, listSchedules]);
+  }, [autoFetch, serviceId, providerId, listSchedules]);
 
   const create = useCallback(async (data: CreateScheduleRequest) => {
     return await createSchedule(data);

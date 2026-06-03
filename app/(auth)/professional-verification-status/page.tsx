@@ -15,8 +15,7 @@ import {
   LogOut,
   AlertTriangle,
   FileCheck,
-  UserCheck,
-  RefreshCw
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -24,11 +23,10 @@ import { toast } from 'sonner';
 function ProfessionalVerificationStatusContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated, logout, getCurrentUser, getProfessionalVerificationStatus } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -36,27 +34,18 @@ function ProfessionalVerificationStatusContent() {
       return;
     }
 
-    const checkStatus = async () => {
-      try {
-        const currentUser = await getCurrentUser();
-        // Safe access using optional chaining and type assertion
-        const status = currentUser?.professional_verification_status ?? null;
-        setVerificationStatus(status);
-        
-        const urlStatus = searchParams.get('status');
-        if (urlStatus === 'rejected' || status === 'rejected') {
-          const reason = currentUser?.rejection_reason ?? 'Your verification was not approved. Please review and resubmit.';
-          setRejectionReason(reason);
-        }
-      } catch (error) {
-        console.error('Failed to fetch verification status:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    // Use verification status from login response (user object) instead of making API call
+    const status = user?.professional_verification_status ?? null;
+    setVerificationStatus(status);
 
-    checkStatus();
-  }, [isAuthenticated, router, getCurrentUser, searchParams]);
+    const urlStatus = searchParams.get('status');
+    if (urlStatus === 'rejected' || status === 'rejected') {
+      const reason = user?.rejection_reason ?? 'Your verification was not approved. Please review and resubmit.';
+      setRejectionReason(reason);
+    }
+
+    setIsLoading(false);
+  }, [isAuthenticated, router, user, searchParams]);
 
   // Check if user is a provider after hooks
   const isProviderUser = user && (user.role === 'doctor' || user.role === 'clinic' || user.role === 'diagnostic_center');
@@ -77,34 +66,6 @@ function ProfessionalVerificationStatusContent() {
 
   const handleResubmit = () => {
     router.push('/professional-verification-submit?resubmit=true');
-  };
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      const statusData = await getProfessionalVerificationStatus();
-      setVerificationStatus(statusData.status);
-      if (statusData.rejection_reason) {
-        setRejectionReason(statusData.rejection_reason);
-      }
-      await getCurrentUser();
-      toast.success('Status refreshed');
-      
-      if (statusData.status === 'approved' && user) {
-        const roleRoutes: Record<string, string> = {
-          doctor: '/doctor/dashboard',
-          clinic: '/clinic/dashboard',
-          diagnostic_center: '/diagnostic/dashboard',
-        };
-        if (user.role && roleRoutes[user.role]) {
-          router.push(roleRoutes[user.role]);
-        }
-      }
-    } catch (error) {
-      toast.error('Failed to refresh status');
-    } finally {
-      setIsRefreshing(false);
-    }
   };
 
   // Early returns with null checks
@@ -209,16 +170,6 @@ function ProfessionalVerificationStatusContent() {
                 </div>
 
                 <div className="space-y-3">
-                  <Button 
-                    onClick={handleRefresh}
-                    variant="outline"
-                    className="w-full flex items-center justify-center gap-2"
-                    disabled={isRefreshing}
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    {isRefreshing ? 'Refreshing...' : 'Refresh Status'}
-                  </Button>
-                  
                   <Button 
                     onClick={handleLogout}
                     variant="outline" 

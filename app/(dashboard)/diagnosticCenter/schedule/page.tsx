@@ -31,6 +31,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 export default function DiagnosticSchedulePage() {
   const { user, isLoading: isAuthLoading } = useAuth({ requireAuth: true })
@@ -46,6 +48,15 @@ export default function DiagnosticSchedulePage() {
   const [localSchedule, setLocalSchedule] = useState<any[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [newSchedule, setNewSchedule] = useState({
+    schedule_type: 'weekly' as 'daily' | 'weekly',
+    day_of_week: 1,
+    start_time: '09:00',
+    end_time: '17:00',
+    slot_duration_minutes: 30,
+    valid_from: '',
+    valid_until: '',
+  })
 
   const {
     schedules,
@@ -84,6 +95,35 @@ export default function DiagnosticSchedulePage() {
       setIsSaving(false)
     }
   }, [])
+
+  const handleCreateSchedule = useCallback(async () => {
+    if (!selectedServiceId) {
+      toast.error("Please select a service first")
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      await createSchedule({
+        service_id: selectedServiceId,
+        schedule_type: newSchedule.schedule_type,
+        day_of_week: newSchedule.day_of_week,
+        start_time: newSchedule.start_time,
+        end_time: newSchedule.end_time,
+        slot_duration_minutes: newSchedule.slot_duration_minutes,
+        valid_from: newSchedule.valid_from || new Date().toISOString().split('T')[0],
+        valid_until: newSchedule.valid_until || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      })
+      toast.success("Schedule created successfully")
+      setIsCreateScheduleOpen(false)
+      await listSchedules(selectedServiceId)
+    } catch (error) {
+      toast.error("Failed to create schedule")
+      console.error(error)
+    } finally {
+      setIsSaving(false)
+    }
+  }, [selectedServiceId, newSchedule, createSchedule, listSchedules])
 
   const toggleDay = (day: string) => {
     setLocalSchedule((prev) =>
@@ -192,8 +232,102 @@ export default function DiagnosticSchedulePage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
-                    {/* Placeholder for schedule creation form */}
-                    <p className="text-sm text-slate-600">Schedule creation form coming soon</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="schedule_type">Schedule Type</Label>
+                      <Select
+                        value={newSchedule.schedule_type}
+                        onValueChange={(value: 'daily' | 'weekly') => setNewSchedule({ ...newSchedule, schedule_type: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="day_of_week">Day of Week</Label>
+                      <Select
+                        value={newSchedule.day_of_week.toString()}
+                        onValueChange={(value) => setNewSchedule({ ...newSchedule, day_of_week: parseInt(value) })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Monday</SelectItem>
+                          <SelectItem value="2">Tuesday</SelectItem>
+                          <SelectItem value="3">Wednesday</SelectItem>
+                          <SelectItem value="4">Thursday</SelectItem>
+                          <SelectItem value="5">Friday</SelectItem>
+                          <SelectItem value="6">Saturday</SelectItem>
+                          <SelectItem value="0">Sunday</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="start_time">Start Time</Label>
+                        <Input
+                          id="start_time"
+                          type="time"
+                          value={newSchedule.start_time}
+                          onChange={(e) => setNewSchedule({ ...newSchedule, start_time: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="end_time">End Time</Label>
+                        <Input
+                          id="end_time"
+                          type="time"
+                          value={newSchedule.end_time}
+                          onChange={(e) => setNewSchedule({ ...newSchedule, end_time: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="slot_duration_minutes">Slot Duration (minutes)</Label>
+                      <Input
+                        id="slot_duration_minutes"
+                        type="number"
+                        value={newSchedule.slot_duration_minutes}
+                        onChange={(e) => setNewSchedule({ ...newSchedule, slot_duration_minutes: parseInt(e.target.value) })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="valid_from">Valid From</Label>
+                        <Input
+                          id="valid_from"
+                          type="date"
+                          value={newSchedule.valid_from}
+                          onChange={(e) => setNewSchedule({ ...newSchedule, valid_from: e.target.value })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="valid_until">Valid Until</Label>
+                        <Input
+                          id="valid_until"
+                          type="date"
+                          value={newSchedule.valid_until}
+                          onChange={(e) => setNewSchedule({ ...newSchedule, valid_until: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleCreateSchedule}
+                      disabled={isSaving}
+                      className="w-full"
+                    >
+                      {isSaving ? "Creating..." : "Create Schedule"}
+                    </Button>
                   </div>
                 </DialogContent>
               </Dialog>

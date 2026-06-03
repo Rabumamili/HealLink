@@ -14,6 +14,7 @@ export interface BackendProvider {
   location: string;
   address: string | null;
   description: string | null;
+  license_document?: string | null;
   created_at: string;
   is_active?: boolean;
   is_verified?: boolean;

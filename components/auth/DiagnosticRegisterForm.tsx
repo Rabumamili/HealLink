@@ -22,8 +22,7 @@ import {
 
 interface FormData {
   email: string;
-  first_name: string;
-  last_name: string;
+  center_name: string;
   center_address: string;
   center_phone: string;
   center_license_number: string;
@@ -51,8 +50,7 @@ export const DiagnosticRegisterForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: '',
-    first_name: '',
-    last_name: '',
+    center_name: '',
     center_address: '',
     center_phone: '',
     center_license_number: '',
@@ -75,13 +73,12 @@ export const DiagnosticRegisterForm = () => {
 
   const handleNext = async () => {
     if (
-      !formData.first_name ||
-      !formData.last_name ||
-      !formData.center_address ||
-      !formData.center_phone ||
-      !formData.center_license_number ||
-      !formData.center_tin_number ||
-      !formData.email ||
+      !formData.center_name.trim() ||
+      !formData.center_address.trim() ||
+      !formData.center_phone.trim() ||
+      !formData.center_license_number.trim() ||
+      !formData.center_tin_number.trim() ||
+      !formData.email.trim() ||
       !formData.password ||
       !formData.confirmPassword
     ) {
@@ -121,7 +118,7 @@ export const DiagnosticRegisterForm = () => {
     setIsSubmitting(true);
 
     try {
-      const full_name = `${formData.first_name} ${formData.last_name}`.trim();
+      const full_name = formData.center_name.trim();
       
       await registerDiagnosticCenter({
         email: formData.email,
@@ -271,12 +268,8 @@ export const DiagnosticRegisterForm = () => {
                     className={inputClass}
                     placeholder="City Diagnostic Lab"
                     type="text"
-                    value={`${formData.first_name} ${formData.last_name}`.trim()}
-                    onChange={(e) => {
-                      const parts = e.target.value.split(' ');
-                      update('first_name', parts[0] || '');
-                      update('last_name', parts.slice(1).join(' ') || '');
-                    }}
+                    value={formData.center_name}
+                    onChange={(e) => update('center_name', e.target.value)}
                   />
                   <InputFieldIcon name="domain" />
                 </div>
@@ -550,7 +543,7 @@ export const DiagnosticRegisterForm = () => {
                   </div>
                   <div className="flex items-start gap-2 text-sm text-gray-600">
                     <Check className="h-4 w-4 text-green-600 mt-0.5" />
-                    <span>Center Name: <strong>{`${formData.first_name} ${formData.last_name}`.trim()}</strong></span>
+                    <span>Center Name: <strong>{formData.center_name.trim()}</strong></span>
                   </div>
                   <div className="flex items-start gap-2 text-sm text-gray-600">
                     <Check className="h-4 w-4 text-green-600 mt-0.5" />

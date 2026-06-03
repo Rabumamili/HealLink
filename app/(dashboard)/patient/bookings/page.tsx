@@ -110,7 +110,11 @@ function BookingWizardContent() {
     schedules,
     isLoading: schedulesLoading,
     generateSlots,
-  } = useSchedule({ serviceId: selectedService?.id, autoFetch: !!selectedService?.id })
+    listSchedules,
+  } = useSchedule({ 
+    serviceId: selectedService?.id, 
+    autoFetch: !!selectedService?.id
+  })
 
   const patientId = getCurrentPatientId()
 
@@ -126,19 +130,21 @@ function BookingWizardContent() {
     setIsClient(true)
   }, [])
 
-  const fetchSlotsForService = async (serviceId: number) => {
+  const fetchSlotsForService = useCallback(async (serviceId: number) => {
     setIsLoadingSlots(true)
     try {
       console.log('Fetching slots for service:', serviceId)
       console.log('Available schedules:', schedules)
       console.log('Selected date:', selectedDate)
+      console.log('Provider ID:', selectedProvider?.id)
 
       // Use the schedule to determine availability for the selected date
       const selectedDateObj = new Date(selectedDate.fullDate)
       const dayOfWeek = selectedDateObj.getDay() // 0=Sunday, 1=Monday, etc.
-      console.log('Day of week:', dayOfWeek)
+      console.log('Day of week (JS):', dayOfWeek)
 
-      const activeSchedule = schedules.find(s => s.is_active && s.day_of_week === dayOfWeek)
+      // Try both conventions: JS (0=Sun) and ISO (1=Mon, 7=Sun)
+      const activeSchedule = schedules.find(s => s.is_active && (s.day_of_week === dayOfWeek || s.day_of_week === (dayOfWeek === 0 ? 7 : dayOfWeek)))
       console.log('Active schedule for day:', activeSchedule)
 
       if (activeSchedule) {
@@ -175,7 +181,7 @@ function BookingWizardContent() {
     } finally {
       setIsLoadingSlots(false)
     }
-  }
+  }, [schedules, selectedDate, selectedProvider])
 
   // Fetch provider details when service is selected
   useEffect(() => {
@@ -258,7 +264,12 @@ function BookingWizardContent() {
     fetchProviderDetails()
   }, [selectedService])
 
-  // Fetch slots when service or date changes
+  // Log when schedules change
+  useEffect(() => {
+    console.log('Schedules updated:', schedules)
+  }, [schedules])
+
+  // Fetch slots when service, provider, or date changes
   useEffect(() => {
     if (selectedService?.id) {
       fetchSlotsForService(selectedService.id)
@@ -266,7 +277,7 @@ function BookingWizardContent() {
       setServiceSlots([])
       setSelectedSlot(null)
     }
-  }, [selectedService, schedules, selectedDate])
+  }, [selectedService, selectedDate, fetchSlotsForService])
 
   // Derive service categories by filtering based on serviceType
   const consultationServices = services.filter(s => s.serviceType === 'Consultation')
@@ -548,8 +559,6 @@ function BookingWizardContent() {
                     provider={selectedProvider}
                     totalAmount={totalAmount}
                     isLoading={isProcessing}
-                    onPayNow={() => setShowPaymentModal(true)}
-                    onChapaPayment={() => setShowPaymentModal(true)}
                   />
                 </div>
 

@@ -22,8 +22,7 @@ import {
 
 interface FormData {
   email: string;
-  first_name: string;
-  last_name: string;
+  clinic_name: string;
   address: string;
   phone: string;
   license_number: string;
@@ -48,8 +47,7 @@ export const ClinicRegisterForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>({
     email: '',
-    first_name: '',
-    last_name: '',
+    clinic_name: '',
     address: '',
     phone: '',
     license_number: '',
@@ -69,13 +67,12 @@ export const ClinicRegisterForm = () => {
 
   const handleNext = async () => {
     if (
-      !formData.first_name ||
-      !formData.last_name ||
-      !formData.address ||
-      !formData.phone ||
-      !formData.license_number ||
-      !formData.tin_number ||
-      !formData.email ||
+      !formData.clinic_name.trim() ||
+      !formData.address.trim() ||
+      !formData.phone.trim() ||
+      !formData.license_number.trim() ||
+      !formData.tin_number.trim() ||
+      !formData.email.trim() ||
       !formData.password ||
       !formData.confirmPassword
     ) {
@@ -115,7 +112,7 @@ export const ClinicRegisterForm = () => {
     setIsSubmitting(true);
 
     try {
-      const full_name = `${formData.first_name} ${formData.last_name}`.trim();
+      const full_name = formData.clinic_name.trim();
       
       await registerClinic({
         email: formData.email,
@@ -263,12 +260,8 @@ export const ClinicRegisterForm = () => {
                     className={inputClass}
                     placeholder="Central Health Clinic"
                     type="text"
-                    value={`${formData.first_name} ${formData.last_name}`.trim()}
-                    onChange={(e) => {
-                      const parts = e.target.value.split(' ');
-                      update('first_name', parts[0] || '');
-                      update('last_name', parts.slice(1).join(' ') || '');
-                    }}
+                    value={formData.clinic_name}
+                    onChange={(e) => update('clinic_name', e.target.value)}
                   />
                   <InputFieldIcon name="domain" />
                 </div>
@@ -471,7 +464,7 @@ export const ClinicRegisterForm = () => {
                   </div>
                   <div className="flex items-start gap-2 text-sm text-gray-600">
                     <Check className="h-4 w-4 text-green-600 mt-0.5" />
-                    <span>Clinic Name: <strong>{`${formData.first_name} ${formData.last_name}`.trim()}</strong></span>
+                    <span>Clinic Name: <strong>{formData.clinic_name.trim()}</strong></span>
                   </div>
                 </div>
               </div>

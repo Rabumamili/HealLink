@@ -53,10 +53,13 @@ class ScheduleService extends ApiService {
     return this.post<Schedule>(this.basePath, data);
   }
 
-  async listSchedules(serviceId?: number | null, isActive?: boolean | null): Promise<Schedule[]> {
+  async listSchedules(serviceId?: number | null, providerId?: number | null, isActive?: boolean | null): Promise<Schedule[]> {
     const queryParams = new URLSearchParams();
     if (serviceId !== undefined && serviceId !== null) {
       queryParams.append('service_id', serviceId.toString());
+    }
+    if (providerId !== undefined && providerId !== null) {
+      queryParams.append('provider_id', providerId.toString());
     }
     if (isActive !== undefined && isActive !== null) {
       queryParams.append('is_active', isActive.toString());
