@@ -14,7 +14,7 @@ interface ServiceState {
   isLoading: boolean;
   error: string | null;
 
-  fetchServices: () => Promise<void>;
+  fetchServices: (providerId?: number | null) => Promise<void>;
   createService: (data: {
     name: string;
     service_type: string;
@@ -31,11 +31,11 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchServices: async () => {
+  fetchServices: async (providerId?: number | null) => {
     if (typeof window === 'undefined') return;
     set({ isLoading: true, error: null });
     try {
-      const services = await serviceService.listServices();
+      const services = await serviceService.listServices(providerId);
       console.log('Fetched services:', services);
       set({ services, isLoading: false });
     } catch (error) {

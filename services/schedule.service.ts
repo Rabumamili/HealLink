@@ -50,6 +50,7 @@ class ScheduleService extends ApiService {
   private readonly basePath = '/schedules';
 
   async createSchedule(data: CreateScheduleRequest): Promise<Schedule> {
+    console.log('POST request to:', this.basePath, 'with data:', data)
     return this.post<Schedule>(this.basePath, data);
   }
 

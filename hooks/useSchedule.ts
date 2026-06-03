@@ -10,12 +10,13 @@ interface UseScheduleOptions {
 }
 
 export const useSchedule = (options: UseScheduleOptions = {}) => {
+  const store = useScheduleStore();
   const {
     schedules,
     currentSchedule,
     isLoading,
     error,
-    listSchedules,
+    listSchedules: listSchedulesFromStore,
     getSchedule,
     createSchedule,
     updateSchedule,
@@ -23,9 +24,13 @@ export const useSchedule = (options: UseScheduleOptions = {}) => {
     generateSlots,
     clearCurrentSchedule,
     clearError,
-  } = useScheduleStore();
+  } = store;
 
   const { serviceId, providerId, autoFetch = true } = options;
+
+  const listSchedules = useCallback((serviceId?: number | null, providerId?: number | null, isActive?: boolean | null) => {
+    return listSchedulesFromStore(serviceId, providerId, isActive);
+  }, [listSchedulesFromStore]);
 
   useEffect(() => {
     if (autoFetch) {

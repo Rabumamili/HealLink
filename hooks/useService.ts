@@ -84,9 +84,9 @@ export const useServices = (options: UseServicesOptions = {}) => {
   // For provider view, use service store
   useEffect(() => {
     if (autoFetch && !usePatientView && typeof window !== 'undefined') {
-      fetchServices();
+      fetchServices(providerId);
     }
-  }, [autoFetch, usePatientView, fetchServices]);
+  }, [autoFetch, usePatientView, fetchServices, providerId]);
 
   const servicesToUse = usePatientView ? patientServices : services;
   const loadingToUse = usePatientView ? isLoadingPatient : isLoading;

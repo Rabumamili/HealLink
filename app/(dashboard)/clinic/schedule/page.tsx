@@ -16,10 +16,13 @@ import { ScheduleProTip } from "@/components/schedules/schedule-pro-tip"
 import { LoadingState } from "@/components/common/LoadingState"
 import { EmptyState } from "@/components/common/EmptyState"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -31,8 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 
 export default function ClinicSchedulePage() {
   const { user, isLoading: isAuthLoading } = useAuth({ requireAuth: true })
@@ -49,13 +50,12 @@ export default function ClinicSchedulePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [newSchedule, setNewSchedule] = useState({
-    schedule_type: 'weekly' as 'daily' | 'weekly',
     day_of_week: 1,
     start_time: '09:00',
     end_time: '17:00',
     slot_duration_minutes: 30,
-    valid_from: '',
-    valid_until: '',
+    valid_from: new Date().toISOString().split('T')[0],
+    valid_until: '2025-12-31'
   })
 
   const {
@@ -86,16 +86,46 @@ export default function ClinicSchedulePage() {
   }, [listSchedules])
 
   const handleSave = useCallback(async () => {
+    if (!selectedServiceId) {
+      toast.error("Please select a service first")
+      return
+    }
+
     setIsSaving(true)
     try {
-      // The new API doesn't have batch save, would need to save each schedule individually
-      toast.info("Schedule management updated to work with new API")
-    } catch {
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+      
+      for (const daySchedule of localSchedule) {
+        if (daySchedule.isActive && daySchedule.slots && daySchedule.slots.length > 0) {
+          const dayIndex = days.indexOf(daySchedule.day)
+          const dayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1 // Convert Monday=0 to 1, Sunday=6 to 0
+          
+          for (const slot of daySchedule.slots) {
+            const scheduleData = {
+              service_id: selectedServiceId,
+              schedule_type: 'weekly' as const,
+              day_of_week: dayOfWeek,
+              start_time: slot.startTime,
+              end_time: slot.endTime,
+              slot_duration_minutes: 30,
+              valid_from: new Date().toISOString().split('T')[0],
+              valid_until: '2025-12-31'
+            }
+            
+            await createSchedule(scheduleData)
+          }
+        }
+      }
+      
+      toast.success("Schedule saved successfully")
+      await listSchedules()
+    } catch (error) {
+      console.error('Failed to save schedule:', error)
       toast.error("Failed to save schedule")
     } finally {
       setIsSaving(false)
     }
-  }, [])
+  }, [selectedServiceId, localSchedule, createSchedule, listSchedules])
 
   const handleCreateSchedule = useCallback(async () => {
     if (!selectedServiceId) {
@@ -105,22 +135,32 @@ export default function ClinicSchedulePage() {
 
     setIsSaving(true)
     try {
-      await createSchedule({
+      const scheduleData = {
         service_id: selectedServiceId,
-        schedule_type: newSchedule.schedule_type,
+        schedule_type: 'weekly' as const,
         day_of_week: newSchedule.day_of_week,
         start_time: newSchedule.start_time,
         end_time: newSchedule.end_time,
         slot_duration_minutes: newSchedule.slot_duration_minutes,
-        valid_from: newSchedule.valid_from || new Date().toISOString().split('T')[0],
-        valid_until: newSchedule.valid_until || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      })
+        valid_from: newSchedule.valid_from,
+        valid_until: newSchedule.valid_until
+      }
+      
+      await createSchedule(scheduleData)
       toast.success("Schedule created successfully")
       setIsCreateScheduleOpen(false)
-      await listSchedules(selectedServiceId)
+      setNewSchedule({
+        day_of_week: 1,
+        start_time: '09:00',
+        end_time: '17:00',
+        slot_duration_minutes: 30,
+        valid_from: new Date().toISOString().split('T')[0],
+        valid_until: '2025-12-31'
+      })
+      await listSchedules()
     } catch (error) {
+      console.error('Failed to create schedule:', error)
       toast.error("Failed to create schedule")
-      console.error(error)
     } finally {
       setIsSaving(false)
     }
@@ -233,27 +273,8 @@ export default function ClinicSchedulePage() {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="schedule_type">Schedule Type</Label>
-                      <Select
-                        value={newSchedule.schedule_type}
-                        onValueChange={(value: 'daily' | 'weekly') => setNewSchedule({ ...newSchedule, schedule_type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">Daily</SelectItem>
-                          <SelectItem value="weekly">Weekly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="day_of_week">Day of Week</Label>
-                      <Select
-                        value={newSchedule.day_of_week.toString()}
-                        onValueChange={(value) => setNewSchedule({ ...newSchedule, day_of_week: parseInt(value) })}
-                      >
+                      <Label>Day of Week</Label>
+                      <Select value={newSchedule.day_of_week.toString()} onValueChange={(v) => setNewSchedule({ ...newSchedule, day_of_week: parseInt(v) })}>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -268,67 +289,57 @@ export default function ClinicSchedulePage() {
                         </SelectContent>
                       </Select>
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="start_time">Start Time</Label>
+                        <Label>Start Time</Label>
                         <Input
-                          id="start_time"
                           type="time"
                           value={newSchedule.start_time}
                           onChange={(e) => setNewSchedule({ ...newSchedule, start_time: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="end_time">End Time</Label>
+                        <Label>End Time</Label>
                         <Input
-                          id="end_time"
                           type="time"
                           value={newSchedule.end_time}
                           onChange={(e) => setNewSchedule({ ...newSchedule, end_time: e.target.value })}
                         />
                       </div>
                     </div>
-
                     <div className="space-y-2">
-                      <Label htmlFor="slot_duration_minutes">Slot Duration (minutes)</Label>
+                      <Label>Slot Duration (minutes)</Label>
                       <Input
-                        id="slot_duration_minutes"
                         type="number"
                         value={newSchedule.slot_duration_minutes}
                         onChange={(e) => setNewSchedule({ ...newSchedule, slot_duration_minutes: parseInt(e.target.value) })}
                       />
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="valid_from">Valid From</Label>
+                        <Label>Valid From</Label>
                         <Input
-                          id="valid_from"
                           type="date"
                           value={newSchedule.valid_from}
                           onChange={(e) => setNewSchedule({ ...newSchedule, valid_from: e.target.value })}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="valid_until">Valid Until</Label>
+                        <Label>Valid Until</Label>
                         <Input
-                          id="valid_until"
                           type="date"
                           value={newSchedule.valid_until}
                           onChange={(e) => setNewSchedule({ ...newSchedule, valid_until: e.target.value })}
                         />
                       </div>
                     </div>
-
-                    <Button
-                      onClick={handleCreateSchedule}
-                      disabled={isSaving}
-                      className="w-full"
-                    >
-                      {isSaving ? "Creating..." : "Create Schedule"}
-                    </Button>
                   </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsCreateScheduleOpen(false)}>Cancel</Button>
+                    <Button className="bg-teal-600 hover:bg-teal-700" onClick={handleCreateSchedule} disabled={isSaving}>
+                      {isSaving ? 'Creating...' : 'Create Schedule'}
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
