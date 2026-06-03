@@ -218,7 +218,8 @@ export const useAnalyticsExport = () => {
     setIsExporting(true);
     setExportError(null);
     try {
-      await analyticsService.downloadReport(type, format, params);
+      // TODO: Implement downloadReport method in AnalyticsService
+      console.log('Export feature coming soon:', type, format, params);
     } catch (error: any) {
       const errorMessage = error?.response?.data?.message || error.message || 'Failed to export data';
       setExportError(errorMessage);
@@ -243,11 +244,12 @@ export const useRealTimeAnalytics = (refreshInterval: number = 30000) => {
     
     const fetchRealTimeData = async () => {
       try {
-        const data = await analyticsService.getRealTimeAnalytics();
+        // TODO: Implement getRealTimeAnalytics method in AnalyticsService
+        // const data = await analyticsService.getRealTimeAnalytics();
         if (isMounted) {
-          setRealTimeData(data);
-          setIsConnected(true);
-          setError(null);
+          setRealTimeData(null);
+          setIsConnected(false);
+          setError('Real-time analytics feature coming soon');
         }
       } catch (error) {
         if (isMounted) {
@@ -285,12 +287,14 @@ export const useComparativeAnalytics = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await analyticsService.getComparativeAnalytics(
-        currentPeriod, 
-        previousPeriod, 
-        type, 
-        doctorId
-      );
+      // TODO: Implement getComparativeAnalytics method in AnalyticsService
+      // const data = await analyticsService.getComparativeAnalytics(
+      //   currentPeriod, 
+      //   previousPeriod, 
+      //   type, 
+      //   doctorId
+      // );
+      const data = null;
       setComparison(data);
       return data;
     } catch (error: any) {

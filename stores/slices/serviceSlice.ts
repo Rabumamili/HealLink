@@ -32,11 +32,14 @@ export const useServiceStore = create<ServiceState>((set, get) => ({
   error: null,
 
   fetchServices: async () => {
+    if (typeof window === 'undefined') return;
     set({ isLoading: true, error: null });
     try {
       const services = await serviceService.listServices();
+      console.log('Fetched services:', services);
       set({ services, isLoading: false });
     } catch (error) {
+      console.error('Failed to fetch services:', error);
       set({ error: 'Failed to fetch services', isLoading: false });
       toast.error('Failed to fetch services');
     }

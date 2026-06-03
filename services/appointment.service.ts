@@ -61,11 +61,15 @@ class AppointmentService extends ApiService {
 
     const query = queryParams.toString();
     const apiServices = await this.get<any[]>(`${this.basePath}/services${query ? `?${query}` : ''}`, undefined, false);
+
+    console.log('API Services response:', apiServices);
     
     // Transform API response (snake_case) to internal format (camelCase)
     return apiServices.map(apiService => ({
       id: apiService.id,
       providerId: apiService.provider_id,
+      providerName: apiService.provider_name || apiService.provider?.name || null,
+      providerAvatar: apiService.provider_avatar || apiService.provider?.avatar || null,
       name: apiService.name,
       serviceType: apiService.service_type,
       location: apiService.location,
@@ -77,6 +81,18 @@ class AppointmentService extends ApiService {
       updatedAt: new Date().toISOString(),
       preparationInstructions: null,
     }));
+  }
+
+  async listServiceSlots(serviceId: number, onlyAvailable: boolean = true): Promise<any[]> {
+    const queryParams = new URLSearchParams();
+    if (onlyAvailable) {
+      queryParams.append('only_available', 'true');
+    }
+
+    const query = queryParams.toString();
+    const apiSlots = await this.get<any[]>(`${this.basePath}/services/${serviceId}/slots${query ? `?${query}` : ''}`, undefined, false);
+    
+    return apiSlots;
   }
 
   async createAppointment(serviceId: number, slotId: number, note?: string): Promise<EnrichedAppointment> {

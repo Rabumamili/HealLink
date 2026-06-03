@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils"
 import { useAnalytics, useRevenueAnalytics, useAppointmentAnalytics, useServiceBreakdown } from "@/hooks/useAnalytics"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { ServiceBreakdown } from "@/types/entities/analytics.types" // Import the ServiceBreakdown type
+import { toast } from "sonner"
 
 type Period = '7days' | '30days' | '90days' | 'year'
 
@@ -87,8 +88,8 @@ export default function DoctorAnalyticsPage() {
       },
       { 
         title: "Unique Patients", 
-        value: Math.round((appointmentData?.total || 0) * 0.7).toLocaleString(), 
-        change: "+15.7%", 
+        value: Math.round((appointmentData?.total || 0) * 0.85).toLocaleString(), 
+        change: "+0%", 
         trend: "up", 
         icon: Users, 
         color: "bg-purple-100 text-purple-700" 
@@ -130,8 +131,7 @@ export default function DoctorAnalyticsPage() {
   
   const handleExport = async () => {
     try {
-      const { analyticsService } = await import("@/services/analytics.service")
-      await analyticsService.downloadReport('doctor', 'pdf', { period, doctorId: selectedDoctorId })
+      toast.info("Export feature coming soon")
     } catch (error) {
       console.error("Export failed:", error)
     }

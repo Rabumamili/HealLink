@@ -55,43 +55,45 @@ export default function PatientDashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [appointments, setAppointments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [diagnosticResults] = useState([
-    { id: 1, test: "Blood Work", date: "Oct 20, 2026", status: "Ready" },
-    { id: 2, test: "X-Ray Chest", date: "Oct 18, 2026", status: "In Progress" },
-    { id: 3, test: "MRI Scan", date: "Oct 15, 2026", status: "Pending" },
-  ])
-  const [recentActivities] = useState([
-    { id: 1, action: "Booked appointment with Dr. Smith", date: "Oct 22, 2026", type: "appointment" },
-    { id: 2, action: "Viewed lab results", date: "Oct 20, 2026", type: "result" },
-    { id: 3, action: "Updated health profile", date: "Oct 18, 2026", type: "profile" },
-  ])
+  const [diagnosticResults, setDiagnosticResults] = useState<any[]>([])
+  const [recentActivities, setRecentActivities] = useState<any[]>([])
 
   useEffect(() => {
-    const fetchAppointments = async () => {
+    const fetchData = async () => {
+      if (typeof window === 'undefined') return
       try {
         setLoading(true)
-        const data = await appointmentService.listMyAppointments()
-        // Transform API data to match UI expectations
-        const transformedData = data.map((apt: any) => ({
+        
+        // Fetch appointments
+        const appointmentsData = await appointmentService.listMyAppointments()
+        const transformedAppointments = appointmentsData.map((apt: any) => ({
           ...apt,
-          providerName: 'Provider',
-          specialty: 'General',
+          providerName: apt.patient_name || 'Provider',
+          specialty: apt.service_type || 'General',
           date: apt.appointment_at ? new Date(apt.appointment_at).toLocaleDateString() : '',
           time: apt.appointment_at ? new Date(apt.appointment_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '',
-          location: 'Location',
+          location: apt.location || 'Location',
           queueNumber: null,
           providerType: 'doctor',
         }))
-        setAppointments(transformedData)
+        setAppointments(transformedAppointments)
+        
+        // Fetch diagnostic results if available
+        // TODO: Add API call for diagnostic results when endpoint is available
+        // setDiagnosticResults([])
+        
+        // Fetch recent activities if available
+        // TODO: Add API call for recent activities when endpoint is available
+        // setRecentActivities([])
       } catch (error) {
-        console.error('Failed to fetch appointments:', error)
+        console.error('Failed to fetch dashboard data:', error)
         setAppointments([])
       } finally {
         setLoading(false)
       }
     }
 
-    fetchAppointments()
+    fetchData()
   }, [])
 
   const filteredAppointments = appointments.filter(apt =>
@@ -134,34 +136,34 @@ export default function PatientDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Appointments"
-          value="12"
-          description="3 upcoming"
+          value={appointments.length.toString()}
+          description={`${appointments.filter(a => a.status === 'Scheduled' || a.status === 'Confirmed').length} upcoming`}
           icon={CalendarPlus}
-          trend="+2 this month"
+          trend="Last 30 days"
           trendUp={true}
         />
         <StatCard
           title="Test Results"
-          value="8"
-          description="1 ready to view"
+          value={diagnosticResults.length.toString()}
+          description={`${diagnosticResults.filter(r => r.status === 'Ready').length} ready to view`}
           icon={FileCheck}
-          trend="2 new this week"
+          trend="Last 30 days"
           trendUp={true}
         />
         <StatCard
           title="Active Cards"
-          value="2"
+          value="0"
           description="Valid check-in cards"
           icon={CreditCard}
-          trend="1 expiring soon"
+          trend="Last 30 days"
           trendUp={false}
         />
         <StatCard
           title="Health Score"
-          value="92"
-          description="Excellent"
+          value="--"
+          description="Not available"
           icon={Activity}
-          trend="+5% from last month"
+          trend="Last 30 days"
           trendUp={true}
         />
       </div>

@@ -7,6 +7,7 @@ import { toast } from "sonner"
 
 import { useAppointments } from "@/hooks/useAppointments"
 import { useServices } from "@/hooks/useService"
+import { useSchedule } from "@/hooks/useSchedule"
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -81,13 +82,7 @@ const providerTabs: TabOption[] = [
 ]
 
 function BookingWizardContent() {
-  const patientId = getCurrentPatientId()
-
-  if (patientId === null) {
-    return <LoadingState message="Loading booking experience..." size="lg" fullScreen />
-  }
-
-  // State
+  // State - ALL hooks must be called before any early returns
   const [activeProvider, setActiveProvider] = useState<ProviderType>("doctor")
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [selectedProvider, setSelectedProvider] = useState<ProviderDetails | null>(null)
@@ -100,57 +95,80 @@ function BookingWizardContent() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [successData, setSuccessData] = useState<SuccessModalData | null>(null)
+  const [isClient, setIsClient] = useState(false)
+  const [serviceSlots, setServiceSlots] = useState<any[]>([])
+  const [selectedSlot, setSelectedSlot] = useState<any | null>(null)
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
 
   // Hooks
   const {
     services,
     isLoading: servicesLoading,
-  } = useServices({ autoFetch: true })
+  } = useServices({ autoFetch: true, usePatientView: true })
 
-  // Derive service categories by filtering based on serviceType
-  const consultationServices = services.filter(s => s.serviceType === 'Consultation')
-  const procedureServices = services.filter(s => s.serviceType === 'ClinicServices')
-  const diagnosticServices = services.filter(s => s.serviceType === 'DiagnosticTests')
+  const {
+    schedules,
+    isLoading: schedulesLoading,
+    generateSlots,
+  } = useSchedule({ serviceId: selectedService?.id, autoFetch: !!selectedService?.id })
 
-  const [serviceSlots, setServiceSlots] = useState<any[]>([])
-  const [selectedSlot, setSelectedSlot] = useState<any | null>(null)
-  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
+  const patientId = getCurrentPatientId()
 
-  // Fetch provider details and slots when service is selected
+  // Debug: Log services when they change
   useEffect(() => {
-    if (selectedService?.providerId) {
-      // Use service data to populate provider details
-      setSelectedProvider({
-        id: selectedService.providerId,
-        name: selectedService.name,
-        type: selectedService.serviceType === 'Consultation' ? 'doctor' : selectedService.serviceType === 'ClinicServices' ? 'clinic' : 'diagnostic',
-        specialty: selectedService.serviceType,
-        rating: 0,
-        reviews: 0,
-        image: undefined,
-        location: selectedService.location || 'Addis Ababa',
-        locationDetail: selectedService.location || '',
-        contactPhone: '',
-        contactEmail: '',
-        bio: selectedService.description || '',
-        experience: '',
-        education: '',
-      })
-
-      // Fetch available slots for the service
-      fetchSlotsForService(selectedService.id)
-    } else {
-      setSelectedProvider(null)
-      setServiceSlots([])
-      setSelectedSlot(null)
+    console.log('Services loaded:', services)
+    if (services.length > 0) {
+      console.log('First service with provider info:', services[0])
     }
-  }, [selectedService])
+  }, [services])
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const fetchSlotsForService = async (serviceId: number) => {
     setIsLoadingSlots(true)
     try {
-      const slots = await serviceService.listServiceSlots(serviceId, true)
-      setServiceSlots(slots)
+      console.log('Fetching slots for service:', serviceId)
+      console.log('Available schedules:', schedules)
+      console.log('Selected date:', selectedDate)
+
+      // Use the schedule to determine availability for the selected date
+      const selectedDateObj = new Date(selectedDate.fullDate)
+      const dayOfWeek = selectedDateObj.getDay() // 0=Sunday, 1=Monday, etc.
+      console.log('Day of week:', dayOfWeek)
+
+      const activeSchedule = schedules.find(s => s.is_active && s.day_of_week === dayOfWeek)
+      console.log('Active schedule for day:', activeSchedule)
+
+      if (activeSchedule) {
+        // Generate time slots from the schedule for the selected date
+        const slots = []
+        const startTime = new Date(`${selectedDate.fullDate}T${activeSchedule.start_time}`)
+        const endTime = new Date(`${selectedDate.fullDate}T${activeSchedule.end_time}`)
+        const slotDuration = activeSchedule.slot_duration_minutes || 30
+
+        console.log('Generating slots from', startTime, 'to', endTime, 'with duration', slotDuration)
+
+        let currentTime = startTime
+        while (currentTime < endTime) {
+          const slotEndTime = new Date(currentTime.getTime() + slotDuration * 60000)
+          slots.push({
+            id: `${serviceId}-${currentTime.getTime()}`,
+            service_id: serviceId,
+            starts_at: currentTime.toISOString(),
+            ends_at: slotEndTime.toISOString(),
+            is_booked: false
+          })
+          currentTime = new Date(currentTime.getTime() + slotDuration * 60000)
+        }
+
+        console.log('Generated slots:', slots)
+        setServiceSlots(slots)
+      } else {
+        console.log('No active schedule found for this day')
+        setServiceSlots([])
+      }
     } catch (error) {
       console.error('Failed to fetch slots:', error)
       setServiceSlots([])
@@ -158,6 +176,102 @@ function BookingWizardContent() {
       setIsLoadingSlots(false)
     }
   }
+
+  // Fetch provider details when service is selected
+  useEffect(() => {
+    const fetchProviderDetails = async () => {
+      if (selectedService?.providerId) {
+        try {
+          // Fetch provider details from the API
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api'}/providers/${selectedService.providerId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              ...(typeof window !== 'undefined' && localStorage.getItem('token') ? { 'Authorization': `Bearer ${localStorage.getItem('token')}` } : {})
+            }
+          })
+          
+          if (response.ok) {
+            const providerData = await response.json()
+            console.log('Provider data fetched:', providerData)
+            
+            setSelectedProvider({
+              id: selectedService.providerId,
+              name: providerData.name || (selectedService as any).providerName || selectedService.name,
+              type: selectedService.serviceType === 'Consultation' ? 'doctor' : selectedService.serviceType === 'ClinicServices' ? 'clinic' : 'diagnostic',
+              specialty: providerData.specialization || selectedService.serviceType,
+              rating: providerData.rating || 0,
+              reviews: providerData.reviews || 0,
+              image: providerData.profile_picture || (selectedService as any).providerAvatar || undefined,
+              location: providerData.location || selectedService.location || 'Addis Ababa',
+              locationDetail: providerData.address || selectedService.location || '',
+              contactPhone: providerData.phone || '',
+              contactEmail: providerData.email || '',
+              bio: providerData.description || selectedService.description || '',
+              experience: providerData.experience || '',
+              education: providerData.education || '',
+            })
+          } else {
+            // Fallback to service data if provider fetch fails
+            console.log('Provider fetch failed, using service data')
+            setSelectedProvider({
+              id: selectedService.providerId,
+              name: (selectedService as any).providerName || selectedService.name,
+              type: selectedService.serviceType === 'Consultation' ? 'doctor' : selectedService.serviceType === 'ClinicServices' ? 'clinic' : 'diagnostic',
+              specialty: selectedService.serviceType,
+              rating: 0,
+              reviews: 0,
+              image: (selectedService as any).providerAvatar || undefined,
+              location: selectedService.location || 'Addis Ababa',
+              locationDetail: selectedService.location || '',
+              contactPhone: '',
+              contactEmail: '',
+              bio: selectedService.description || '',
+              experience: '',
+              education: '',
+            })
+          }
+        } catch (error) {
+          console.error('Failed to fetch provider details:', error)
+          // Fallback to service data
+          setSelectedProvider({
+            id: selectedService.providerId,
+            name: (selectedService as any).providerName || selectedService.name,
+            type: selectedService.serviceType === 'Consultation' ? 'doctor' : selectedService.serviceType === 'ClinicServices' ? 'clinic' : 'diagnostic',
+            specialty: selectedService.serviceType,
+            rating: 0,
+            reviews: 0,
+            image: (selectedService as any).providerAvatar || undefined,
+            location: selectedService.location || 'Addis Ababa',
+            locationDetail: selectedService.location || '',
+            contactPhone: '',
+            contactEmail: '',
+            bio: selectedService.description || '',
+            experience: '',
+            education: '',
+          })
+        }
+      } else {
+        setSelectedProvider(null)
+      }
+    }
+
+    fetchProviderDetails()
+  }, [selectedService])
+
+  // Fetch slots when service or date changes
+  useEffect(() => {
+    if (selectedService?.id) {
+      fetchSlotsForService(selectedService.id)
+    } else {
+      setServiceSlots([])
+      setSelectedSlot(null)
+    }
+  }, [selectedService, schedules, selectedDate])
+
+  // Derive service categories by filtering based on serviceType
+  const consultationServices = services.filter(s => s.serviceType === 'Consultation')
+  const procedureServices = services.filter(s => s.serviceType === 'ClinicServices')
+  const diagnosticServices = services.filter(s => s.serviceType === 'DiagnosticTests')
 
   const currentStep: BookingStep = useMemo(() => {
     if (!selectedService) return 1
@@ -185,6 +299,15 @@ function BookingWizardContent() {
   }, [getCurrentServices, searchQuery])
 
   const totalAmount = selectedService?.standardFee || 0
+
+  // Early returns must happen after ALL hooks
+  if (!isClient) {
+    return <LoadingState message="Loading booking experience..." size="lg" fullScreen />
+  }
+
+  if (servicesLoading) {
+    return <LoadingState message="Loading healthcare services..." size="lg" fullScreen />
+  }
 
   const resetBooking = () => {
     setSelectedService(null)
@@ -250,10 +373,6 @@ function BookingWizardContent() {
     } finally {
       setIsProcessing(false)
     }
-  }
-
-  if (servicesLoading) {
-    return <LoadingState message="Loading healthcare services..." size="lg" fullScreen />
   }
 
   return (
@@ -346,7 +465,15 @@ function BookingWizardContent() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                   {filteredServices.map((service) => (
-                    <ServiceCard key={service.id} service={service} providerType={activeProvider} onClick={handleSelectService} variant="expanded" />
+                    <ServiceCard 
+                      key={service.id} 
+                      service={service} 
+                      providerType={activeProvider} 
+                      providerName={(service as any).providerName || undefined}
+                      providerAvatar={(service as any).providerAvatar || undefined}
+                      onClick={handleSelectService} 
+                      variant="expanded" 
+                    />
                   ))}
                 </div>
               )}
@@ -369,9 +496,9 @@ function BookingWizardContent() {
               </button>
 
               <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6 lg:gap-8">
-                {/* Left Column - Scheduling */}
+                {/* Left Column */}
                 <div className="space-y-6">
-                  {/* Selected Service Summary */}
+                  {/* First Card: Schedule Selection */}
                   <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-200 shadow-sm p-5 sm:p-6 md:p-8">
                     <div className="flex items-start gap-4 mb-6">
                       <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-[#006767]/10 flex items-center justify-center shrink-0">
@@ -415,35 +542,33 @@ function BookingWizardContent() {
                     )}
                   </div>
 
-                  {/* Booking Summary Card - Mobile/Tablet */}
-                  <div className="lg:hidden bg-gradient-to-r from-[#006767] to-[#008282] rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-white shadow-xl">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <ShieldCheck className="h-5 w-5" />
-                          <span className="font-semibold text-white/90">Secure Booking</span>
-                        </div>
-                        <h3 className="text-2xl sm:text-3xl font-black">ETB {totalAmount}</h3>
-                        <p className="text-white/80 text-sm mt-1">Confirm your booking and continue payment.</p>
-                      </div>
-                      <Button onClick={() => setShowPaymentModal(true)} className="h-12 sm:h-14 px-6 sm:px-8 rounded-xl sm:rounded-2xl bg-white text-[#006767] hover:bg-white/90 font-bold text-sm sm:text-base">
-                        Continue to Payment
-                        <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
-                      </Button>
-                    </div>
-                  </div>
+                  {/* Second Card: Provider and Service Details */}
+                  <BookingSidebar
+                    service={selectedService}
+                    provider={selectedProvider}
+                    totalAmount={totalAmount}
+                    isLoading={isProcessing}
+                    onPayNow={() => setShowPaymentModal(true)}
+                    onChapaPayment={() => setShowPaymentModal(true)}
+                  />
                 </div>
 
-                {/* Right Column - Sidebar */}
-                <BookingSidebar
-                  service={selectedService}
-                  provider={selectedProvider}
-                  totalAmount={totalAmount}
-                  isLoading={isProcessing}
-                  onPayNow={() => setShowPaymentModal(true)}
-                  onPayLater={() => handleBooking(false)}
-                  onChapaPayment={() => setShowPaymentModal(true)}
-                />
+                {/* Right Column - Payment Card */}
+                <div className="space-y-6">
+                  {/* Third Card: Payment */}
+                  <div className="bg-gradient-to-r from-[#006767] to-[#008282] rounded-2xl sm:rounded-3xl p-5 sm:p-6 text-white shadow-xl">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ShieldCheck className="h-5 w-5" />
+                      <span className="font-semibold text-white/90">Secure Booking</span>
+                    </div>
+                    <h3 className="text-3xl sm:text-4xl font-black mb-2">ETB {totalAmount}</h3>
+                    <p className="text-white/80 text-sm mb-6">Confirm your booking and continue payment.</p>
+                    <Button onClick={() => setShowPaymentModal(true)} className="w-full h-12 sm:h-14 px-6 sm:px-8 rounded-xl sm:rounded-2xl bg-white text-[#006767] hover:bg-white/90 font-bold text-sm sm:text-base">
+                      Continue to Payment
+                      <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}

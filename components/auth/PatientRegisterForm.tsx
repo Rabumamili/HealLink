@@ -6,8 +6,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Eye, EyeOff } from 'lucide-react';
+import { CalendarDays, ChevronDown, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   RegisterFormShell,
   SectionHeader,
@@ -18,6 +25,15 @@ import {
   inputClass,
   labelClass,
 } from './register-form-ui';
+
+type ApiErrorLike = {
+  response?: {
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
+};
 
 const patientSchema = z
   .object({
@@ -36,11 +52,6 @@ const patientSchema = z
       .regex(/^[+]?([0-9][\s-]?){9,}$/, 'Enter a valid phone number with at least 10 digits'),
     date_of_birth: z.string().optional(),
     gender: z.string().optional(),
-    emergency_contact: z
-      .string()
-      .regex(/^[+]?([0-9][\s-]?){9,}$/, 'Emergency contact must be a valid phone number')
-      .optional(),
-    address: z.string().optional(),
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters')
@@ -57,17 +68,51 @@ const patientSchema = z
 
 type PatientFormData = z.infer<typeof patientSchema>;
 
+const birthDateStart = new Date(1900, 0, 1);
+const today = new Date();
+
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInputValue(value?: string) {
+  if (!value) return undefined;
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return undefined;
+
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function formatBirthDate(value?: string) {
+  const date = parseDateInputValue(value);
+  if (!date) return 'Select birth date';
+
+  return new Intl.DateTimeFormat('en', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+}
+
 export const PatientRegisterForm = () => {
   const router = useRouter();
   const { registerUser, isRegistering } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isBirthDateOpen, setIsBirthDateOpen] = useState(false);
+  const [birthDateValue, setBirthDateValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isValid },
+    setValue,
+    formState: { errors },
   } = useForm<PatientFormData>({
     resolver: zodResolver(patientSchema),
     mode: 'onChange',
@@ -75,16 +120,16 @@ export const PatientRegisterForm = () => {
     defaultValues: {
       date_of_birth: '',
       gender: '',
-      emergency_contact: '',
-      address: '',
     },
   });
+  const selectedBirthDate = parseDateInputValue(birthDateValue);
 
-  const getFriendlyErrorMessage = (err: any) => {
+  const getFriendlyErrorMessage = (err: unknown) => {
+    const apiError = err as ApiErrorLike;
     const rawMessage =
       typeof err === 'string'
         ? err
-        : err?.response?.data?.message || err?.message || '';
+        : apiError.response?.data?.message || apiError.message || '';
     const message = rawMessage.toLowerCase();
 
     if (message.includes('email')) {
@@ -105,16 +150,20 @@ export const PatientRegisterForm = () => {
   const onSubmit = async (data: PatientFormData) => {
     setError(null);
     try {
-      const { confirmPassword, ...rest } = data;
-
       await registerUser({
-        ...rest,
+        email: data.email,
+        password: data.password,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone_number: data.phone_number,
+        date_of_birth: data.date_of_birth,
+        gender: data.gender,
         role: 'patient',
       });
 
       toast.success('Registration successful! Please verify your email.');
       router.push(`/verify?email=${encodeURIComponent(data.email)}&role=patient`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getFriendlyErrorMessage(err));
     }
   };
@@ -196,10 +245,48 @@ export const PatientRegisterForm = () => {
 
             <div className="space-y-1">
               <label className={labelClass}>Date of Birth</label>
-              <div className="relative group">
-                <input className={inputClass} type="date" {...register('date_of_birth')} />
-                <InputFieldIcon name="cake" />
-              </div>
+              <input type="hidden" {...register('date_of_birth')} />
+              <Popover open={isBirthDateOpen} onOpenChange={setIsBirthDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="group h-auto w-full justify-between rounded-lg bg-surface-container-low px-4 py-2.5 text-left text-[14px] font-normal text-on-surface shadow-none transition-all hover:bg-surface-container-lowest focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <span className={selectedBirthDate ? 'text-on-surface' : 'text-on-surface-variant'}>
+                      {formatBirthDate(birthDateValue)}
+                    </span>
+                    <span className="flex items-center gap-2 text-outline-variant transition-colors group-hover:text-primary">
+                      <CalendarDays className="h-4 w-4" />
+                      <ChevronDown className="h-4 w-4" />
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-auto rounded-2xl border-white/50 bg-surface-container-lowest p-3 shadow-2xl">
+                  <Calendar
+                    mode="single"
+                    selected={selectedBirthDate}
+                    onSelect={(date) => {
+                      const nextBirthDateValue = date ? toDateInputValue(date) : '';
+
+                      setBirthDateValue(nextBirthDateValue);
+                      setValue('date_of_birth', nextBirthDateValue, {
+                        shouldDirty: true,
+                        shouldTouch: true,
+                        shouldValidate: true,
+                      });
+                      setIsBirthDateOpen(false);
+                    }}
+                    captionLayout="dropdown"
+                    startMonth={birthDateStart}
+                    endMonth={today}
+                    disabled={{ after: today, before: birthDateStart }}
+                    defaultMonth={selectedBirthDate ?? new Date(2000, 0, 1)}
+                    className="[--cell-size:--spacing(8)]"
+                    buttonVariant="ghost"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-1">
@@ -218,28 +305,6 @@ export const PatientRegisterForm = () => {
               </div>
             </div>
 
-            <div className="space-y-1 md:col-span-2">
-              <label className={labelClass}>Emergency Contact</label>
-              <div className="relative group">
-                <input
-                  className={inputClass}
-                  placeholder="+251 ..."
-                  type="tel"
-                  {...register('emergency_contact')}
-                />
-                <InputFieldIcon name="health_and_safety" />
-              </div>
-            </div>
-
-            <div className="space-y-1 md:col-span-2">
-              <label className={labelClass}>Residential Address (Optional)</label>
-              <textarea
-                className={`${inputClass} resize-none`}
-                placeholder="123 Clinical Way, Health City"
-                rows={2}
-                {...register('address')}
-              />
-            </div>
           </div>
         </div>
 
@@ -299,7 +364,6 @@ export const PatientRegisterForm = () => {
             label="Create Patient Account"
             loadingLabel="Creating..."
             isLoading={isRegistering}
-            disabled={!isValid}
           />
           <LoginLink />
         </div>

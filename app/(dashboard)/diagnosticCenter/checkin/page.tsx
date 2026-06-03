@@ -1,7 +1,7 @@
 // app/(dashboard)/diagnostic-center/checkin/page.tsx
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,13 +11,14 @@ import { StatsCard } from "@/components/common/StatsCard"
 import { CheckinHeader } from "@/components/checkin/CheckinHeader"
 import { useQr, useQrCheckIn, useQrValidation, useQrStats } from "@/hooks/useQr"
 import { useAppointments } from "@/hooks/useAppointments"
-import { Search, CheckCircle, AlertCircle, Loader2, Calendar, Users, Clock, FlaskConical } from "lucide-react"
+import { Search, CheckCircle, AlertCircle, Loader2, Calendar, Users, Clock, FlaskConical, Camera, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 interface CardWithAppointment {
   id: number
   card_number: string
+  qr_image_b64?: string
   status: string
   appointment_id: number
   expires_at: string
@@ -37,6 +38,9 @@ export default function DiagnosticCenterCheckinPage() {
   const [foundCard, setFoundCard] = useState<CardWithAppointment | null>(null)
   const [checkInSuccess, setCheckInSuccess] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [scanMode, setScanMode] = useState<"manual" | "qr">("manual")
+  const [isScanning, setIsScanning] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   const { qrCodes, fetchQrCodes, isLoading: qrCodesLoading } = useQr({ autoFetch: true })
   const { validateQr, validationResult, clearValidationResult } = useQrValidation()
@@ -113,6 +117,21 @@ export default function DiagnosticCenterCheckinPage() {
     }
     
     setIsVerifying(false)
+  }
+
+  const handleStartScan = async () => {
+    setIsScanning(true)
+    toast.info("QR scanning feature - camera access required")
+  }
+
+  const handleStopScan = () => {
+    setIsScanning(false)
+  }
+
+  const handleScanResult = (decodedText: string) => {
+    setCardNumber(decodedText)
+    setIsScanning(false)
+    handleVerify()
   }
 
   const handleCheckIn = async () => {
@@ -204,40 +223,106 @@ export default function DiagnosticCenterCheckinPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card className="border-slate-200 shadow-sm">
             <CardHeader className="border-b border-slate-100">
-              <CardTitle className="flex items-center gap-2 text-slate-800">
-                <Search className="h-5 w-5 text-[#008282]" />
-                Quick Patient Check-in
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-slate-800">
+                  <Search className="h-5 w-5 text-[#008282]" />
+                  Quick Patient Check-in
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Button
+                    variant={scanMode === "manual" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScanMode("manual")}
+                    className={cn(
+                      "rounded-lg",
+                      scanMode === "manual" ? "bg-[#008282] hover:bg-[#00a0a0]" : ""
+                    )}
+                  >
+                    Manual
+                  </Button>
+                  <Button
+                    variant={scanMode === "qr" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setScanMode("qr")}
+                    className={cn(
+                      "rounded-lg",
+                      scanMode === "qr" ? "bg-[#008282] hover:bg-[#00a0a0]" : ""
+                    )}
+                  >
+                    <Camera className="h-4 w-4 mr-1" />
+                    QR Scan
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <Input
-                      placeholder="Enter card number (e.g., 4512-7893-1023-6745)"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="font-mono border-slate-200 focus:border-[#008282] focus:ring-[#008282]"
-                      disabled={isVerifying || checkInSuccess}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") handleVerify()
-                      }}
-                    />
-                    <p className="text-xs text-slate-400 mt-1">Enter the card number shown to the patient</p>
+                {scanMode === "manual" ? (
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Enter card number (e.g., 4512-7893-1023-6745)"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        className="font-mono border-slate-200 focus:border-[#008282] focus:ring-[#008282]"
+                        disabled={isVerifying || checkInSuccess}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleVerify()
+                        }}
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Enter the card number shown to the patient</p>
+                    </div>
+                    <Button 
+                      className="bg-[#008282] hover:bg-[#00a0a0] whitespace-nowrap rounded-xl" 
+                      onClick={handleVerify}
+                      disabled={isVerifying || !cardNumber.trim() || checkInSuccess}
+                    >
+                      {isVerifying ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="mr-2 h-4 w-4" />
+                      )}
+                      Verify
+                    </Button>
                   </div>
-                  <Button 
-                    className="bg-[#008282] hover:bg-[#00a0a0] whitespace-nowrap rounded-xl" 
-                    onClick={handleVerify}
-                    disabled={isVerifying || !cardNumber.trim() || checkInSuccess}
-                  >
-                    {isVerifying ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <div className="space-y-4">
+                    {isScanning ? (
+                      <div className="relative">
+                        <div className="bg-slate-900 rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+                          <div className="text-center text-white">
+                            <Camera className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm opacity-70">Camera preview would appear here</p>
+                            <p className="text-xs opacity-50 mt-1">Point QR code at camera</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleStopScan}
+                          className="mt-2 w-full rounded-lg"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Stop Scanning
+                        </Button>
+                      </div>
                     ) : (
-                      <Search className="mr-2 h-4 w-4" />
+                      <Button
+                        className="w-full bg-[#008282] hover:bg-[#00a0a0] rounded-xl"
+                        onClick={handleStartScan}
+                      >
+                        <Camera className="mr-2 h-4 w-4" />
+                        Start QR Scan
+                      </Button>
                     )}
-                    Verify
-                  </Button>
-                </div>
+                    {cardNumber && (
+                      <div className="text-center">
+                        <p className="text-sm text-slate-600">Scanned Card Number:</p>
+                        <p className="font-mono font-bold text-lg text-[#008282]">{cardNumber}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {(validationResult || foundCard || checkInResult) && (
                   <div className={cn(
@@ -346,13 +431,24 @@ export default function DiagnosticCenterCheckinPage() {
                 <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
                   {diagnosticCards.map((card) => (
                     <div key={card.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
-                      <div className="flex-1">
-                        <p className="font-medium text-slate-800">
-                          {card.appointment?.patientName || `Appointment #${card.appointment_id}`}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {card.appointment?.serviceName || "Diagnostic Service"}
-                        </p>
+                      <div className="flex items-center gap-3 flex-1">
+                        {card.qr_image_b64 && (
+                          <div className="w-12 h-12 bg-white rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden">
+                            <img 
+                              src={`data:image/png;base64,${card.qr_image_b64}`} 
+                              alt="QR Code" 
+                              className="w-10 h-10"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-medium text-slate-800">
+                            {card.appointment?.patientName || `Appointment #${card.appointment_id}`}
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {card.appointment?.serviceName || "Diagnostic Service"}
+                          </p>
+                        </div>
                       </div>
                       <Badge className="bg-emerald-100 text-emerald-700 border-0">Ready</Badge>
                       <Button

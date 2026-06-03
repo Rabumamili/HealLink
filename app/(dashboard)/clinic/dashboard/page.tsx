@@ -684,7 +684,7 @@ export default function ClinicDashboard() {
             </div>
             <div>
               <Label className="text-gray-700">Email Address</Label>
-              <Input type="email" placeholder="dawit@example.com" className="rounded-lg" />
+              <Input type="email" placeholder="email@example.com" className="rounded-lg" />
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>

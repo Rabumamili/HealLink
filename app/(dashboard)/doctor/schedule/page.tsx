@@ -56,11 +56,34 @@ export default function DoctorSchedulePage() {
     deleteSchedule,
   } = useSchedule({ serviceId: selectedServiceId || undefined, autoFetch: !!selectedServiceId })
 
+  // Transform API schedule data to UI format
+  const transformSchedulesToUIFormat = useCallback((apiSchedules: any[]) => {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    
+    return days.map(day => {
+      const daySchedules = apiSchedules.filter(s => {
+        const dayIndex = s.day_of_week === 0 ? 6 : s.day_of_week - 1 // Convert 0=Sunday to 6, 1=Monday to 0, etc.
+        return days[dayIndex] === day
+      })
+
+      return {
+        day,
+        isActive: daySchedules.length > 0 && daySchedules.some(s => s.is_active),
+        slots: daySchedules.map(s => ({
+          id: s.id.toString(),
+          start: s.start_time,
+          end: s.end_time,
+          type: 'shift'
+        }))
+      }
+    })
+  }, [])
+
   useEffect(() => {
     if (schedules) {
-      setLocalSchedule(schedules)
+      setLocalSchedule(transformSchedulesToUIFormat(schedules))
     }
-  }, [schedules])
+  }, [schedules, transformSchedulesToUIFormat])
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)

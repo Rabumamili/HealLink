@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import Link from "next/link"
 import { useAuth } from "@/hooks/useAuth"
 import { useAppointments } from "@/hooks/useAppointments"
+import { analyticsService } from "@/services/analytics.service"
 import {
   Calendar,
   Clock,
@@ -31,114 +32,12 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// Ordered appointment data - NO card numbers or patient IDs
-const todayAppointments = [
-  {
-    id: "1",
-    patientName: "Abebe Kebede",
-    time: "09:00 AM",
-    type: "Consultation",
-    status: "checked-in",
-    queueNumber: 1,
-    avatar: "AK",
-    age: 45,
-    condition: "Hypertension",
-    lastVisit: "Oct 15, 2024",
-    phone: "+251 911 223 344"
-  },
-  {
-    id: "2",
-    patientName: "Tigist Haile",
-    time: "09:30 AM",
-    type: "Follow-up",
-    status: "scheduled",
-    queueNumber: 2,
-    avatar: "TH",
-    age: 32,
-    condition: "Diabetes Type 2",
-    lastVisit: "Oct 10, 2024",
-    phone: "+251 922 556 677"
-  },
-  {
-    id: "3",
-    patientName: "Mekdes Alemu",
-    time: "10:00 AM",
-    type: "Consultation",
-    status: "scheduled",
-    queueNumber: 3,
-    avatar: "MA",
-    age: 28,
-    condition: "Respiratory Issue",
-    lastVisit: "Oct 5, 2024",
-    phone: "+251 933 889 900"
-  },
-  {
-    id: "4",
-    patientName: "Yonas Desta",
-    time: "10:30 AM",
-    type: "Review",
-    status: "scheduled",
-    queueNumber: 4,
-    avatar: "YD",
-    age: 52,
-    condition: "Arthritis",
-    lastVisit: "Sep 28, 2024",
-    phone: "+251 944 112 233"
-  },
-  {
-    id: "5",
-    patientName: "Helen Tsegaye",
-    time: "11:00 AM",
-    type: "Consultation",
-    status: "scheduled",
-    queueNumber: 5,
-    avatar: "HT",
-    age: 38,
-    condition: "Migraine",
-    lastVisit: "Oct 12, 2024",
-    phone: "+251 955 667 788"
-  }
-]
-
-const stats = [
-  {
-    title: "Total Patients",
-    value: "1,284",
-    change: "+12.4%",
-    trend: "up",
-    icon: Users,
-    color: "bg-teal-50 text-teal-600"
-  },
-  {
-    title: "Total Revenue",
-    value: "284,500 ETB",
-    change: "+18.2%",
-    trend: "up",
-    icon: DollarSign,
-    color: "bg-teal-50 text-teal-600"
-  },
-  {
-    title: "Consultations",
-    value: "342",
-    change: "+8.2%",
-    trend: "up",
-    icon: Stethoscope,
-    color: "bg-teal-50 text-teal-600"
-  },
-  {
-    title: "No-Show Rate",
-    value: "4.8%",
-    change: "-2.1%",
-    trend: "down",
-    icon: UserX,
-    color: "bg-teal-50 text-teal-600"
-  }
-]
-
 export default function DoctorDashboard() {
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const { appointments, isLoading } = useAppointments()
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(true)
 
   const displayName = user?.full_name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Doctor'
   const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -149,6 +48,60 @@ export default function DoctorDashboard() {
     apt.patientName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     apt.serviceName?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Fetch analytics data
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      if (typeof window === 'undefined') return
+      setAnalyticsLoading(true)
+      try {
+        const overallStats = await analyticsService.getOverallStats(30)
+        setAnalytics(overallStats)
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error)
+      } finally {
+        setAnalyticsLoading(false)
+      }
+    }
+
+    fetchAnalytics()
+  }, [])
+
+  // Transform analytics data to stats format
+  const stats = analytics ? [
+    {
+      title: "Total Patients",
+      value: analytics.total_appointments?.toString() || "0",
+      change: "+0%",
+      trend: "up" as const,
+      icon: Users,
+      color: "bg-teal-50 text-teal-600"
+    },
+    {
+      title: "Completed",
+      value: analytics.completed?.toString() || "0",
+      change: "+0%",
+      trend: "up" as const,
+      icon: Stethoscope,
+      color: "bg-teal-50 text-teal-600"
+    },
+    {
+      title: "Checked In",
+      value: analytics.checked_in?.toString() || "0",
+      change: "+0%",
+      trend: "up" as const,
+      icon: UserCheck,
+      color: "bg-teal-50 text-teal-600"
+    },
+    {
+      title: "No-Show Rate",
+      value: `${analytics.no_show_rate?.toFixed(1) || 0}%`,
+      change: analytics.no_show_rate > 5 ? "-0%" : "-0%",
+      trend: analytics.no_show_rate > 5 ? "up" as const : "down" as const,
+      icon: UserX,
+      color: analytics.no_show_rate > 5 ? "bg-rose-50 text-rose-600" : "bg-teal-50 text-teal-600"
+    }
+  ] : []
 
   return (
     <div className="space-y-6">
@@ -182,34 +135,44 @@ export default function DoctorDashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.title} className="border shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-            <CardContent className="p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{stat.title}</p>
-                  <p className="text-2xl md:text-3xl font-bold text-gray-800 mt-1">{stat.value}</p>
+        {analyticsLoading ? (
+          <div className="col-span-4 flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+          </div>
+        ) : stats.length > 0 ? (
+          stats.map((stat) => (
+            <Card key={stat.title} className="border shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{stat.title}</p>
+                    <p className="text-2xl md:text-3xl font-bold text-gray-800 mt-1">{stat.value}</p>
+                  </div>
+                  <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", stat.color)}>
+                    <stat.icon className="h-6 w-6" />
+                  </div>
                 </div>
-                <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", stat.color)}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className={cn(
-                  "text-xs font-semibold",
-                  stat.trend === "up" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-                )}>
-                  {stat.change}
-                  {stat.trend === "up" ? 
-                    <TrendingUp className="ml-1 h-3 w-3" /> : 
-                    <TrendingDown className="ml-1 h-3 w-3" />
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className={cn(
+                    "text-xs font-semibold",
+                    stat.trend === "up" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                  )}>
+                    {stat.change}
+                    {stat.trend === "up" ? 
+                      <TrendingUp className="ml-1 h-3 w-3" /> : 
+                      <TrendingDown className="ml-1 h-3 w-3" />
                   }
-                </Badge>
-                <span className="text-xs text-gray-500">vs last month</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                  </Badge>
+                  <span className="text-xs text-gray-500">last 30 days</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <div className="col-span-4 text-center py-8 text-gray-500">
+            No analytics data available
+          </div>
+        )}
       </div>
 
       {/* Quick Check-in Card */}

@@ -19,7 +19,7 @@ function getUserDisplayFromAuth(user: AuthUser) {
   const userName =
     user.full_name ||
     [user.first_name, user.last_name].filter(Boolean).join(" ") ||
-    user.email
+    "User"
 
   const userInitials = userName
     .split(/\s+/)
